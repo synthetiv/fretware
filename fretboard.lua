@@ -3,21 +3,24 @@ musicutil = require 'musicutil'
 Keyboard = include 'lib/keyboard'
 keyboard = Keyboard.new(1, 1, 16, 8)
 
-sc = softcut
+Loop = include 'lib/loop'
+
+loops = {}
 edit_loop = 1
 rec_loop = 1
-loop_lengths = { 11, 17, 19 }
+loop_lengths = { 11, 17, 21 }
 slew = 1
 amp = 0
-silence_counter = 20
+silence_counter = 0
 silent = true
 
 redraw_metro = nil
 amp_poll = nil
 
 g = grid.connect()
+a = arc.connect()
 
-touche = midi.connect(2)
+touche = midi.connect(1)
 
 amp_volts = 0
 damp_volts = 0
@@ -28,6 +31,13 @@ bend_volts = 0
 function g.key(x, y, z)
 	keyboard:key(x, y, z)
 	grid_redraw()
+end
+
+function a.delta(r, d)
+	local loop = loops[r]
+	if loop ~= nil then
+		loop.position = loop._position + (d * loop._length / 1024)
+	end
 end
 
 function send_pitch_volts()
@@ -65,6 +75,18 @@ function grid_redraw()
 	g:refresh()
 end
 
+function arc_redraw()
+	a:all(0)
+	for c = 1, 3 do
+		local loop = loops[c]
+		for x = 1, 64 do
+			a:led(c, x, math.min(15, loop.levels[x] + (c == rec_loop and 4 or 0)))
+		end
+		a:led(c, math.floor(loop.x + 0.5), 15)
+	end
+	a:refresh()
+end
+
 function crow.add()
 	for o = 1, 2 do
 		crow.output[o].shape = 'linear'
@@ -73,6 +95,9 @@ function crow.add()
 end
 
 function init()
+
+	Loop.init()
+	softcut.poll_start_phase()
 
 	params:add {
 		name = 'bend range',
@@ -104,32 +129,8 @@ function init()
 		controlspec = controlspec.new(-2, 2, 'lin', 0, 1)
 	}
 	
-	audio.level_cut(1.0)
-	audio.level_adc_cut(1)
-	audio.level_cut_rev(0)
-	-- 3 mutually prime loops, switch when silent for n seconds
 	for c = 1, 3 do
-		local loop_start = 1 + (c - 1) * 40
-		local loop_end = loop_start + loop_lengths[c]
-		print(loop_start, loop_end)
-		sc.buffer(c, 1)
-		sc.loop_start(c, loop_start)
-		sc.loop_end(c, loop_end)
-		sc.loop(c, 1)
-		sc.level(c, 1)
-		sc.level_slew_time(c, slew)
-		sc.level_input_cut(1, c, 1)
-		sc.pan(c, 0)
-		sc.recpre_slew_time(c, slew)
-		sc.rec_level(c, c == 1 and 1 or 0)
-		sc.fade_time(c, slew)
-		sc.rate(c, 1)
-		sc.rate_slew_time(c, 0.01)
-		sc.rec(c, 1)
-		sc.play(c, 1)
-		sc.position(c, loop_start)
-		sc.enable(c, 1)
-		sc.filter_dry(c, 1)
+		loops[c] = Loop.new(loop_lengths[c])
 		
 		params:add {
 			name = string.format('loop %d level', c),
@@ -137,7 +138,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-math.huge, 6, 'db', 0, 0, "dB"),
 			action = function(value)
-				sc.level(c, util.dbamp(value))
+				loops[c].level = util.dbamp(value)
 			end
 		}
 		
@@ -149,8 +150,7 @@ function init()
 			min = 1,
 			max = 39,
 			action = function(value)
-				loop_lengths[c] = value
-				sc.loop_end(c, loop_start + value)
+				loops[c].length = value
 			end
 		}
 		
@@ -159,10 +159,24 @@ function init()
 			id = string.format('loop_%d_clear', c),
 			type = 'trigger',
 			action = function()
-				sc.buffer_clear_region_channel(1, loop_start, 39)
+				loops[c]:clear()
 			end
 		}
 	end
+	
+	params:add {
+		name = 'drift leak',
+		id = 'drift_leak',
+		type = 'control',
+		controlspec = controlspec.new(0, 1, 'lin', 0, 0.05),
+	}
+	
+	params:add {
+		name = 'drift rand',
+		id = 'drift_rand',
+		type = 'control',
+		controlspec = controlspec.new(0, 10, 'lin', 0, 0.8),
+	}
 	
 	params:add {
 		name = 'pre level',
@@ -172,7 +186,7 @@ function init()
 		action = function(value)
 			value = util.dbamp(value)
 			for c = 1, 3 do
-				sc.pre_level(c, value)
+				loops[c].pre_level = value
 			end
 		end
 	}
@@ -199,19 +213,29 @@ function init()
 			silence_counter = silence_counter - 1
 			if silence_counter == 0 then
 				silent = true
-				sc.rec_level(rec_loop, 0)
+				loops[rec_loop].rec = false
 				rec_loop = rec_loop % 3 + 1
-				sc.rec_level(rec_loop, 1)
+				loops[rec_loop].rec = true
 				edit_loop = rec_loop
 			end
 		end
 	end)
 	amp_poll:start()
 	
+	loops[rec_loop].rec = true
+	
 	redraw_metro = metro.init {
 		time = 1 / 12,
 		event = function()
+			local leak = params:get('drift_leak')
+			local rand = params:get('drift_rand')
+			for c = 1, 3 do
+				loops[c]:update_drift(leak, rand)
+			end
+			print(loops[1].drift, loops[2].drift, loops[3].drift)
 			redraw()
+			grid_redraw()
+			arc_redraw()
 		end
 	}
 	redraw_metro:start()
@@ -257,6 +281,10 @@ function key(n, z)
 	if z == 1 then
 		if n == 2 then
 			params:set(string.format('loop_%d_clear', edit_loop))
+		elseif n == 3 then
+			loops[rec_loop].rec = false
+			rec_loop = edit_loop
+			loops[rec_loop].rec = true
 		end
 	end
 end
@@ -268,4 +296,5 @@ function cleanup()
 	if amp_poll ~= nil then
 		amp_poll:stop()
 	end
+	softcut.poll_stop_phase()
 end
