@@ -1,6 +1,12 @@
 local Keyboard = {}
 Keyboard.__index = Keyboard
 
+-- TODO: paraphony with note stack
+-- TODO: sustain key (left col, y = 7; ctrl y = 8, ctrl+sustain = hands free latch)
+-- TODO: quantizer (edit = left col, y = 1)
+-- TODO: quantizer presets (left col, y = [2, 6])
+-- TODO: decouple pitches + held keys
+
 function Keyboard.new(x, y, width, height)
 	local keyboard = {
 		x = x,
@@ -9,18 +15,18 @@ function Keyboard.new(x, y, width, height)
 		height = height,
 		x2 = x + width - 1,
 		y2 = y + height - 1,
-		x_center = x + math.floor((width - 0.5) / 2),
-		y_center = y + math.floor((height - 0.5) / 2),
+		x_center = 8,
+		y_center = 6,
 		held_keys = {},
 		n_held_keys = 0,
-		last_key = 0,
-		row_offsets = {}
+		last_pitch = 0,
+		drone_pitch = 0,
 	}
-	for row = keyboard.y, keyboard.y2 do
-		keyboard.row_offsets[row] = 69 + (keyboard.y_center - row) * 5
-	end
+	-- TODO: any reason to keep this?
+	-- keyboard.center_key_id = keyboard.x_center + (keyboard.y2 - keyboard.y_center) * width
 	keyboard.octave = 0
-	keyboard.held_octave_keys = {
+	keyboard.held_keys = {
+		shift = false,
 		down = false,
 		up = false
 	}
@@ -28,40 +34,55 @@ function Keyboard.new(x, y, width, height)
 end
 
 function Keyboard:get_key_id(x, y)
-	return (x - self.x) + (y - self.y) * self.width
+	return (x - self.x) + (self.y2 - y) * self.width
 end
 
 function Keyboard:get_key_id_coords(id)
 	local x = id % self.width
 	local y = math.floor((id - x) / self.width)
-	return self.x + x, self.y + y
+	return self.x + x, self.y2 - y
 end
 
-function Keyboard:get_key_pitch_id(x, y)
-	return x - self.x_center + self.row_offsets[y] + self.octave * 12
+function Keyboard:get_key_pitch(x, y)
+	return (x - self.x_center) + (self.y_center - y) * 5
 end
 
-function Keyboard:get_key_id_pitch_id(id)
+function Keyboard:get_key_id_pitch(id)
 	local x, y = self:get_key_id_coords(id)
-	local pitch_id = self:get_key_pitch_id(x, y)
-	return pitch_id
-end
-
-function Keyboard:get_last_value()
-	return (self.last_pitch_id - 69) / 12
+	return self:get_key_pitch(x, y)
 end
 
 function Keyboard:key(x, y, z)
-	if self:is_octave_key(x, y) then
-		self:octave_key(x, y, z)
+	if x == self.x2 and y == self.y2 then
+		-- shift key
+		self.held_keys.shift = z == 1
+		-- release up/down keys if shift released
+		self.held_keys.up = self.held_keys.shift and self.held_keys.up
+		self.held_keys.down = self.held_keys.shift and self.held_keys.down
+	elseif self.held_keys.shift then
+		if y == self.y2 and x > self.x2 - 3 then
+			-- shift+octave
+			local d = 0
+			if x == self.x2 - 2 then -- down
+				self.held_keys.down = z == 1
+				d = -1
+			elseif x == self.x2 - 1 then -- up
+				self.held_keys.up = z == 1
+				d = 1
+			end
+			if self.held_keys.up and self.held_keys.down then
+				self.octave = 0
+			elseif z == 1 then
+				self.octave = self.octave + d
+			end
+		end
 		return
+	else
+		self:note(x, y, z)
 	end
-	self:note(x, y, z)
-	pitch_volts = self:get_last_value()
-	crow.output[1].volts = pitch_volts + bend_volts
-	crow.output[4].volts = pitch_volts + bend_volts
 end
 
+-- TODO: apply global_transpose
 function Keyboard:note(x, y, z)
 	local key_id = self:get_key_id(x, y)
 	local held_keys = self.held_keys
@@ -101,14 +122,17 @@ function Keyboard:note(x, y, z)
 	end
 	self.n_held_keys = n_held_keys
 	self.last_key = last_key
-	self.last_pitch_id = self:get_key_id_pitch_id(last_key)
+	self.last_pitch = self:get_key_id_pitch(last_key)
+	if self.n_held_keys == 1 then
+		self.drone_pitch = self.last_pitch
+	end
 end
 
 function Keyboard:reset()
 	self.held_keys = {}
 	self.n_held_keys = 0
-	self.held_octave_keys.down = false
-	self.held_octave_keys.up = false
+	self.held_keys.down = false
+	self.held_keys.up = false
 end
 
 function Keyboard:is_key_held(x, y)
@@ -129,46 +153,34 @@ end
 function Keyboard:draw()
 	for x = self.x, self.x2 do
 		for y = self.y, self.y2 do
-			if self:is_octave_key(x, y) then
-				g:led(x, y, 0) -- clear space around octave keys
+			if x == self.x2 and y == self.y2 then
+				g:led(x, y, self.held_keys.shift and 15 or 6)
+			elseif self.held_keys.shift and y == self.y2 and x > self.x2 - 3 then
+				if x == self.x2 - 2 then
+					local down_level = self.held_keys.down and 7 or 2
+					g:led(x, y, math.min(15, math.max(0, down_level - math.min(self.octave, 0))))
+				elseif x == self.x2 - 1 then
+					local up_level = self.held_keys.up and 7 or 2
+					g:led(x, y, math.min(15, math.max(0, up_level + math.max(self.octave, 0))))
+				end
 			else
-				local n = self:get_key_pitch_id(x, y)
-				g:led(x, y, self:get_key_level(x, y, n))
+				local p = self:get_key_pitch(x, y)
+				g:led(x, y, self:get_key_level(x, y, p))
 			end
 		end
 	end
-	-- draw octave keys
-	local down_level = self.held_octave_keys.down and 7 or 2
-	local up_level = self.held_octave_keys.up and 7 or 2
-	g:led(self.x2 - 1, self.y, math.min(15, math.max(0, down_level - math.min(self.octave, 0))))
-	g:led(self.x2, self.y, math.min(15, math.max(0, up_level + math.max(self.octave, 0))))
 end
 
-local white_keys = { true, false, true, false, true, true, false, true, false, true, false, true }
-function Keyboard:is_white_key(n)
-	return white_keys[(n - 70) % 12 + 1]
-end
-
-function Keyboard:is_octave_key(x, y)
-	return y <= self.y + 1 and x >= self.x2 - 2
-end
-
-function Keyboard:octave_key(x, y, z)
-	local d = 0
-	if y == self.y then
-		if x == self.x2 then
-			self.held_octave_keys.up = z == 1
-			d = 1
-		elseif x == self.x2 - 1 then
-			self.held_octave_keys.down = z == 1
-			d = -1
+-- TODO: apply global_transpose
+local white_pitches = { 0, 2, 4, 5, 7, 9, 11 }
+function Keyboard:is_white_pitch(p)
+	p = p % 12
+	for w = 1, 7 do
+		if math.abs(p - white_pitches[w]) <= 0.5 then
+			return true
 		end
 	end
-	if self.held_octave_keys.up and self.held_octave_keys.down then
-		self.octave = 0
-	elseif z == 1 then
-		self.octave = self.octave + d
-	end
+	return false 
 end
 
 function led_blend(a, b)
@@ -177,13 +189,20 @@ function led_blend(a, b)
 	return (1 - (a * b)) * 15
 end
 
-function Keyboard:get_key_level(x, y, n)
+-- TODO: apply global_transpose
+function Keyboard:get_key_level(x, y, p)
 	-- highlight white keys
-	level = self:is_white_key(n) and 3 or 0
+	local level = self:is_white_pitch(p) and 3 or 0
 	-- highlight held keys
-	if n == self.last_pitch_id then
-		level = led_blend(level, 8)
-	elseif self:is_key_held(x, y) then
+	-- TODO: highlight based on KEY, not on PITCH!
+	local bent_diff = math.abs(p - (pitch_volts + bend_volts) * 12)
+	if bent_diff < 1 then
+		level = led_blend(level, (1 - bent_diff) * 8)
+	end
+	if math.abs(p - drone_volts * 12) < 0.008 then -- roughly 10 cents
+		level = led_blend(level, 3)
+	end
+	if self:is_key_held(x, y) then
 		level = led_blend(level, 3)
 	end
 	return math.min(15, math.ceil(level))
