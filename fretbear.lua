@@ -153,8 +153,6 @@ function init()
 	crow.add()
 
 	-- start at 0 / middle C
-	k:key(k.x_center, k.y_center, 1)
-	k:key(k.x_center, k.y_center, 0)
 	update_pitch_from_keyboard()
 
 	grid_redraw()

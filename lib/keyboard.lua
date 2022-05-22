@@ -21,15 +21,17 @@ function Keyboard.new(x, y, width, height)
 		n_held_keys = 0,
 		last_pitch = 0
 	}
-	-- TODO: any reason to keep this?
-	-- keyboard.center_key_id = keyboard.x_center + (keyboard.y2 - keyboard.y_center) * width
 	keyboard.octave = 0
 	keyboard.held_keys = {
 		shift = false,
 		down = false,
 		up = false
 	}
-	return setmetatable(keyboard, Keyboard)
+	setmetatable(keyboard, Keyboard)
+	-- start at 0 / middle C
+	keyboard:key(keyboard.x_center, keyboard.y_center, 1)
+	keyboard:key(keyboard.x_center, keyboard.y_center, 0)
+	return keyboard
 end
 
 function Keyboard:get_key_id(x, y)
