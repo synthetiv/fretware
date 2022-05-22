@@ -19,8 +19,7 @@ function Keyboard.new(x, y, width, height)
 		y_center = 6,
 		held_keys = {},
 		n_held_keys = 0,
-		last_pitch = 0,
-		drone_pitch = 0,
+		last_pitch = 0
 	}
 	-- TODO: any reason to keep this?
 	-- keyboard.center_key_id = keyboard.x_center + (keyboard.y2 - keyboard.y_center) * width
@@ -123,9 +122,6 @@ function Keyboard:note(x, y, z)
 	self.n_held_keys = n_held_keys
 	self.last_key = last_key
 	self.last_pitch = self:get_key_id_pitch(last_key)
-	if self.n_held_keys == 1 then
-		self.drone_pitch = self.last_pitch
-	end
 end
 
 function Keyboard:reset()
@@ -198,9 +194,6 @@ function Keyboard:get_key_level(x, y, p)
 	local bent_diff = math.abs(p - (pitch_volts + bend_volts) * 12)
 	if bent_diff < 1 then
 		level = led_blend(level, (1 - bent_diff) * 8)
-	end
-	if math.abs(p - drone_volts * 12) < 0.008 then -- roughly 10 cents
-		level = led_blend(level, 3)
 	end
 	if self:is_key_held(x, y) then
 		level = led_blend(level, 3)

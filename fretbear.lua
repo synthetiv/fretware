@@ -27,8 +27,6 @@ amp_volts = 0
 damp_volts = 0
 pitch_volts = 0
 bent_pitch_volts = 0
--- TODO: abandon drone in favor of note stack?
-drone_volts = 0
 bend = 0
 bend_volts = 0
 
@@ -44,14 +42,13 @@ end
 
 function update_pitch_from_keyboard()
 	pitch_volts = k.last_pitch / 12
-	drone_volts = k.drone_pitch / 12
 	send_pitch_volts()
 end
 
 function send_pitch_volts()
 	bent_pitch_volts = pitch_volts + bend_volts
 	crow.output[1].volts = bent_pitch_volts
-	crow.output[4].volts = drone_volts
+	-- TODO: removing drone frees up an extra Crow output! do something with it
 end
 
 function touche.event(data)
