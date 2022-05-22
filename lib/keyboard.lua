@@ -25,7 +25,6 @@ function Keyboard.new(x, y, width, height)
 	}
 	keyboard.octave = 0
 	keyboard.held_keys = {
-		-- TODO: go back to regular <> octave keys instead of using a momentary Shift key
 		shift = false,
 		down = false,
 		up = false
@@ -57,30 +56,26 @@ function Keyboard:get_key_id_pitch(id)
 end
 
 function Keyboard:key(x, y, z)
-	if x == self.x2 and y == self.y2 then
+	if x == self.x and y == self.y2 then
 		-- shift key
 		self.held_keys.shift = z == 1
-		-- release up/down keys if shift released
-		self.held_keys.up = self.held_keys.shift and self.held_keys.up
-		self.held_keys.down = self.held_keys.shift and self.held_keys.down
-	elseif self.held_keys.shift then
-		if y == self.y2 and x > self.x2 - 3 then
-			-- shift+octave
-			local d = 0
-			if x == self.x2 - 2 then -- down
-				self.held_keys.down = z == 1
-				d = -1
-			elseif x == self.x2 - 1 then -- up
-				self.held_keys.up = z == 1
-				d = 1
-			end
-			if self.held_keys.up and self.held_keys.down then
-				self.octave = 0
-			elseif z == 1 then
-				self.octave = self.octave + d
-			end
+	elseif y == self.y2 and x > self.x2 - 2 then
+		-- octave up/down
+		local d = 0
+		if x == self.x2 - 1 then -- down
+			self.held_keys.down = z == 1
+			d = -1
+		elseif x == self.x2 then -- up
+			self.held_keys.up = z == 1
+			d = 1
 		end
-		return
+		if self.held_keys.up and self.held_keys.down then
+			-- if both keys are pressed together, reset octave
+			self.octave = 0
+		elseif z == 1 then
+			-- otherwise, jump up or down
+			self.octave = self.octave + d
+		end
 	else
 		self:note(x, y, z)
 	end
@@ -154,13 +149,13 @@ end
 function Keyboard:draw()
 	for x = self.x, self.x2 do
 		for y = self.y, self.y2 do
-			if x == self.x2 and y == self.y2 then
+			if x == self.x and y == self.y2 then
 				g:led(x, y, self.held_keys.shift and 15 or 6)
-			elseif self.held_keys.shift and y == self.y2 and x > self.x2 - 3 then
-				if x == self.x2 - 2 then
+			elseif y == self.y2 and x > self.x2 - 2 then
+				if x == self.x2 - 1 then
 					local down_level = self.held_keys.down and 7 or 2
 					g:led(x, y, math.min(15, math.max(0, down_level - math.min(self.octave, 0))))
-				elseif x == self.x2 - 1 then
+				elseif x == self.x2 then
 					local up_level = self.held_keys.up and 7 or 2
 					g:led(x, y, math.min(15, math.max(0, up_level + math.max(self.octave, 0))))
 				end
