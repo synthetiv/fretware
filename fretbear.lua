@@ -138,6 +138,8 @@ function init()
 			crow.output[3].slew = value
 		end
 	}
+
+	-- TODO: quantize lock on/off: apply post-bend quantization to keyboard notes
 	
 	params:bang()
 	

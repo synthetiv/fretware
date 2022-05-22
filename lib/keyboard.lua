@@ -3,7 +3,7 @@ Keyboard.__index = Keyboard
 
 -- TODO: paraphony with note stack
 -- TODO: sustain key (left col, y = 7; ctrl y = 8, ctrl+sustain = hands free latch)
--- TODO: quantizer (edit = left col, y = 1)
+-- TODO: quantizer
 -- TODO: quantizer presets (left col, y = [2, 6])
 
 function Keyboard.new(x, y, width, height)
@@ -16,12 +16,14 @@ function Keyboard.new(x, y, width, height)
 		y2 = y + height - 1,
 		x_center = 8,
 		y_center = 6,
+		mask_edit = false,
 		held_keys = {},
 		n_held_keys = 0,
 		last_key = 0,
 		last_key_x = 8,
 		last_key_y = 6,
-		last_pitch = 0
+		last_pitch = 0,
+		mask = { true, false, true, false, true, true, false, true, false, true, false, true } -- C major
 	}
 	keyboard.octave = 0
 	keyboard.held_keys = {
@@ -56,9 +58,16 @@ function Keyboard:get_key_id_pitch(id)
 end
 
 function Keyboard:key(x, y, z)
-	if x == self.x and y == self.y2 then
-		-- shift key
-		self.held_keys.shift = z == 1
+	if x == self.x then
+		if y == self.y then
+			-- mask edit key
+			if z == 1 then
+				self.mask_edit = not self.mask_edit
+			end
+		elseif y == self.y2 then
+			-- shift key
+			self.held_keys.shift = z == 1
+		end
 	elseif y == self.y2 and x > self.x2 - 2 then
 		-- octave up/down
 		local d = 0
@@ -75,6 +84,11 @@ function Keyboard:key(x, y, z)
 		elseif z == 1 then
 			-- otherwise, jump up or down
 			self.octave = self.octave + d
+		end
+	elseif self.mask_edit then
+		if z == 1 then
+			p = self:get_key_pitch(x, y) % 12 + 1
+			self.mask[p] = not self.mask[p]
 		end
 	else
 		self:note(x, y, z)
@@ -147,11 +161,11 @@ function Keyboard:is_key_last(x, y)
 end
 
 function Keyboard:draw()
-	for x = self.x, self.x2 do
+	g:led(self.x, self.y, self.mask_edit and 7 or 2)
+	g:led(self.x, self.y2, self.held_keys.shift and 15 or 6)
+	for x = self.x + 1, self.x2 do
 		for y = self.y, self.y2 do
-			if x == self.x and y == self.y2 then
-				g:led(x, y, self.held_keys.shift and 15 or 6)
-			elseif y == self.y2 and x > self.x2 - 2 then
+			if y == self.y2 and x > self.x2 - 2 then
 				if x == self.x2 - 1 then
 					local down_level = self.held_keys.down and 7 or 2
 					g:led(x, y, math.min(15, math.max(0, down_level - math.min(self.octave, 0))))
@@ -166,6 +180,12 @@ function Keyboard:draw()
 			end
 		end
 	end
+end
+
+-- TODO: apply global_transpose
+function Keyboard:is_mask_pitch(p)
+	p = p % 12 + 1
+	return self.mask[p]
 end
 
 -- TODO: apply global_transpose
@@ -185,8 +205,18 @@ end
 
 -- TODO: apply global_transpose
 function Keyboard:get_key_level(x, y, key_id, p)
-	-- highlight white keys
-	local level = self:is_white_pitch(p) and 3 or 0
+	local level = 0
+	if self.mask_edit then
+		-- show mask
+		level = self:is_mask_pitch(p) and 4 or 0
+		-- and highlight Cs as reference points
+		if p % 12 == 0 then
+			level = led_blend(level, 2, 0)
+		end
+	else
+		-- highlight white keys
+		level = self:is_white_pitch(p) and 3 or 0
+	end
 	-- highlight last key, offset by bend as needed
 	if y == self.last_key_y then
 		local bent_diff = math.abs(key_id - self.last_key - bend_volts * 12)
@@ -197,6 +227,8 @@ function Keyboard:get_key_level(x, y, key_id, p)
 	-- highlight held keys
 	if self:is_key_held(key_id) then
 		level = led_blend(level, 3)
+	end
+	if self.mask_edit then
 	end
 	return math.min(15, math.ceil(level))
 end
