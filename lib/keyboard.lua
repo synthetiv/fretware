@@ -5,7 +5,6 @@ Keyboard.__index = Keyboard
 -- TODO: sustain key (left col, y = 7; ctrl y = 8, ctrl+sustain = hands free latch)
 -- TODO: quantizer (edit = left col, y = 1)
 -- TODO: quantizer presets (left col, y = [2, 6])
--- TODO: decouple pitches + held keys
 
 function Keyboard.new(x, y, width, height)
 	local keyboard = {
@@ -19,10 +18,14 @@ function Keyboard.new(x, y, width, height)
 		y_center = 6,
 		held_keys = {},
 		n_held_keys = 0,
+		last_key = 0,
+		last_key_x = 8,
+		last_key_y = 6,
 		last_pitch = 0
 	}
 	keyboard.octave = 0
 	keyboard.held_keys = {
+		-- TODO: go back to regular <> octave keys instead of using a momentary Shift key
 		shift = false,
 		down = false,
 		up = false
@@ -123,7 +126,8 @@ function Keyboard:note(x, y, z)
 	end
 	self.n_held_keys = n_held_keys
 	self.last_key = last_key
-	self.last_pitch = self:get_key_id_pitch(last_key)
+	self.last_key_x, self.last_key_y = self:get_key_id_coords(last_key)
+	self.last_pitch = self:get_key_pitch(self.last_key_x, self.last_key_y)
 end
 
 function Keyboard:reset()
@@ -133,8 +137,7 @@ function Keyboard:reset()
 	self.held_keys.up = false
 end
 
-function Keyboard:is_key_held(x, y)
-	local key_id = self:get_key_id(x, y)
+function Keyboard:is_key_held(key_id)
 	local held_keys = self.held_keys
 	for i = 1, self.n_held_keys do
 		if held_keys[i] == key_id then
@@ -162,8 +165,9 @@ function Keyboard:draw()
 					g:led(x, y, math.min(15, math.max(0, up_level + math.max(self.octave, 0))))
 				end
 			else
+				local key_id = self:get_key_id(x, y)
 				local p = self:get_key_pitch(x, y)
-				g:led(x, y, self:get_key_level(x, y, p))
+				g:led(x, y, self:get_key_level(x, y, key_id, p))
 			end
 		end
 	end
@@ -185,16 +189,18 @@ function led_blend(a, b)
 end
 
 -- TODO: apply global_transpose
-function Keyboard:get_key_level(x, y, p)
+function Keyboard:get_key_level(x, y, key_id, p)
 	-- highlight white keys
 	local level = self:is_white_pitch(p) and 3 or 0
-	-- highlight held keys
-	-- TODO: highlight based on KEY, not on PITCH!
-	local bent_diff = math.abs(p - (pitch_volts + bend_volts) * 12)
-	if bent_diff < 1 then
-		level = led_blend(level, (1 - bent_diff) * 8)
+	-- highlight last key, offset by bend as needed
+	if y == self.last_key_y then
+		local bent_diff = math.abs(key_id - self.last_key - bend_volts * 12)
+		if bent_diff < 1 then
+			level = led_blend(level, (1 - bent_diff) * 8)
+		end
 	end
-	if self:is_key_held(x, y) then
+	-- highlight held keys
+	if self:is_key_held(key_id) then
 		level = led_blend(level, 3)
 	end
 	return math.min(15, math.ceil(level))
