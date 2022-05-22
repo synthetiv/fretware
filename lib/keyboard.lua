@@ -170,13 +170,10 @@ function Keyboard:draw()
 end
 
 -- TODO: apply global_transpose
-local white_pitches = { 0, 2, 4, 5, 7, 9, 11 }
 function Keyboard:is_white_pitch(p)
 	p = p % 12
-	for w = 1, 7 do
-		if math.abs(p - white_pitches[w]) <= 0.5 then
-			return true
-		end
+	if p == 0 or p == 2 or p == 4 or p == 5 or p == 7 or p == 9 or p == 11 then
+		return true
 	end
 	return false 
 end
