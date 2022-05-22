@@ -92,8 +92,8 @@ function Keyboard:key(x, y, z)
 		end
 	elseif self.mask_edit then
 		if z == 1 then
-			p = self:get_key_pitch(x, y) % 12 + 1
-			self.mask[p] = not self.mask[p]
+			pitch_class = self:get_key_pitch(x, y) % 12 + 1
+			self.mask[pitch_class] = not self.mask[pitch_class]
 		end
 	else
 		self:note(x, y, z)
@@ -187,8 +187,8 @@ function Keyboard:draw()
 end
 
 function Keyboard:is_mask_pitch(p)
-	p = p % 12 + 1
-	return self.mask[p]
+	p = p % 12
+	return self.mask[p + 1]
 end
 
 function Keyboard:is_white_pitch(p)
