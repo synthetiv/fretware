@@ -163,6 +163,7 @@ function ampdb(amp)
 end
 
 function redraw()
+	-- TODO: show held pitch(es), bend, amp/damp
 	screen.clear()
 	screen.update()
 end
