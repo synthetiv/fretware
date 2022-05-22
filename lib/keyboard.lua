@@ -5,6 +5,11 @@ Keyboard.__index = Keyboard
 -- TODO: sustain key (left col, y = 7; ctrl y = 8, ctrl+sustain = hands free latch)
 -- TODO: quantizer
 -- TODO: quantizer presets (left col, y = [2, 6])
+-- TODO: alt control scheme: use leftmost 2 cols only:
+--       edit mask at 1,1
+--       quant presets from 1,2 to 2,6
+--       up/down at 1,7 and 2,7
+--       shift at 1,8; latch at 2,8
 
 function Keyboard.new(x, y, width, height)
 	local keyboard = {
@@ -95,7 +100,6 @@ function Keyboard:key(x, y, z)
 	end
 end
 
--- TODO: apply global_transpose
 function Keyboard:note(x, y, z)
 	local key_id = self:get_key_id(x, y)
 	local held_keys = self.held_keys
@@ -182,13 +186,11 @@ function Keyboard:draw()
 	end
 end
 
--- TODO: apply global_transpose
 function Keyboard:is_mask_pitch(p)
 	p = p % 12 + 1
 	return self.mask[p]
 end
 
--- TODO: apply global_transpose
 function Keyboard:is_white_pitch(p)
 	p = p % 12
 	if p == 0 or p == 2 or p == 4 or p == 5 or p == 7 or p == 9 or p == 11 then
@@ -203,7 +205,6 @@ function led_blend(a, b)
 	return (1 - (a * b)) * 15
 end
 
--- TODO: apply global_transpose
 function Keyboard:get_key_level(x, y, key_id, p)
 	local level = 0
 	if self.mask_edit then

@@ -139,6 +139,7 @@ function init()
 		end
 	}
 
+	-- TODO: global transpose, for working with oscillators that aren't tuned to C
 	-- TODO: quantize lock on/off: apply post-bend quantization to keyboard notes
 	
 	params:bang()
