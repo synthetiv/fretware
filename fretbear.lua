@@ -10,6 +10,7 @@ k = Keyboard.new(1, 1, 16, 8)
 -- IIRC, this is a curve that allows some overshoot in the bend, so you can bend up a full 2 st or
 -- octave or whatever and still apply some vibrato
 -- TODO: is it uneven or something, though? bend seems to rest at just above 0, rather than at 0
+-- TODO: internal poly engine -- SinOscFB, VarSaw, __
 bend_lut = {}
 for i = 0, 127 do
 	local x = i * 1.2 / 127

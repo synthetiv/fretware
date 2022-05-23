@@ -3,7 +3,8 @@ Keyboard.__index = Keyboard
 
 -- TODO: paraphony with note stack
 -- TODO: sustain key (left col, y = 7; ctrl y = 8, ctrl+sustain = hands free latch)
--- TODO: quantizer
+-- TODO: quantizer: send inputs to TT and/or crow
+-- TODO: send scale mask to TT for use with QT.B <value> <root=0?> <mask>
 -- TODO: quantizer presets (left col, y = [2, 6])
 -- TODO: alt control scheme: use leftmost 2 cols only:
 --       edit mask at 1,1
@@ -28,7 +29,8 @@ function Keyboard.new(x, y, width, height)
 		last_key_x = 8,
 		last_key_y = 6,
 		last_pitch = 0,
-		mask = { true, false, true, false, true, true, false, true, false, true, false, true } -- C major
+		mask = { true, false, true, false, true, true, false, true, false, true, false, true }, -- C major
+		mask_notes = { 0, 2, 4, 5, 7, 9, 11 } -- for use with Crow output modes
 	}
 	keyboard.octave = 0
 	keyboard.held_keys = {
@@ -60,6 +62,24 @@ end
 function Keyboard:get_key_id_pitch(id)
 	local x, y = self:get_key_id_coords(id)
 	return self:get_key_pitch(x, y)
+end
+
+function Keyboard:quantize(pitch)
+	local octave = math.floor(pitch / 12)
+	pitch = pitch % 12
+	local found_pitch = pitch
+	local best_distance = math.huge
+	-- check all enabled notes, including C + 1 oct if that's enabled
+	for p = 0, 12 do
+		if self.mask[p % 12 + 1] then
+			local distance = math.abs(pitch - p)
+			if distance < best_distance then
+				found_pitch = p
+				best_distance = distance
+			end
+		end
+	end
+	return found_pitch + octave * 12
 end
 
 function Keyboard:key(x, y, z)
@@ -189,6 +209,16 @@ end
 function Keyboard:is_mask_pitch(p)
 	p = p % 12
 	return self.mask[p + 1]
+end
+
+function Keyboard:update_mask_notes()
+	local notes = {}
+	for p = 1, 12 do
+		if self.mask[p] then
+			notes:insert(p - 1)
+		end
+	end
+	self.mask_notes = notes
 end
 
 function Keyboard:is_white_pitch(p)
