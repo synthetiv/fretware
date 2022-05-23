@@ -42,7 +42,7 @@ function g.key(x, y, z)
 end
 
 function update_pitch_from_keyboard()
-	pitch_volts = k.last_pitch / 12
+	pitch_volts = k.last_pitch / 12 + k.octave
 	send_pitch_volts()
 end
 
