@@ -23,20 +23,19 @@ function Keyboard.new(x, y, width, height)
 		x_center = 8,
 		y_center = 6,
 		mask_edit = false,
-		held_keys = {},
+		held_keys = {
+			shift = false,
+			down = false,
+			up = false
+		},
 		n_held_keys = 0,
+		octave = 0,
 		last_key = 0,
 		last_key_x = 8,
 		last_key_y = 6,
 		last_pitch = 0,
 		mask = { true, false, true, false, true, true, false, true, false, true, false, true }, -- C major
 		mask_notes = { 0, 2, 4, 5, 7, 9, 11 } -- for use with Crow output modes
-	}
-	keyboard.octave = 0
-	keyboard.held_keys = {
-		shift = false,
-		down = false,
-		up = false
 	}
 	setmetatable(keyboard, Keyboard)
 	-- start at 0 / middle C
