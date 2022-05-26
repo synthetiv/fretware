@@ -33,13 +33,21 @@ bend_volts = 0
 gate = false
 
 function g.key(x, y, z)
+
 	k:key(x, y, z)
+
 	update_pitch_from_keyboard()
 	local old_gate = gate
 	gate = k.n_held_keys > 0
 	if old_gate ~= gate or params:get('env_retrig') == 2 then
 		crow.output[4](gate)
 	end
+
+	-- TODO: can crow fire an event when a quantized output value changes, so we can draw notes on the grid accurately?
+	if k.mask_edit then
+		crow.output[1].scale(k.mask_notes)
+	end
+
 	-- TODO: sync the whole note stack with TT
 	grid_redraw()
 end

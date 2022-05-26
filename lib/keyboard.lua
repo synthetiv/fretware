@@ -34,8 +34,8 @@ function Keyboard.new(x, y, width, height)
 		last_key_x = 8,
 		last_key_y = 6,
 		last_pitch = 0,
-		mask = { true, false, true, false, true, true, false, true, false, true, false, true }, -- C major
-		mask_notes = { 0, 2, 4, 5, 7, 9, 11 } -- for use with Crow output modes
+		mask = { false, false, false, false, false, false, false, false, false, false, false, false },
+		mask_notes = 'none' -- for use with Crow output modes
 	}
 	setmetatable(keyboard, Keyboard)
 	-- start at 0 / middle C
@@ -113,6 +113,7 @@ function Keyboard:key(x, y, z)
 		if z == 1 then
 			pitch_class = self:get_key_pitch(x, y) % 12 + 1
 			self.mask[pitch_class] = not self.mask[pitch_class]
+			self:update_mask_notes()
 		end
 	else
 		self:note(x, y, z)
@@ -212,12 +213,14 @@ end
 
 function Keyboard:update_mask_notes()
 	local notes = {}
+	local has_notes = false
 	for p = 1, 12 do
 		if self.mask[p] then
-			notes:insert(p - 1)
+			has_notes = true
+			table.insert(notes, p - 1)
 		end
 	end
-	self.mask_notes = notes
+	self.mask_notes = has_notes and notes or 'none'
 end
 
 function Keyboard:is_white_pitch(p)
