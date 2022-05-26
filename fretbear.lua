@@ -18,7 +18,6 @@ for i = 0, 127 do
 end
 
 redraw_metro = nil
-amp_poll = nil
 
 g = grid.connect()
 
@@ -27,6 +26,7 @@ touche = midi.connect(1)
 amp_volts = 0
 damp_volts = 0
 pitch_volts = 0
+-- TODO: reintroduce 'drone' pitch CV or just an alternate 'voice'
 bent_pitch_volts = 0
 bend = 0
 bend_volts = 0
@@ -90,8 +90,6 @@ function crow.add()
 end
 
 function init()
-
-	softcut.poll_start_phase()
 
 	params:add {
 		name = 'bend range',
@@ -184,8 +182,4 @@ function cleanup()
 	if redraw_metro ~= nil then
 		redraw_metro:stop()
 	end
-	if amp_poll ~= nil then
-		amp_poll:stop()
-	end
-	softcut.poll_stop_phase()
 end
