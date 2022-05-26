@@ -30,14 +30,17 @@ pitch_volts = 0
 bent_pitch_volts = 0
 bend = 0
 bend_volts = 0
+gate = false
 
 function g.key(x, y, z)
 	k:key(x, y, z)
 	update_pitch_from_keyboard()
-	if k.n_held_keys > 0 then
-		-- TODO: sync the whole note stack with TT
-		-- crow.ii.tt.script_v(8, k.last_pitch)
+	local old_gate = gate
+	gate = k.n_held_keys > 0
+	if old_gate ~= gate or params:get('env_retrig') == 2 then
+		crow.output[4](gate)
 	end
+	-- TODO: sync the whole note stack with TT
 	grid_redraw()
 end
 
@@ -85,11 +88,23 @@ function grid_redraw()
 	g:refresh()
 end
 
-function crow.add()
+function crow_init()
+	print('crow add')
 	params:bang()
+	crow.output[4].action = [[
+		adsr(
+			dyn { a = 0.01 },
+			dyn { d = 0.1 },
+			dyn { s = 6 },
+			dyn { r = 0.3 }
+		)
+	]]
 end
 
 function init()
+
+	-- TODO: why doesn't crow.add() work anymore?
+	crow_init()
 
 	params:add {
 		name = 'bend range',
@@ -123,7 +138,6 @@ function init()
 		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.01),
 		action = function(value)
 			crow.output[1].slew = value
-			crow.output[4].slew = value
 		end
 	}
 	
@@ -136,6 +150,58 @@ function init()
 			crow.output[2].slew = value
 			crow.output[3].slew = value
 		end
+	}
+
+	-- TODO: dyn variables don't seem to affect Crow envelopes *as they change*, they only take
+	-- effect the next time the envelope fires. any way around that?
+	-- well, you can use a CV EG module like Stages, and send only a gate from Crow
+
+	params:add {
+		name = 'env attack',
+		id = 'env_attack',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 2, 'exp', 0, 0.01),
+		action = function(value)
+			crow.output[4].dyn.a = value
+		end
+	}
+
+	params:add {
+		name = 'env decay',
+		id = 'env_decay',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 2, 'exp', 0, 0.2),
+		action = function(value)
+			crow.output[4].dyn.d = value
+		end
+	}
+
+	params:add {
+		name = 'env sustain',
+		id = 'env_sustain',
+		type = 'control',
+		controlspec = controlspec.new(0, 10, 'lin', 0, 6),
+		action = function(value)
+			crow.output[4].dyn.s = value
+		end
+	}
+
+	params:add {
+		name = 'env release',
+		id = 'env_release',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 4, 'exp', 0, 0.25),
+		action = function(value)
+			crow.output[4].dyn.r = value
+		end
+	}
+
+	params:add {
+		name = 'env retrig',
+		id = 'env_retrig',
+		type = 'option',
+		options = { 'off', 'on' },
+		default = 2
 	}
 
 	-- TODO: global transpose, for working with oscillators that aren't tuned to C
@@ -152,8 +218,6 @@ function init()
 	}
 	redraw_metro:start()
 	
-	crow.add()
-
 	-- start at 0 / middle C
 	update_pitch_from_keyboard()
 
