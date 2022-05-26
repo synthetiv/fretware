@@ -35,6 +35,7 @@ function Keyboard.new(x, y, width, height)
 		last_key_y = 6,
 		last_pitch = 0,
 		mask = { false, false, false, false, false, false, false, false, false, false, false, false },
+		-- TODO: mask presets!
 		mask_notes = 'none' -- for use with Crow output modes
 	}
 	setmetatable(keyboard, Keyboard)
@@ -253,6 +254,9 @@ function Keyboard:get_key_level(x, y, key_id, p)
 	-- highlight last key, offset by bend as needed
 	if y == self.last_key_y then
 		local bent_diff = math.abs(key_id - self.last_key - bend_volts * 12)
+		-- TODO: get actual output volts from crow and use that when drawing, so that the
+		-- effects of slew + quantization are indicated correctly
+		-- local volt_diff = math.abs(key_id - self.last_key - (self.last_pitch - crow.output[1].volts * 12))
 		if bent_diff < 1 then
 			level = led_blend(level, (1 - bent_diff) * 8)
 		end

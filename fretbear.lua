@@ -43,7 +43,6 @@ function g.key(x, y, z)
 		crow.output[4](gate)
 	end
 
-	-- TODO: can crow fire an event when a quantized output value changes, so we can draw notes on the grid accurately?
 	if k.mask_edit then
 		crow.output[1].scale(k.mask_notes)
 	end
