@@ -41,6 +41,7 @@ function g.key(x, y, z)
 	gate = k.n_held_keys > 0
 	if old_gate ~= gate or params:get('env_retrig') == 2 then
 		crow.output[4](gate)
+		crow.ii.tt.script_i(1, gate and (k.last_pitch + 60) or 0)
 	end
 
 	if k.mask_edit then

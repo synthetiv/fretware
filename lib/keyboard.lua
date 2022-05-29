@@ -11,6 +11,8 @@ Keyboard.__index = Keyboard
 --       quant presets from 1,2 to 2,6
 --       up/down at 1,7 and 2,7
 --       shift at 1,8; latch at 2,8
+-- TODO: panic function, for when a note gets stuck due to momentary grid connection loss
+--       or whatever it is that causes that
 
 function Keyboard.new(x, y, width, height)
 	local keyboard = {
@@ -108,7 +110,7 @@ function Keyboard:key(x, y, z)
 			self.octave = 0
 		elseif z == 1 then
 			-- otherwise, jump up or down
-			self.octave = self.octave + d
+			self.octave = util.clamp(self.octave + d, -5, 5)
 		end
 	elseif self.mask_edit then
 		if z == 1 then
