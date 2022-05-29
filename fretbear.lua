@@ -45,10 +45,19 @@ function g.key(x, y, z)
 	end
 
 	if k.mask_edit then
-		crow.output[1].scale(k.mask_notes)
+		-- crow.output[1].scale(k.mask_notes)
+		local bit_mask = 0
+		for p = 1, 12 do
+			if k.mask[p] then
+				bit_mask = bit_mask | (1 << (p - 1))
+			end
+		end
+		crow.ii.tt.script_i(2, bit_mask)
 	end
 
 	-- TODO: sync the whole note stack with TT
+	-- I think you'll need to trigger events from the keyboard class, and... urgh...
+	-- it's more information than you can easily send to TT
 	grid_redraw()
 end
 
