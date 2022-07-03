@@ -65,11 +65,11 @@ end
 
 function update_pitch_from_keyboard()
 	pitch_volts = k.active_pitch / 12 + k.octave
-	bend_volts = bend * params:get('bend_range') / 12
 	send_pitch_volts()
 end
 
 function send_pitch_volts()
+	bend_volts = bend * params:get('bend_range') / 12
 	bent_pitch_volts = pitch_volts + bend_volts
 	crow.output[1].volts = bent_pitch_volts
 	-- TODO: removing drone frees up an extra Crow output! do something with it
