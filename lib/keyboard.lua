@@ -173,8 +173,10 @@ function Keyboard:note(x, y, z)
 		held_keys[key_id] = true
 		n_sustained_keys = n_sustained_keys + 1
 		table.insert(sustained_keys, arp_index + 1, key_id)
-		-- TODO: make this arp-friendly
-		self:set_active_key(key_id)
+		-- TODO: does this feel both arp- and non-arp-friendly?
+		if n_sustained_keys == 1 or not (self.held_keys.sustain or self.held_keys.latch) then
+			self:set_active_key(key_id)
+		end
 	else
 		-- key released: set held_keys_state and maybe release it
 		held_keys[key_id] = false
