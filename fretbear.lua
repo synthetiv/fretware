@@ -38,10 +38,10 @@ function g.key(x, y, z)
 
 	update_pitch_from_keyboard()
 	local old_gate = gate
-	gate = k.n_held_keys > 0
+	gate = k.n_sustained_keys > 0
 	if old_gate ~= gate or params:get('env_retrig') == 2 then
 		crow.output[4](gate)
-		crow.ii.tt.script_i(1, gate and (k.last_pitch + 60) or 0)
+		crow.ii.tt.script_i(1, gate and (k.active_pitch + 60) or 0)
 	end
 
 	if k.mask_edit then
@@ -62,7 +62,7 @@ function g.key(x, y, z)
 end
 
 function update_pitch_from_keyboard()
-	pitch_volts = k.last_pitch / 12 + k.octave
+	pitch_volts = k.active_pitch / 12 + k.octave
 	send_pitch_volts()
 end
 
@@ -252,6 +252,7 @@ function redraw()
 end
 
 function enc(n, d)
+	-- TODO: adjust slew, bend range
 end
 
 function key(n, z)
