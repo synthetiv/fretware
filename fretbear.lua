@@ -65,6 +65,7 @@ end
 
 function update_pitch_from_keyboard()
 	pitch_volts = k.active_pitch / 12 + k.octave
+	bend_volts = bend * params:get('bend_range') / 12
 	send_pitch_volts()
 end
 
@@ -87,12 +88,10 @@ function touche.event(data)
 			damp_volts = message.val * params:get('damp_range') / 126 + params:get('damp_base')
 			crow.output[3].volts = damp_volts
 		elseif message.cc == 18 then
-			bend = bend_lut[message.val] -- TODO: not sure why 126 is the max value I'm getting from Touche...
-			bend_volts = -bend * params:get('bend_range') / 12
+			bend = -bend_lut[message.val] -- TODO: not sure why 126 is the max value I'm getting from Touche...
 			send_pitch_volts()
 		elseif message.cc == 19 then
 			bend = bend_lut[message.val]
-			bend_volts = bend * params:get('bend_range') / 12
 			send_pitch_volts()
 		end
 	end
@@ -137,7 +136,8 @@ function init()
 		type = 'number',
 		min = 1,
 		max = 24,
-		default = 2
+		default = 2,
+		action = send_pitch_volts
 	}
 	
 	-- TODO: damp base + range are a way to avoid using an extra attenuator + offset,
