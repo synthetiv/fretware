@@ -283,8 +283,8 @@ function Keyboard:get_key_level(x, y, key_id, p)
 	if self.mask_edit then
 		-- show mask
 		level = self:is_mask_pitch(p) and 4 or 0
-		-- and highlight Cs as reference points
-		if p % 12 == 0 then
+		-- when shift is held, highlight Cs as reference points
+		if self.held_keys.shift and p % 12 == 0 then
 			level = led_blend(level, 2)
 		end
 	else
