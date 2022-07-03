@@ -27,6 +27,7 @@ function Keyboard.new(x, y, width, height)
 		held_keys = {}, -- map of key names/ids to boolean states
 		sustained_keys = {}, -- stack of sustained key IDs
 		n_sustained_keys = 0,
+		arp_index = 0,
 		octave = 0,
 		active_key = 0,
 		active_key_x = 8,
@@ -139,6 +140,7 @@ function Keyboard:maybe_release_sustained_keys()
 	local held_keys = self.held_keys
 	local sustained_keys = self.sustained_keys
 	local n_sustained_keys = self.n_sustained_keys
+	local arp_index = self.arp_index
 	local i = 1
 	while i <= n_sustained_keys do
 		if held_keys[sustained_keys[i]] then
@@ -146,12 +148,17 @@ function Keyboard:maybe_release_sustained_keys()
 		else
 			table.remove(sustained_keys, i)
 			n_sustained_keys = n_sustained_keys - 1
+			if arp_index >= i then
+				arp_index = arp_index - 1
+			end
 		end
 	end
 	if n_sustained_keys > 0 then
-		self:set_active_key(sustained_keys[n_sustained_keys])
+		arp_index = (arp_index - 1) % n_sustained_keys + 1
+		self:set_active_key(sustained_keys[arp_index])
 	end
 	self.n_sustained_keys = n_sustained_keys
+	self.arp_index = arp_index
 end
 
 function Keyboard:note(x, y, z)
@@ -159,45 +166,46 @@ function Keyboard:note(x, y, z)
 	local held_keys = self.held_keys
 	local sustained_keys = self.sustained_keys
 	local n_sustained_keys = self.n_sustained_keys
+	local arp_index = self.arp_index
 	local active_key = self.active_key
 	if z == 1 then
 		-- key pressed: set held_keys state and add to sustained_keys
 		held_keys[key_id] = true
 		n_sustained_keys = n_sustained_keys + 1
-		sustained_keys[n_sustained_keys] = key_id
+		table.insert(sustained_keys, arp_index + 1, key_id)
 		-- TODO: make this arp-friendly
-		active_key = key_id
+		self:set_active_key(key_id)
 	else
 		-- key released: set held_keys_state and maybe release it
 		held_keys[key_id] = false
 		if not self.held_keys.sustain and not self.held_keys.latch then
-			-- find key in sustained_keys, remove it, and shift other values down
-			local found = false
-			for i = 1, n_sustained_keys do
+			local i = 1
+			while i <= n_sustained_keys do
 				if sustained_keys[i] == key_id then
-					found = true
-				end
-				if found then
-					sustained_keys[i] = sustained_keys[i + 1]
+					table.remove(sustained_keys, i)
+					n_sustained_keys = n_sustained_keys - 1
+					if arp_index >= i then
+						arp_index = arp_index - 1
+					end
+				else
+					i = i + 1
 				end
 			end
-			-- decrement n_sustained_keys only after we've looped over all
-			-- sustained_keys table values, and only if we found the key in
-			-- sustained_keys (which won't be the case if a key was held while switching
-			-- the active keyboard, or a key on the pitch keyboard was held before
-			-- holding shift)
-			if found then
-				n_sustained_keys = n_sustained_keys - 1
-			end
-			-- if the active key was just released, jump to the next most recent key
-			-- TODO: make this arp-friendly
-			if active_key == key_id and n_sustained_keys > 0 then
-				active_key = sustained_keys[n_sustained_keys]
+			if n_sustained_keys > 0 then
+				arp_index = (arp_index - 1) % n_sustained_keys + 1
+				self:set_active_key(sustained_keys[arp_index])
 			end
 		end
 	end
 	self.n_sustained_keys = n_sustained_keys
-	self:set_active_key(active_key)
+	self.arp_index = arp_index
+end
+
+function Keyboard:arp()
+	if self.n_sustained_keys > 0 then
+		self.arp_index = self.arp_index % self.n_sustained_keys + 1
+		self:set_active_key(self.sustained_keys[self.arp_index])
+	end
 end
 
 function Keyboard:set_active_key(key_id)
@@ -282,6 +290,10 @@ function Keyboard:get_key_level(x, y, key_id, p)
 	else
 		-- highlight white keys
 		level = self:is_white_pitch(p) and 3 or 0
+		-- highlight sustained keys
+		if self:is_key_sustained(key_id) then
+			level = led_blend(level, 6)
+		end
 	end
 	-- highlight active key, offset by bend as needed
 	if y == self.active_key_y then
@@ -290,14 +302,8 @@ function Keyboard:get_key_level(x, y, key_id, p)
 		-- effects of slew + quantization are indicated correctly
 		-- local volt_diff = math.abs(key_id - self.active_key - (self.active_pitch - crow.output[1].volts * 12))
 		if bent_diff < 1 then
-			level = led_blend(level, (1 - bent_diff) * 8)
+			level = led_blend(level, (1 - bent_diff) * 7)
 		end
-	end
-	-- highlight sustained keys
-	if self:is_key_sustained(key_id) then
-		level = led_blend(level, 5)
-	end
-	if self.mask_edit then
 	end
 	return math.min(15, math.ceil(level))
 end

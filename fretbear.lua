@@ -41,11 +41,12 @@ function g.key(x, y, z)
 	gate = k.n_sustained_keys > 0
 	if old_gate ~= gate or params:get('env_retrig') == 2 then
 		crow.output[4](gate)
-		crow.ii.tt.script_i(1, gate and (k.active_pitch + 60) or 0)
+		-- crow.ii.tt.script_i(1, gate and (k.active_pitch + 60) or 0)
 	end
 
 	if k.mask_edit then
-		-- crow.output[1].scale(k.mask_notes)
+		crow.output[1].scale(k.mask_notes)
+		--[[
 		local bit_mask = 0
 		for p = 1, 12 do
 			if k.mask[p] then
@@ -53,6 +54,7 @@ function g.key(x, y, z)
 			end
 		end
 		crow.ii.tt.script_i(2, bit_mask)
+		--]]
 	end
 
 	-- TODO: sync the whole note stack with TT
@@ -108,6 +110,12 @@ end
 function crow_init()
 	print('crow add')
 	params:bang()
+	crow.input[1].change = function()
+		k:arp()
+		update_pitch_from_keyboard()
+		grid_redraw()
+	end
+	crow.input[1].mode('change', 0.5, 0.1, 'rising')
 	crow.output[4].action = [[
 		adsr(
 			dyn { a = 0.01 },
