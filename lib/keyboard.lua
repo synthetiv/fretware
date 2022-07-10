@@ -98,8 +98,16 @@ function Keyboard:key(x, y, z)
 					self:clear_mask_notes()
 					self.mask_edit = false
 				else
-					-- TODO: if turning on mask for the first time, create a mask from all held keys
 					self.mask_edit = not self.mask_edit
+					-- if no mask is active but notes are sustained, build a mask from those notes
+					if self.mask_edit and not self.quantizing and self.n_sustained_keys > 0 then
+						for k = 1, self.n_sustained_keys do
+							local key_id = self.sustained_keys[k]
+							local pitch_class = self:get_key_id_pitch(key_id) % 12 + 1
+							self.mask[pitch_class] = true
+						end
+						self:update_mask_notes()
+					end
 				end
 			end
 		elseif y == self.y2 then
