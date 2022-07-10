@@ -71,7 +71,7 @@ end
 function send_pitch_volts()
 	bend_volts = bend * params:get('bend_range') / 12
 	bent_pitch_volts = pitch_volts + bend_volts
-	crow.output[1].volts = bent_pitch_volts
+	crow.output[1].volts = bent_pitch_volts + (k.quantizing and 1/24 or 0)
 	-- TODO: removing drone frees up an extra Crow output! do something with it
 end
 

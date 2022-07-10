@@ -24,6 +24,8 @@ function Keyboard.new(x, y, width, height)
 		x_center = 8,
 		y_center = 6,
 		mask_edit = false,
+		quantizing = false,
+		arping = false,
 		held_keys = {}, -- map of key names/ids to boolean states
 		sustained_keys = {}, -- stack of sustained key IDs
 		n_sustained_keys = 0,
@@ -104,6 +106,11 @@ function Keyboard:key(x, y, z)
 				self.held_keys.latch = self.held_keys.shift and not self.held_keys.latch
 			end
 			self:maybe_release_sustained_keys()
+		elseif y == self.y2 - 3 then
+			-- arp toggle
+			if z == 1 then
+				self.arping = not self.arping
+			end
 		end
 	elseif y == self.y2 and x > self.x2 - 2 then
 		-- octave up/down
@@ -155,6 +162,7 @@ function Keyboard:maybe_release_sustained_keys()
 	end
 	if n_sustained_keys > 0 then
 		arp_index = (arp_index - 1) % n_sustained_keys + 1
+		-- TODO: should this be handled differently depending on arp state?
 		self:set_active_key(sustained_keys[arp_index])
 	end
 	self.n_sustained_keys = n_sustained_keys
@@ -172,10 +180,14 @@ function Keyboard:note(x, y, z)
 		-- key pressed: set held_keys state and add to sustained_keys
 		held_keys[key_id] = true
 		n_sustained_keys = n_sustained_keys + 1
-		table.insert(sustained_keys, arp_index + 1, key_id)
-		-- TODO: does this feel both arp- and non-arp-friendly?
-		if n_sustained_keys == 1 or not (self.held_keys.sustain or self.held_keys.latch) then
+		if not self.arping then
+			-- no arp: push new note to the stack
+			arp_index = n_sustained_keys
+			table.insert(sustained_keys, key_id)
 			self:set_active_key(key_id)
+		else
+			-- arp: insert note to be played at next arp tick
+			table.insert(sustained_keys, arp_index + 1, key_id)
 		end
 	else
 		-- key released: set held_keys_state and maybe release it
@@ -195,7 +207,9 @@ function Keyboard:note(x, y, z)
 			end
 			if n_sustained_keys > 0 then
 				arp_index = (arp_index - 1) % n_sustained_keys + 1
-				self:set_active_key(sustained_keys[arp_index])
+				if not self.arping then
+					self:set_active_key(sustained_keys[arp_index])
+				end
 			end
 		end
 	end
@@ -204,10 +218,12 @@ function Keyboard:note(x, y, z)
 end
 
 function Keyboard:arp()
-	if self.n_sustained_keys > 0 then
+	if self.arping and self.n_sustained_keys > 0 then
 		self.arp_index = self.arp_index % self.n_sustained_keys + 1
 		self:set_active_key(self.sustained_keys[self.arp_index])
+		return true
 	end
+	return false
 end
 
 function Keyboard:set_active_key(key_id)
@@ -227,8 +243,9 @@ function Keyboard:is_key_sustained(key_id)
 end
 
 function Keyboard:draw()
-	g:led(self.x, self.y, self.mask_edit and 7 or 2)
-	g:led(self.x, self.y2 - 1, self.held_keys.latch and 9 or (self.held_keys.sustain and 15 or 3))
+	g:led(self.x, self.y, self.mask_edit and 7 or (self.quantizing and 5 or 2))
+	g:led(self.x, self.y2 - 3, self.arping and 7 or 2)
+	g:led(self.x, self.y2 - 1, self.held_keys.latch and 7 or (self.held_keys.sustain and 15 or 2))
 	g:led(self.x, self.y2, self.held_keys.shift and 15 or 6)
 	for x = self.x + 1, self.x2 do
 		for y = self.y, self.y2 do
@@ -254,16 +271,24 @@ function Keyboard:is_mask_pitch(p)
 	return self.mask[p + 1]
 end
 
+function Keyboard:clear_mask_notes()
+	for p = 1, 12 do
+		self.mask[p] = false
+	end
+	self:update_mask_notes()
+end
+
 function Keyboard:update_mask_notes()
 	local notes = {}
-	local has_notes = false
+	local quantizing = false
 	for p = 1, 12 do
 		if self.mask[p] then
-			has_notes = true
+			quantizing = true
 			table.insert(notes, p - 1)
 		end
 	end
-	self.mask_notes = has_notes and notes or 'none'
+	self.quantizing = quantizing
+	self.mask_notes = quantizing and notes or 'none'
 end
 
 function Keyboard:is_white_pitch(p)
