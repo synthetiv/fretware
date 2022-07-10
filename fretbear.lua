@@ -10,7 +10,8 @@ k = Keyboard.new(1, 1, 16, 8)
 -- IIRC, this is a curve that allows some overshoot in the bend, so you can bend up a full 2 st or
 -- octave or whatever and still apply some vibrato
 -- TODO: is it uneven or something, though? bend seems to rest at just above 0, rather than at 0
--- TODO: internal poly engine -- SinOscFB, VarSaw, __
+-- TODO: internal poly engine -- SinOscFB, VarSaw, SmoothFoldS
+-- with envelope(s) + mod matrix (sources: EG1, EG2, touche tip, touche heel)
 bend_lut = {}
 for i = 0, 127 do
 	local x = i * 1.2 / 127
@@ -170,7 +171,7 @@ function init()
 		id = 'gate_mode',
 		type = 'option',
 		options = { 'legato', 'retrig', 'pulse' },
-		default = 3,
+		default = 2,
 		action = function(value)
 			k.gate_mode = value
 			if value == 1 then
@@ -204,7 +205,7 @@ function init()
 		name = 'gate delay',
 		id = 'gate_delay',
 		type = 'control',
-		controlspec = controlspec.new(0, 0.05, 'lin', 0, 0, 's'),
+		controlspec = controlspec.new(0.001, 0.05, 'lin', 0, 0.001, 's'),
 		action = function(value)
 			crow.output[4].dyn.delay = value
 		end

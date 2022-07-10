@@ -138,7 +138,7 @@ function Keyboard:key(x, y, z)
 			self.octave = 0
 			if not self.arping then
 				self.on_pitch()
-				if self.n_held_keys > 0 and self.gate_mode == 2 then
+				if self.n_sustained_keys > 0 and self.gate_mode == 2 then
 					self.on_gate()
 				end
 			end
@@ -147,7 +147,7 @@ function Keyboard:key(x, y, z)
 			self.octave = util.clamp(self.octave + d, -5, 5)
 			if not self.arping then
 				self.on_pitch()
-				if self.n_held_keys > 0 and self.gate_mode == 2 then
+				if self.n_sustained_keys > 0 and self.gate_mode == 2 then
 					self.on_gate()
 				end
 			end
