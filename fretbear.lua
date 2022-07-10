@@ -117,6 +117,7 @@ function init()
 	-- TODO: why doesn't crow.add() work anymore?
 	crow_init()
 
+	-- TODO: allow range of < 1 semitone, Kevin Shields-style, and maybe other bend shapes too
 	params:add {
 		name = 'bend range',
 		id = 'bend_range',

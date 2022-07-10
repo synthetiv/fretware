@@ -374,6 +374,7 @@ function Keyboard:get_key_level(x, y, key_id, p)
 		local bent_diff = math.abs(key_id - self.active_key - bend_volts * 12)
 		-- TODO: get actual output volts from crow and use that when drawing, so that the
 		-- effects of slew + quantization are indicated correctly
+		-- the following doesn't work, though, because norns can't just grab output volts synchronously
 		-- local volt_diff = math.abs(key_id - self.active_key - (self.active_pitch - crow.output[1].volts * 12))
 		if bent_diff < 1 then
 			level = led_blend(level, (1 - bent_diff) * 7)
