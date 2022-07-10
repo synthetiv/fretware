@@ -136,7 +136,7 @@ function Keyboard:key(x, y, z)
 		if self.held_keys.up and self.held_keys.down then
 			-- if both keys are pressed together, reset octave
 			self.octave = 0
-			if not self.arping then
+			if not self.arping or self.n_sustained_keys == 0 then
 				self.on_pitch()
 				if self.n_sustained_keys > 0 and self.gate_mode == 2 then
 					self.on_gate()
@@ -145,7 +145,7 @@ function Keyboard:key(x, y, z)
 		elseif z == 1 then
 			-- otherwise, jump up or down
 			self.octave = util.clamp(self.octave + d, -5, 5)
-			if not self.arping then
+			if not self.arping or self.n_sustained_keys == 0 then
 				self.on_pitch()
 				if self.n_sustained_keys > 0 and self.gate_mode == 2 then
 					self.on_gate()
@@ -216,8 +216,8 @@ function Keyboard:note(x, y, z)
 		-- key pressed: set held_keys state and add to sustained_keys
 		self.held_keys[key_id] = true
 		self.n_sustained_keys = self.n_sustained_keys + 1
-		if not self.arping then
-			-- no arp: push new note to the stack
+		if not self.arping or self.n_sustained_keys == 1 then
+			-- no arp or first note held: push new note to the stack
 			self.arp_index = self.n_sustained_keys
 			table.insert(self.sustained_keys, key_id)
 			self:set_active_key(key_id)
