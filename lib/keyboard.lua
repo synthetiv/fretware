@@ -9,7 +9,7 @@ Keyboard.__index = Keyboard
 --       edit mask at 1,1
 --       quant presets from 1,2 to 2,6
 --       up/down at 1,7 and 2,7
---       shift at 1,8; sustain at 2,8
+--       shift at 1,8; latch at 2,8
 -- TODO: panic function, for when a note gets stuck due to momentary grid connection loss
 --       or whatever it is that causes that
 
@@ -105,19 +105,12 @@ function Keyboard:key(x, y, z)
 		elseif y == self.y2 then
 			-- shift key
 			self.held_keys.shift = z == 1
-			-- sustain+shift = hands-free latch
-			if z == 1 and self.held_keys.sustain then
+		elseif y == self.y2 - 2 then
+			-- latch key
+			if z == 1 then
 				self.held_keys.latch = not self.held_keys.latch
 				self:maybe_release_sustained_keys()
 			end
-		elseif y == self.y2 - 1 then
-			-- sustain key
-			self.held_keys.sustain = z == 1
-			-- shift+sustain = hands-free latch
-			if z == 1 then
-				self.held_keys.latch = self.held_keys.shift and not self.held_keys.latch
-			end
-			self:maybe_release_sustained_keys()
 		elseif y == self.y2 - 3 then
 			-- arp toggle
 			if z == 1 then
@@ -165,7 +158,7 @@ function Keyboard:key(x, y, z)
 end
 
 function Keyboard:maybe_release_sustained_keys()
-	if self.held_keys.sustain or self.held_keys.latch then
+	if self.held_keys.latch then
 		return
 	end
 	local held_keys = self.held_keys
@@ -238,7 +231,7 @@ function Keyboard:note(x, y, z)
 	else
 		-- key released: set held_keys_state and maybe release it
 		self.held_keys[key_id] = false
-		if not self.held_keys.sustain and not self.held_keys.latch then
+		if not self.held_keys.latch then
 			local i = 1
 			while i <= self.n_sustained_keys do
 				if self.sustained_keys[i] == key_id then
@@ -297,7 +290,7 @@ end
 function Keyboard:draw()
 	g:led(self.x, self.y, self.mask_edit and 7 or (self.quantizing and 5 or 2))
 	g:led(self.x, self.y2 - 3, self.arping and 7 or 2)
-	g:led(self.x, self.y2 - 1, self.held_keys.latch and 7 or (self.held_keys.sustain and 15 or 2))
+	g:led(self.x, self.y2 - 2, self.held_keys.latch and 7 or 2)
 	g:led(self.x, self.y2, self.held_keys.shift and 15 or 6)
 	for x = self.x + 1, self.x2 do
 		for y = self.y, self.y2 do
@@ -377,7 +370,7 @@ function Keyboard:get_key_level(x, y, key_id, p)
 	end
 	-- highlight active key, offset by bend as needed
 	if y == self.active_key_y then
-		-- TODO: adjust level based on sustain / gate / ...?
+		-- TODO: adjust level based on latch / gate state ...?
 		local bent_diff = math.abs(key_id - self.active_key - bend_volts * 12)
 		-- TODO: get actual output volts from crow and use that when drawing, so that the
 		-- effects of slew + quantization are indicated correctly
