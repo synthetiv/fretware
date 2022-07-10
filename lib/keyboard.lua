@@ -98,6 +98,7 @@ function Keyboard:key(x, y, z)
 					self:clear_mask_notes()
 					self.mask_edit = false
 				else
+					-- TODO: if turning on mask for the first time, create a mask from all held keys
 					self.mask_edit = not self.mask_edit
 				end
 			end
@@ -191,6 +192,11 @@ function Keyboard:maybe_release_sustained_keys()
 	self.n_sustained_keys = n_sustained_keys
 	self.arp_index = arp_index
 end
+
+-- TODO: try alternate methods of removing keys...
+-- toggle on/off by default (instead of needing to hold shift to remove; use shift to always add, maybe?)
+-- if you HOLD an already sustained key and then press another, MOVE that key instead of REmoving it
+--
 
 function Keyboard:note(x, y, z)
 	local key_id = self:get_key_id(x, y)

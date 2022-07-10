@@ -27,7 +27,6 @@ touche = midi.connect(1)
 amp_volts = 0
 damp_volts = 0
 pitch_volts = 0
--- TODO: reintroduce 'drone' pitch CV or just an alternate 'voice'
 bent_pitch_volts = 0
 bend = 0
 bend_volts = 0
@@ -44,8 +43,8 @@ end
 function send_pitch_volts()
 	bend_volts = bend * params:get('bend_range') / 12 + transpose_volts
 	bent_pitch_volts = pitch_volts + bend_volts
+	-- TODO: this added offset for the quantizer really shouldn't be necessary; what's going on here?
 	crow.output[1].volts = bent_pitch_volts + (k.quantizing and 1/24 or 0)
-	-- TODO: removing drone frees up an extra Crow output! do something with it
 end
 
 function touche.event(data)
