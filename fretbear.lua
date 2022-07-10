@@ -169,10 +169,9 @@ function init()
 		name = 'pitch slew',
 		id = 'pitch_slew',
 		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.005, 's'),
+		controlspec = controlspec.new(0, 0.1, 'lin', 0, 0.005, 's'),
 		action = function(value)
-			-- crow.output[1].slew = value
-			crow.output[1].slew = 0
+			crow.output[1].slew = value
 		end
 	}
 	
