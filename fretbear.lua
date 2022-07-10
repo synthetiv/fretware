@@ -7,16 +7,22 @@ k = Keyboard.new(1, 1, 16, 8)
 
 -- tt_chord = 0
 
+-- TODO: internal poly engine -- SinOscFB, VarSaw, SmoothFoldS
+-- with envelope(s) + mod matrix (sources: EG1, EG2, touche tip, touche heel)
+--
 -- IIRC, this is a curve that allows some overshoot in the bend, so you can bend up a full 2 st or
 -- octave or whatever and still apply some vibrato
 -- TODO: is it uneven or something, though? bend seems to rest at just above 0, rather than at 0
--- TODO: internal poly engine -- SinOscFB, VarSaw, SmoothFoldS
--- with envelope(s) + mod matrix (sources: EG1, EG2, touche tip, touche heel)
-bend_lut = {}
+bend_luts = {
+	linear = {},
+	smooth = {}
+}
 for i = 0, 127 do
+	bend_luts.linear[i] = i / 127
 	local x = i * 1.2 / 127
-	bend_lut[i] = x * x * x * (x * (x * 6 - 15) + 10)
+	bend_luts.smooth[i] = x * x * x * (x * (x * 6 - 15) + 10)
 end
+bend_lut = bend_luts.smooth
 
 redraw_metro = nil
 
@@ -27,6 +33,7 @@ touche = midi.connect(1)
 amp_volts = 0
 damp_volts = 0
 pitch_volts = 0
+bend_range = 0
 bent_pitch_volts = 0
 bend = 0
 bend_volts = 0
@@ -41,7 +48,7 @@ function g.key(x, y, z)
 end
 
 function send_pitch_volts()
-	bend_volts = bend * params:get('bend_range') / 12 + transpose_volts
+	bend_volts = bend * bend_range / 12 + transpose_volts
 	bent_pitch_volts = pitch_volts + bend_volts
 	-- TODO: this added offset for the quantizer really shouldn't be necessary; what's going on here?
 	crow.output[1].volts = bent_pitch_volts + (k.quantizing and 1/24 or 0)
@@ -117,15 +124,29 @@ function init()
 	-- TODO: why doesn't crow.add() work anymore?
 	crow_init()
 
-	-- TODO: allow range of < 1 semitone, Kevin Shields-style, and maybe other bend shapes too
 	params:add {
 		name = 'bend range',
 		id = 'bend_range',
 		type = 'number',
-		min = 1,
+		min = -4,
 		max = 24,
-		default = 2,
-		action = send_pitch_volts
+		default = -1,
+		formatter = function(param)
+			if bend_range < 1 then
+				return string.format('%.2f', bend_range)
+			end
+			return string.format('%d', bend_range)
+		end,
+		action = function(value)
+			if value < 1 then
+				value = math.pow(0.75, 1 - value)
+				bend_lut = bend_luts.linear
+			else
+				bend_lut = bend_luts.smooth
+			end
+			bend_range = value
+			send_pitch_volts()
+		end
 	}
 	
 	-- TODO: damp base + range are a way to avoid using an extra attenuator + offset,
