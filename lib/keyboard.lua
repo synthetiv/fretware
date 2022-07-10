@@ -35,9 +35,15 @@ function Keyboard.new(x, y, width, height)
 		active_key_x = 8,
 		active_key_y = 6,
 		active_pitch = 0,
+		gate_mode = 2,
 		mask = { false, false, false, false, false, false, false, false, false, false, false, false },
 		-- TODO: mask presets!
-		mask_notes = 'none' -- for use with Crow output modes
+		mask_notes = 'none', -- for use with Crow output modes
+		-- overridable callbacks
+		on_pitch = function() end,
+		on_gate = function() end,
+		on_mask = function() end,
+		on_arp = function() end
 	}
 	setmetatable(keyboard, Keyboard)
 	-- start at 0 / middle C
@@ -88,7 +94,12 @@ function Keyboard:key(x, y, z)
 		if y == self.y then
 			-- mask edit key
 			if z == 1 then
-				self.mask_edit = not self.mask_edit
+				if self.held_keys.shift then
+					self:clear_mask_notes()
+					self.mask_edit = false
+				else
+					self.mask_edit = not self.mask_edit
+				end
 			end
 		elseif y == self.y2 then
 			-- shift key
@@ -125,9 +136,21 @@ function Keyboard:key(x, y, z)
 		if self.held_keys.up and self.held_keys.down then
 			-- if both keys are pressed together, reset octave
 			self.octave = 0
+			if not self.arping then
+				self.on_pitch()
+				if self.n_held_keys > 0 and self.gate_mode == 2 then
+					self.on_gate()
+				end
+			end
 		elseif z == 1 then
 			-- otherwise, jump up or down
 			self.octave = util.clamp(self.octave + d, -5, 5)
+			if not self.arping then
+				self.on_pitch()
+				if self.n_held_keys > 0 and self.gate_mode == 2 then
+					self.on_gate()
+				end
+			end
 		end
 	elseif self.mask_edit then
 		if z == 1 then
@@ -171,65 +194,70 @@ end
 
 function Keyboard:note(x, y, z)
 	local key_id = self:get_key_id(x, y)
-	local held_keys = self.held_keys
-	local sustained_keys = self.sustained_keys
-	local n_sustained_keys = self.n_sustained_keys
-	local arp_index = self.arp_index
-	local active_key = self.active_key
 	if z == 1 then
 		-- key pressed: set held_keys state and add to sustained_keys
-		held_keys[key_id] = true
-		n_sustained_keys = n_sustained_keys + 1
+		self.held_keys[key_id] = true
+		self.n_sustained_keys = self.n_sustained_keys + 1
 		if not self.arping then
 			-- no arp: push new note to the stack
-			arp_index = n_sustained_keys
-			table.insert(sustained_keys, key_id)
+			self.arp_index = self.n_sustained_keys
+			table.insert(self.sustained_keys, key_id)
 			self:set_active_key(key_id)
+			-- set gate high if we're in retrig or pulse mode, or if this is the first node held
+			if self.gate_mode ~= 1 or self.n_sustained_keys == 1 then
+				self.on_gate(true)
+			end
 		else
 			-- arp: insert note to be played at next arp tick
-			table.insert(sustained_keys, arp_index + 1, key_id)
+			table.insert(self.sustained_keys, self.arp_index + 1, key_id)
 		end
 	else
 		-- key released: set held_keys_state and maybe release it
-		held_keys[key_id] = false
+		self.held_keys[key_id] = false
 		if not self.held_keys.sustain and not self.held_keys.latch then
 			local i = 1
-			while i <= n_sustained_keys do
-				if sustained_keys[i] == key_id then
-					table.remove(sustained_keys, i)
-					n_sustained_keys = n_sustained_keys - 1
-					if arp_index >= i then
-						arp_index = arp_index - 1
+			while i <= self.n_sustained_keys do
+				if self.sustained_keys[i] == key_id then
+					table.remove(self.sustained_keys, i)
+					self.n_sustained_keys = self.n_sustained_keys - 1
+					if self.arp_index >= i then
+						self.arp_index = self.arp_index - 1
 					end
 				else
 					i = i + 1
 				end
 			end
-			if n_sustained_keys > 0 then
-				arp_index = (arp_index - 1) % n_sustained_keys + 1
+			if self.n_sustained_keys > 0 then
+				self.arp_index = (self.arp_index - 1) % self.n_sustained_keys + 1
 				if not self.arping then
-					self:set_active_key(sustained_keys[arp_index])
+					self:set_active_key(self.sustained_keys[self.arp_index])
+					if self.gate_mode == 2 then
+						self.on_gate(true)
+					end
 				end
+			else
+				self.on_gate(false)
 			end
 		end
 	end
-	self.n_sustained_keys = n_sustained_keys
-	self.arp_index = arp_index
 end
 
-function Keyboard:arp()
+function Keyboard:arp(gate)
 	if self.arping and self.n_sustained_keys > 0 then
-		self.arp_index = self.arp_index % self.n_sustained_keys + 1
-		self:set_active_key(self.sustained_keys[self.arp_index])
-		return true
+		if gate then
+			self.arp_index = self.arp_index % self.n_sustained_keys + 1
+			self:set_active_key(self.sustained_keys[self.arp_index])
+			self.on_arp()
+		end
+		self.on_gate(gate)
 	end
-	return false
 end
 
 function Keyboard:set_active_key(key_id)
 	self.active_key = key_id
 	self.active_key_x, self.active_key_y = self:get_key_id_coords(key_id)
 	self.active_pitch = self:get_key_pitch(self.active_key_x, self.active_key_y)
+	self.on_pitch()
 end
 
 function Keyboard:is_key_sustained(key_id)
@@ -289,6 +317,7 @@ function Keyboard:update_mask_notes()
 	end
 	self.quantizing = quantizing
 	self.mask_notes = quantizing and notes or 'none'
+	self.on_mask()
 end
 
 function Keyboard:is_white_pitch(p)
@@ -324,6 +353,7 @@ function Keyboard:get_key_level(x, y, key_id, p)
 	end
 	-- highlight active key, offset by bend as needed
 	if y == self.active_key_y then
+		-- TODO: adjust level based on sustain / gate / ...?
 		local bent_diff = math.abs(key_id - self.active_key - bend_volts * 12)
 		-- TODO: get actual output volts from crow and use that when drawing, so that the
 		-- effects of slew + quantization are indicated correctly

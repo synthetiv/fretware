@@ -30,46 +30,18 @@ pitch_volts = 0
 bent_pitch_volts = 0
 bend = 0
 bend_volts = 0
-gate = false
+transpose_volts = 0
 
 function g.key(x, y, z)
-
 	k:key(x, y, z)
-
-	update_pitch_from_keyboard()
-	local old_gate = gate
-	gate = k.n_sustained_keys > 0
-	if old_gate ~= gate or params:get('env_retrig') == 2 then
-		crow.output[4](gate)
-		-- crow.ii.tt.script_i(1, gate and (k.active_pitch + 60) or 0)
-	end
-
-	if k.mask_edit then
-		crow.output[1].scale(k.mask_notes)
-		--[[
-		local bit_mask = 0
-		for p = 1, 12 do
-			if k.mask[p] then
-				bit_mask = bit_mask | (1 << (p - 1))
-			end
-		end
-		crow.ii.tt.script_i(2, bit_mask)
-		--]]
-	end
-
 	-- TODO: sync the whole note stack with TT
 	-- I think you'll need to trigger events from the keyboard class, and... urgh...
 	-- it's more information than you can easily send to TT
 	grid_redraw()
 end
 
-function update_pitch_from_keyboard()
-	pitch_volts = k.active_pitch / 12 + k.octave
-	send_pitch_volts()
-end
-
 function send_pitch_volts()
-	bend_volts = bend * params:get('bend_range') / 12
+	bend_volts = bend * params:get('bend_range') / 12 + transpose_volts
 	bent_pitch_volts = pitch_volts + bend_volts
 	crow.output[1].volts = bent_pitch_volts + (k.quantizing and 1/24 or 0)
 	-- TODO: removing drone frees up an extra Crow output! do something with it
@@ -107,25 +79,40 @@ function grid_redraw()
 end
 
 function crow_init()
+
 	print('crow add')
 	params:bang()
-	crow.input[1].change = function()
-		k:arp()
-		update_pitch_from_keyboard()
-		grid_redraw()
+
+	crow.input[1].change = function(gate)
+		k:arp(gate)
 	end
-	crow.input[1].mode('change', 0.5, 0.1, 'rising')
-	crow.output[4].action = [[
-		adsr(
-			dyn { a = 0.01 },
-			dyn { d = 0.1 },
-			dyn { s = 6 },
-			dyn { r = 0.3 }
-		)
-	]]
+	crow.input[1].mode('change', 1, 0.01, 'both')
+
+	crow.input[2].stream = function(v)
+		transpose_volts = v
+	end
+	crow.input[2].mode('stream', 0.01)
 end
 
 function init()
+
+	k.on_pitch = function()
+		pitch_volts = k.active_pitch / 12 + k.octave
+		send_pitch_volts()
+		grid_redraw()
+	end
+
+	k.on_mask = function()
+		crow.output[1].scale(k.mask_notes)
+	end
+
+	k.on_gate = function(gate)
+		if k.gate_mode ~= 3 then
+			crow.output[4](gate)
+		elseif gate then
+			crow.output[4]()
+		end
+	end
 
 	-- TODO: why doesn't crow.add() work anymore?
 	crow_init()
@@ -146,23 +133,24 @@ function init()
 		name = 'damp range',
 		id = 'damp_range',
 		type = 'control',
-		controlspec = controlspec.new(-10, 10, 'lin', 0, -5)
+		controlspec = controlspec.new(-10, 10, 'lin', 0, -5, 'v')
 	}
 	
 	params:add {
 		name = 'damp base',
 		id = 'damp_base',
 		type = 'control',
-		controlspec = controlspec.new(-10, 10, 'lin', 0, 0)
+		controlspec = controlspec.new(-10, 10, 'lin', 0, 0, 'v')
 	}
 	
 	params:add {
 		name = 'pitch slew',
 		id = 'pitch_slew',
 		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.01),
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.005, 's'),
 		action = function(value)
-			crow.output[1].slew = value
+			-- crow.output[1].slew = value
+			crow.output[1].slew = 0
 		end
 	}
 	
@@ -170,63 +158,68 @@ function init()
 		name = 'amp/damp slew',
 		id = 'amp_slew',
 		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.05),
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.05, 's'),
 		action = function(value)
 			crow.output[2].slew = value
 			crow.output[3].slew = value
 		end
 	}
 
-	-- TODO: dyn variables don't seem to affect Crow envelopes *as they change*, they only take
-	-- effect the next time the envelope fires. any way around that?
-	-- well, you can use a CV EG module like Stages, and send only a gate from Crow
-
 	params:add {
-		name = 'env attack',
-		id = 'env_attack',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 2, 'exp', 0, 0.01),
-		action = function(value)
-			crow.output[4].dyn.a = value
-		end
-	}
-
-	params:add {
-		name = 'env decay',
-		id = 'env_decay',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 2, 'exp', 0, 0.2),
-		action = function(value)
-			crow.output[4].dyn.d = value
-		end
-	}
-
-	params:add {
-		name = 'env sustain',
-		id = 'env_sustain',
-		type = 'control',
-		controlspec = controlspec.new(0, 10, 'lin', 0, 6),
-		action = function(value)
-			crow.output[4].dyn.s = value
-		end
-	}
-
-	params:add {
-		name = 'env release',
-		id = 'env_release',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 4, 'exp', 0, 0.25),
-		action = function(value)
-			crow.output[4].dyn.r = value
-		end
-	}
-
-	params:add {
-		name = 'env retrig',
-		id = 'env_retrig',
+		name = 'gate mode',
+		id = 'gate_mode',
 		type = 'option',
-		options = { 'off', 'on' },
-		default = 2
+		options = { 'legato', 'retrig', 'pulse' },
+		default = 3,
+		action = function(value)
+			k.gate_mode = value
+			if value == 1 then
+				crow.output[4].action = [[{
+					held { to(5, dyn { delay = 0 }, 'wait') },
+					to(0, 0)
+				}]]
+				crow.output[4].dyn.delay = params:get('gate_delay')
+				crow.output[4](false)
+			elseif value == 2 then
+				crow.output[4].action = [[{
+					to(0, dyn { delay = 0 }, 'now'),
+					held { to(5, 0) },
+					to(0, 0)
+				}]]
+				crow.output[4].dyn.delay = params:get('gate_delay')
+				crow.output[4](false)
+			elseif value == 3 then
+				crow.output[4].action = [[{
+					to(0, dyn { delay = 0 }, 'now'),
+					to(5, dyn { length = 0.01 }, 'now'),
+					to(0, 0)
+				}]]
+				crow.output[4].dyn.delay = params:get('gate_delay')
+				crow.output[4].dyn.length = params:get('pulse_length')
+			end
+		end
+	}
+
+	params:add {
+		name = 'gate delay',
+		id = 'gate_delay',
+		type = 'control',
+		controlspec = controlspec.new(0, 0.05, 'lin', 0, 0, 's'),
+		action = function(value)
+			crow.output[4].dyn.delay = value
+		end
+	}
+
+	params:add {
+		name = 'pulse length',
+		id = 'pulse_length',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.01, 's'),
+		action = function(value)
+			if params:get('gate_mode') == 3 then
+				crow.output[4].dyn.length = value
+			end
+		end
 	}
 
 	-- TODO: global transpose, for working with oscillators that aren't tuned to C
@@ -244,7 +237,7 @@ function init()
 	redraw_metro:start()
 	
 	-- start at 0 / middle C
-	update_pitch_from_keyboard()
+	k.on_pitch()
 
 	grid_redraw()
 end
