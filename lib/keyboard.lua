@@ -194,6 +194,24 @@ end
 
 function Keyboard:note(x, y, z)
 	local key_id = self:get_key_id(x, y)
+	-- shift+key: release key, if sustained
+	if self.held_keys.shift then
+		if z == 1 and self.n_sustained_keys > 0 then
+			for k = 1, self.n_sustained_keys do
+				local index = (self.arp_index + k - 2) % self.n_sustained_keys + 1
+				if self.sustained_keys[index] == key_id then
+					table.remove(self.sustained_keys, index)
+					if self.arp_index >= index then
+						self.arp_index = self.arp_index - 1
+					end
+					self.n_sustained_keys = self.n_sustained_keys - 1
+					return
+				end
+			end
+		end
+		return
+	end
+	-- no shift: play or release key normally
 	if z == 1 then
 		-- key pressed: set held_keys state and add to sustained_keys
 		self.held_keys[key_id] = true
