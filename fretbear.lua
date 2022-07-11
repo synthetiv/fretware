@@ -111,6 +111,7 @@ function init()
 
 	k.on_mask = function()
 		crow.output[1].scale(k.mask_notes)
+		-- TODO: send to TT as well, as a bit mask
 	end
 
 	k.on_gate = function(gate)
@@ -118,6 +119,9 @@ function init()
 			crow.output[4](gate)
 		elseif gate then
 			crow.output[4]()
+		end
+		if gate then
+			crow.ii.tt.script_v(1, pitch_volts + transpose_volts)
 		end
 	end
 
