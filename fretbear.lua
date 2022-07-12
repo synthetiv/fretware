@@ -97,6 +97,7 @@ function crow_init()
 
 	crow.input[2].stream = function(v)
 		transpose_volts = v
+		send_pitch_volts()
 	end
 	crow.input[2].mode('stream', 0.01)
 end
