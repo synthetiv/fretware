@@ -35,7 +35,10 @@ function Keyboard.new(x, y, width, height)
 		active_key_x = 8,
 		active_key_y = 6,
 		active_pitch = 0,
-		gate_mode = 2,
+		gate_mode = 4,
+		bend_range = 0.5,
+		bend_amount = 0,
+		bend_value = 0,
 		mask = { false, false, false, false, false, false, false, false, false, false, false, false },
 		-- TODO: mask presets!
 		mask_notes = 'none', -- for use with Crow output modes
@@ -280,6 +283,11 @@ function Keyboard:arp(gate)
 	end
 end
 
+function Keyboard:bend(amount)
+	self.bend_amount = amount
+	self.bend_value = self.bend_amount * self.bend_range
+end
+
 function Keyboard:set_active_key(key_id)
 	self.active_key = key_id
 	self.active_key_x, self.active_key_y = self:get_key_id_coords(key_id)
@@ -381,7 +389,7 @@ function Keyboard:get_key_level(x, y, key_id, p)
 	-- highlight active key, offset by bend as needed
 	if y == self.active_key_y then
 		-- TODO: adjust level based on latch / gate state ...?
-		local bent_diff = math.abs(key_id - self.active_key - bend_volts * 12)
+		local bent_diff = math.abs(key_id - self.active_key - self.bend_value - (transpose_volts * 12))
 		-- TODO: get actual output volts from crow and use that when drawing, so that the
 		-- effects of slew + quantization are indicated correctly
 		-- the following doesn't work, though, because norns can't just grab output volts synchronously

@@ -9,20 +9,6 @@ k = Keyboard.new(1, 1, 16, 8)
 
 -- TODO: internal poly engine -- SinOscFB, VarSaw, SmoothFoldS
 -- with envelope(s) + mod matrix (sources: EG1, EG2, touche tip, touche heel)
---
--- IIRC, this is a curve that allows some overshoot in the bend, so you can bend up a full 2 st or
--- octave or whatever and still apply some vibrato
--- TODO: is it uneven or something, though? bend seems to rest at just above 0, rather than at 0
-bend_luts = {
-	linear = {},
-	smooth = {}
-}
-for i = 0, 127 do
-	bend_luts.linear[i] = i / 127
-	local x = i * 1.2 / 127
-	bend_luts.smooth[i] = x * x * x * (x * (x * 6 - 15) + 10)
-end
-bend_lut = bend_luts.smooth
 
 redraw_metro = nil
 
@@ -33,10 +19,7 @@ touche = midi.connect(1)
 amp_volts = 0
 damp_volts = 0
 pitch_volts = 0
-bend_range = 0
 bent_pitch_volts = 0
-bend = 0
-bend_volts = 0
 transpose_volts = 0
 
 function g.key(x, y, z)
@@ -48,8 +31,7 @@ function g.key(x, y, z)
 end
 
 function send_pitch_volts()
-	bend_volts = bend * bend_range / 12 + transpose_volts
-	bent_pitch_volts = pitch_volts + bend_volts
+	bent_pitch_volts = pitch_volts + k.bend_value / 12 + transpose_volts
 	-- TODO: this added offset for the quantizer really shouldn't be necessary; what's going on here?
 	crow.output[1].volts = bent_pitch_volts + (k.quantizing and 1/24 or 0)
 end
@@ -67,10 +49,10 @@ function touche.event(data)
 			damp_volts = message.val * params:get('damp_range') / 126 + params:get('damp_base')
 			crow.output[3].volts = damp_volts
 		elseif message.cc == 18 then
-			bend = -bend_lut[message.val] -- TODO: not sure why 126 is the max value I'm getting from Touche...
+			k:bend(-message.val / 126) -- TODO: not sure why 126 is the max value I'm getting from Touche...
 			send_pitch_volts()
 		elseif message.cc == 19 then
-			bend = bend_lut[message.val]
+			k:bend(message.val / 126)
 			send_pitch_volts()
 		end
 	end
@@ -137,19 +119,17 @@ function init()
 		max = 24,
 		default = -1,
 		formatter = function(param)
-			if bend_range < 1 then
-				return string.format('%.2f', bend_range)
+			if k.bend_range < 1 then
+				return string.format('%.2f', k.bend_range)
 			end
-			return string.format('%d', bend_range)
+			return string.format('%d', k.bend_range)
 		end,
 		action = function(value)
 			if value < 1 then
 				value = math.pow(0.75, 1 - value)
-				bend_lut = bend_luts.linear
-			else
-				bend_lut = bend_luts.smooth
 			end
-			bend_range = value
+			k.bend_range = value
+			k:bend(k.bend_amount)
 			send_pitch_volts()
 		end
 	}
@@ -195,11 +175,11 @@ function init()
 		name = 'gate mode',
 		id = 'gate_mode',
 		type = 'option',
-		options = { 'legato', 'retrig', 'pulse' },
-		default = 2,
+		options = { 'legato', 'retrig', 'pulse', 'glide' },
+		default = 4,
 		action = function(value)
 			k.gate_mode = value
-			if value == 1 then
+			if value == 1 or value == 4 then
 				crow.output[4].action = [[{
 					held { to(5, dyn { delay = 0 }, 'wait') },
 					to(0, 0)
