@@ -116,9 +116,9 @@ function init()
 		name = 'bend range',
 		id = 'bend_range',
 		type = 'number',
-		min = -4,
+		min = -7,
 		max = 24,
-		default = -1,
+		default = -3,
 		formatter = function(param)
 			if k.bend_range < 1 then
 				return string.format('%.2f', k.bend_range)
