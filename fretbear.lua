@@ -130,6 +130,7 @@ function init()
 				value = math.pow(0.75, 1 - value)
 			end
 			k.bend_range = value
+			k:set_bend_targets()
 			k:bend(k.bend_amount)
 			send_pitch_volts()
 		end
@@ -177,7 +178,7 @@ function init()
 		id = 'gate_mode',
 		type = 'option',
 		options = { 'legato', 'retrig', 'pulse', 'glide' },
-		default = 4,
+		default = 2,
 		action = function(value)
 			k.gate_mode = value
 			if value == 1 or value == 4 then

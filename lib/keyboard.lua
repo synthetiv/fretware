@@ -219,28 +219,34 @@ function Keyboard:relax_bend()
 	-- thus reducing any offset that may have been caused by changes in min/max points
 	self.bend_max = self.bend_max + (self.bend_max_target - self.bend_max) * self.bend_relax_coefficient
 	self.bend_min = self.bend_min + (self.bend_min_target - self.bend_min) * self.bend_relax_coefficient
+	-- how quickly bend_value should adjust depends on whether there are keys held
 	local linear_bend = self.bend_min + (self.bend_amount + 1) * (self.bend_max - self.bend_min) / 2
-	self.bend_value = self.bend_value + (linear_bend - self.bend_value) * self.bend_relax_coefficient
+	local coefficient = self.bend_relax_coefficient * (self.n_sustained_keys > 0 and self.bend_relax_coefficient or 2)
+	self.bend_value = self.bend_value + (linear_bend - self.bend_value) * coefficient
 end
 
 function Keyboard:set_bend_targets()
-	-- set bend min/max for glide mode
-	local range = (self.n_sustained_keys > 1) and 0 or self.bend_range
-	local min = -range
-	local max = range
-	for k = 1, self.n_sustained_keys do
-		local interval = self:get_key_id_pitch(self.sustained_keys[k]) - self.active_pitch
-		min = math.min(min, interval)
-		max = math.max(max, interval)
+	if self.gate_mode ~= 4 then
+		self.bend_min_target = -self.bend_range
+		self.bend_min = self.bend_min_target
+		self.bend_max_target = self.bend_range
+		self.bend_max = self.bend_max_target
+	else
+		local range = (self.n_sustained_keys > 1) and 0 or self.bend_range
+		local min = -range
+		local max = range
+		for k = 1, self.n_sustained_keys do
+			local interval = self:get_key_id_pitch(self.sustained_keys[k]) - self.active_pitch
+			min = math.min(min, interval)
+			max = math.max(max, interval)
+		end
+		-- we want to avoid placing bend_value outside the range, so we set target values directly,
+		-- but actual mins/maxes may differ based on current bend value
+		self.bend_min_target = min
+		self.bend_min = math.min(min, self.bend_value - self.bend_range)
+		self.bend_max_target = max
+		self.bend_max = math.max(max, self.bend_value + self.bend_range)
 	end
-	-- we want to avoid placing bend_value outside the range, so we set target values directly,
-	-- but actual mins/maxes may differ based on current bend value
-	self.bend_min_target = min
-	self.bend_min = math.min(min, self.bend_value - self.bend_range)
-	self.bend_max_target = max
-	self.bend_max = math.max(max, self.bend_value + self.bend_range)
-	-- print('bend targets: ' .. self.bend_min_target .. ', ' .. self.bend_max_target)
-	-- print('bend range: ' .. self.bend_min .. ', ' .. self.bend_max)
 end
 
 function Keyboard:note(x, y, z)
@@ -346,7 +352,7 @@ function Keyboard:set_active_key(key_id, preserve_bend)
 	self.active_key = key_id
 	self.active_key_x, self.active_key_y = self:get_key_id_coords(key_id)
 	self.active_pitch = self:get_key_pitch(self.active_key_x, self.active_key_y)
-	if not preserve_bend then
+	if self.gate_mode == 4 and not preserve_bend then
 		self.bend_value = self.bend_value - (self.active_pitch - old_pitch)
 	end
 	self:set_bend_targets()
