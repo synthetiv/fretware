@@ -11,6 +11,7 @@ k = Keyboard.new(1, 1, 16, 8)
 -- with envelope(s) + mod matrix (sources: EG1, EG2, touche tip, touche heel)
 
 redraw_metro = nil
+relax_metro = nil
 
 g = grid.connect()
 
@@ -233,6 +234,15 @@ function init()
 	
 	params:bang()
 	
+	relax_metro = metro.init {
+		time = 1 / 40,
+		event = function()
+			k:relax_bend()
+			send_pitch_volts() -- TODO: there's some steppiness here; more slew?
+		end
+	}
+	relax_metro:start()
+	
 	redraw_metro = metro.init {
 		time = 1 / 12,
 		event = function()
@@ -270,5 +280,8 @@ end
 function cleanup()
 	if redraw_metro ~= nil then
 		redraw_metro:stop()
+	end
+	if relax_metro ~= nil then
+		relax_metro:stop()
 	end
 end

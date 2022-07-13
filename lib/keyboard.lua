@@ -43,7 +43,7 @@ function Keyboard.new(x, y, width, height)
 		bend_max_target = 0,
 		bend_amount = 0,
 		bend_value = 0,
-		bent_pitch = 0,
+		bend_relax_coefficient = 0.1,
 		mask = { false, false, false, false, false, false, false, false, false, false, false, false },
 		-- TODO: mask presets!
 		mask_notes = 'none', -- for use with Crow output modes
@@ -214,6 +214,15 @@ function Keyboard:find_sustained_key(key_id)
 	return false
 end
 
+function Keyboard:relax_bend()
+	-- nudge min/max toward targets, and bend_value toward a linear point between min and max,
+	-- thus reducing any offset that may have been caused by changes in min/max points
+	self.bend_max = self.bend_max + (self.bend_max_target - self.bend_max) * self.bend_relax_coefficient
+	self.bend_min = self.bend_min + (self.bend_min_target - self.bend_min) * self.bend_relax_coefficient
+	local linear_bend = self.bend_min + (self.bend_amount + 1) * (self.bend_max - self.bend_min) / 2
+	self.bend_value = self.bend_value + (linear_bend - self.bend_value) * self.bend_relax_coefficient
+end
+
 function Keyboard:set_bend_targets()
 	-- set bend min/max for glide mode
 	local range = (self.n_sustained_keys > 1) and 0 or self.bend_range
@@ -330,7 +339,6 @@ function Keyboard:bend(amount)
 		end
 	end
 	self.bend_amount = amount
-	self.bent_pitch = self.active_pitch + self.bend_value
 end
 
 function Keyboard:set_active_key(key_id, preserve_bend)
