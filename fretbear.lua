@@ -49,10 +49,10 @@ function touche.event(data)
 			damp_volts = message.val * params:get('damp_range') / 126 + params:get('damp_base')
 			crow.output[3].volts = damp_volts
 		elseif message.cc == 18 then
-			k:bend(-message.val / 126) -- TODO: not sure why 126 is the max value I'm getting from Touche...
+			k:bend(-math.min(1, message.val / 126)) -- TODO: not sure why 126 is the max value I'm getting from Touche...
 			send_pitch_volts()
 		elseif message.cc == 19 then
-			k:bend(message.val / 126)
+			k:bend(math.min(1, message.val / 126))
 			send_pitch_volts()
 		end
 	end

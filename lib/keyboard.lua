@@ -37,8 +37,13 @@ function Keyboard.new(x, y, width, height)
 		active_pitch = 0,
 		gate_mode = 4,
 		bend_range = 0.5,
+		bend_min = 0,
+		bend_max = 0,
+		bend_min_target = 0,
+		bend_max_target = 0,
 		bend_amount = 0,
 		bend_value = 0,
+		bent_pitch = 0,
 		mask = { false, false, false, false, false, false, false, false, false, false, false, false },
 		-- TODO: mask presets!
 		mask_notes = 'none', -- for use with Crow output modes
@@ -144,7 +149,7 @@ function Keyboard:key(x, y, z)
 			if not self.arping or self.n_sustained_keys == 0 then
 				self.on_pitch()
 				if self.n_sustained_keys > 0 and self.gate_mode == 2 then
-					self.on_gate()
+					self.on_gate() -- TODO: true/false??
 				end
 			end
 		elseif z == 1 then
@@ -153,7 +158,7 @@ function Keyboard:key(x, y, z)
 			if not self.arping or self.n_sustained_keys == 0 then
 				self.on_pitch()
 				if self.n_sustained_keys > 0 and self.gate_mode == 2 then
-					self.on_gate()
+					self.on_gate() -- TODO: true/false??
 				end
 			end
 		end
@@ -191,6 +196,7 @@ function Keyboard:maybe_release_sustained_keys()
 	if n_sustained_keys > 0 then
 		arp_index = (arp_index - 1) % n_sustained_keys + 1
 		-- TODO: should this be handled differently depending on arp state?
+		-- TODO: or gate mode == 4 ?
 		self:set_active_key(sustained_keys[arp_index])
 	end
 	self.n_sustained_keys = n_sustained_keys
@@ -208,6 +214,26 @@ function Keyboard:find_sustained_key(key_id)
 	return false
 end
 
+function Keyboard:set_bend_targets()
+	-- set bend min/max for glide mode
+	local range = (self.n_sustained_keys > 1) and 0 or self.bend_range
+	local min = -range
+	local max = range
+	for k = 1, self.n_sustained_keys do
+		local interval = self:get_key_id_pitch(self.sustained_keys[k]) - self.active_pitch
+		min = math.min(min, interval)
+		max = math.max(max, interval)
+	end
+	-- we want to avoid placing bend_value outside the range, so we set target values directly,
+	-- but actual mins/maxes may differ based on current bend value
+	self.bend_min_target = min
+	self.bend_min = math.min(min, self.bend_value - self.bend_range)
+	self.bend_max_target = max
+	self.bend_max = math.max(max, self.bend_value + self.bend_range)
+	-- print('bend targets: ' .. self.bend_min_target .. ', ' .. self.bend_max_target)
+	-- print('bend range: ' .. self.bend_min .. ', ' .. self.bend_max)
+end
+
 function Keyboard:note(x, y, z)
 	local key_id = self:get_key_id(x, y)
 	-- TODO: if you HOLD an already sustained key and then press another,
@@ -223,16 +249,17 @@ function Keyboard:note(x, y, z)
 					self.arp_index = self.arp_index - 1
 				end
 				self.n_sustained_keys = self.n_sustained_keys - 1
+				self:set_bend_targets()
 				return
 			end
 		end
-		if not self.arping or self.n_sustained_keys == 0 then
-			-- no arp or first note held: push new note to the stack
+		if self.gate_mode == 4 or not self.arping or self.n_sustained_keys == 0 then
+			-- glide mode, no arp, or first note held: push new note to the stack
 			self.n_sustained_keys = self.n_sustained_keys + 1
 			self.arp_index = self.n_sustained_keys
 			table.insert(self.sustained_keys, key_id)
-			self:set_active_key(key_id)
-			-- set gate high if we're in retrig or pulse mode, or if this is the first node held
+			self:set_active_key(key_id, self.n_sustained_keys == 1)
+			-- set gate high if we're in retrig or pulse mode, or if this is the first note held
 			if self.gate_mode ~= 1 or self.n_sustained_keys == 1 then
 				self.on_gate(true)
 			end
@@ -273,7 +300,7 @@ function Keyboard:note(x, y, z)
 end
 
 function Keyboard:arp(gate)
-	if self.arping and self.n_sustained_keys > 0 then
+	if self.gate_mode ~= 4 and self.arping and self.n_sustained_keys > 0 then
 		if gate then
 			self.arp_index = self.arp_index % self.n_sustained_keys + 1
 			self:set_active_key(self.sustained_keys[self.arp_index])
@@ -284,14 +311,37 @@ function Keyboard:arp(gate)
 end
 
 function Keyboard:bend(amount)
+	local delta = amount - self.bend_amount
+	if delta > 0 then
+		-- interpolate linearly between (bend, bend_value) and (1, bend_max)
+		self.bend_value = self.bend_value + (self.bend_max - self.bend_value) * delta / (1 - self.bend_amount)
+		-- move min point toward center, if we can / need to
+		-- NB, this assumes bend_min <= -bend_range,
+		-- which is safe as long as bend_range <= smallest interval on keyboard
+		if self.bend_min < self.bend_min_target then
+			self.bend_min = util.clamp(self.bend_min, self.bend_value - self.bend_range, self.bend_min_target)
+		end
+	else
+		-- interpolate linearly between (bend, bend_value) and (-1, bend_min)
+		self.bend_value = self.bend_value + (self.bend_min - self.bend_value) * delta / (-1 - self.bend_amount)
+		-- move max point toward center, if we can / need to
+		if self.bend_max > self.bend_max_target then
+			self.bend_max = util.clamp(self.bend_max, self.bend_max_target, self.bend_value + self.bend_range)
+		end
+	end
 	self.bend_amount = amount
-	self.bend_value = self.bend_amount * self.bend_range
+	self.bent_pitch = self.active_pitch + self.bend_value
 end
 
-function Keyboard:set_active_key(key_id)
+function Keyboard:set_active_key(key_id, preserve_bend)
+	local old_pitch = self.active_pitch
 	self.active_key = key_id
 	self.active_key_x, self.active_key_y = self:get_key_id_coords(key_id)
 	self.active_pitch = self:get_key_pitch(self.active_key_x, self.active_key_y)
+	if not preserve_bend then
+		self.bend_value = self.bend_value - (self.active_pitch - old_pitch)
+	end
+	self:set_bend_targets()
 	self.on_pitch()
 end
 
