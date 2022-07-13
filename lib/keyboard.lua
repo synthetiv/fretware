@@ -26,6 +26,7 @@ function Keyboard.new(x, y, width, height)
 		mask_edit = false,
 		quantizing = false,
 		arping = false,
+		gliding = false,
 		held_keys = {}, -- map of key names/ids to boolean states
 		sustained_keys = {}, -- stack of sustained key IDs
 		n_sustained_keys = 0,
@@ -35,7 +36,7 @@ function Keyboard.new(x, y, width, height)
 		active_key_x = 8,
 		active_key_y = 6,
 		active_pitch = 0,
-		gate_mode = 4,
+		gate_mode = 2,
 		bend_range = 0.5,
 		bend_min = 0,
 		bend_max = 0,
@@ -132,6 +133,20 @@ function Keyboard:key(x, y, z)
 			-- arp toggle
 			if z == 1 then
 				self.arping = not self.arping
+				if self.arping then
+					self.gliding = false
+					self.bend_value = 0 -- TODO: this is useful when switching from glide mode, but is this ALWAYS a good idea?
+					self:set_bend_targets()
+				end
+			end
+		elseif y == self.y + 2 then
+			-- glide toggle
+			if z == 1 then
+				self.gliding = not self.gliding
+				self:set_bend_targets()
+				if self.gliding then
+					self.arping = false
+				end
 			end
 		end
 	elseif y == self.y2 and x > self.x2 - 2 then
@@ -180,28 +195,27 @@ function Keyboard:maybe_release_sustained_keys()
 	end
 	local held_keys = self.held_keys
 	local sustained_keys = self.sustained_keys
-	local n_sustained_keys = self.n_sustained_keys
-	local arp_index = self.arp_index
 	local i = 1
-	while i <= n_sustained_keys do
+	while i <= self.n_sustained_keys do
 		if held_keys[sustained_keys[i]] then
 			i = i + 1
 		else
 			table.remove(sustained_keys, i)
-			n_sustained_keys = n_sustained_keys - 1
-			if arp_index >= i then
-				arp_index = arp_index - 1
+			self.n_sustained_keys = self.n_sustained_keys - 1
+			if self.arp_index >= i then
+				self.arp_index = self.arp_index - 1
 			end
 		end
 	end
-	if n_sustained_keys > 0 then
-		arp_index = (arp_index - 1) % n_sustained_keys + 1
+	if self.n_sustained_keys > 0 then
+		self.arp_index = (self.arp_index - 1) % self.n_sustained_keys + 1
 		-- TODO: should this be handled differently depending on arp state?
 		-- TODO: or gate mode == 4 ?
-		self:set_active_key(sustained_keys[arp_index])
+		self:set_active_key(sustained_keys[self.arp_index])
+	else
+		-- even if no keys are held, bend targets may need to be reset
+		self:set_bend_targets()
 	end
-	self.n_sustained_keys = n_sustained_keys
-	self.arp_index = arp_index
 end
 
 
@@ -227,7 +241,7 @@ function Keyboard:relax_bend()
 end
 
 function Keyboard:set_bend_targets()
-	if self.gate_mode ~= 4 then
+	if not self.gliding then
 		self.bend_min_target = -self.bend_range
 		self.bend_min = self.bend_min_target
 		self.bend_max_target = self.bend_range
@@ -269,7 +283,7 @@ function Keyboard:note(x, y, z)
 				return
 			end
 		end
-		if self.gate_mode == 4 or not self.arping or self.n_sustained_keys == 0 then
+		if self.gliding or not self.arping or self.n_sustained_keys == 0 then
 			-- glide mode, no arp, or first note held: push new note to the stack
 			self.n_sustained_keys = self.n_sustained_keys + 1
 			self.arp_index = self.n_sustained_keys
@@ -316,7 +330,7 @@ function Keyboard:note(x, y, z)
 end
 
 function Keyboard:arp(gate)
-	if self.gate_mode ~= 4 and self.arping and self.n_sustained_keys > 0 then
+	if self.arping and self.n_sustained_keys > 0 then
 		if gate then
 			self.arp_index = self.arp_index % self.n_sustained_keys + 1
 			self:set_active_key(self.sustained_keys[self.arp_index])
@@ -353,7 +367,7 @@ function Keyboard:set_active_key(key_id, preserve_bend)
 	self.active_key = key_id
 	self.active_key_x, self.active_key_y = self:get_key_id_coords(key_id)
 	self.active_pitch = self:get_key_pitch(self.active_key_x, self.active_key_y)
-	if self.gate_mode == 4 and not preserve_bend then
+	if self.gliding and not preserve_bend then
 		self.bend_value = self.bend_value - (self.active_pitch - old_pitch)
 	end
 	self:set_bend_targets()
@@ -372,6 +386,7 @@ end
 
 function Keyboard:draw()
 	g:led(self.x, self.y, self.mask_edit and 7 or (self.quantizing and 5 or 2))
+	g:led(self.x, self.y + 2, self.gliding and 7 or 2)
 	g:led(self.x, self.y2 - 3, self.arping and 7 or 2)
 	g:led(self.x, self.y2 - 2, self.held_keys.latch and 7 or 2)
 	g:led(self.x, self.y2, self.held_keys.shift and 15 or 6)

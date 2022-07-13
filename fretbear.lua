@@ -177,11 +177,11 @@ function init()
 		name = 'gate mode',
 		id = 'gate_mode',
 		type = 'option',
-		options = { 'legato', 'retrig', 'pulse', 'glide' },
+		options = { 'legato', 'retrig', 'pulse' },
 		default = 2,
 		action = function(value)
 			k.gate_mode = value
-			if value == 1 or value == 4 then
+			if value == 1 then
 				crow.output[4].action = [[{
 					held { to(5, dyn { delay = 0 }, 'wait') },
 					to(0, 0)
