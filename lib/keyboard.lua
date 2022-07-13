@@ -47,6 +47,7 @@ function Keyboard.new(x, y, width, height)
 		mask = { false, false, false, false, false, false, false, false, false, false, false, false },
 		-- TODO: mask presets!
 		mask_notes = 'none', -- for use with Crow output modes
+		mask_edit = false,
 		-- overridable callbacks
 		on_pitch = function() end,
 		on_gate = function() end,
