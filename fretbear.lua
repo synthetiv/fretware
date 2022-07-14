@@ -183,7 +183,7 @@ function init()
 			k.gate_mode = value
 			if value == 1 then
 				crow.output[4].action = [[{
-					held { to(5, dyn { delay = 0 }, 'wait') },
+					held { to(8, dyn { delay = 0 }, 'wait') },
 					to(0, 0)
 				}]]
 				crow.output[4].dyn.delay = params:get('gate_delay')
@@ -191,7 +191,7 @@ function init()
 			elseif value == 2 then
 				crow.output[4].action = [[{
 					to(0, dyn { delay = 0 }, 'now'),
-					held { to(5, 0) },
+					held { to(8, 0) },
 					to(0, 0)
 				}]]
 				crow.output[4].dyn.delay = params:get('gate_delay')
@@ -199,7 +199,7 @@ function init()
 			elseif value == 3 then
 				crow.output[4].action = [[{
 					to(0, dyn { delay = 0 }, 'now'),
-					to(5, dyn { length = 0.01 }, 'now'),
+					to(8, dyn { length = 0.01 }, 'now'),
 					to(0, 0)
 				}]]
 				crow.output[4].dyn.delay = params:get('gate_delay')
