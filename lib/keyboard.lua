@@ -81,24 +81,6 @@ function Keyboard:get_key_id_pitch(id)
 	return self:get_key_pitch(x, y)
 end
 
-function Keyboard:quantize(pitch)
-	local octave = math.floor(pitch / 12)
-	pitch = pitch % 12
-	local found_pitch = pitch
-	local best_distance = math.huge
-	-- check all enabled notes, including C + 1 oct if that's enabled
-	for p = 0, 12 do
-		if self.mask[p % 12 + 1] then
-			local distance = math.abs(pitch - p)
-			if distance < best_distance then
-				found_pitch = p
-				best_distance = distance
-			end
-		end
-	end
-	return found_pitch + octave * 12
-end
-
 function Keyboard:key(x, y, z)
 	if x == self.x then
 		if y == self.y then
