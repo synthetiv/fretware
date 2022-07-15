@@ -299,8 +299,9 @@ function Keyboard:note(x, y, z)
 			if self.n_sustained_keys > 0 then
 				self.arp_index = (self.arp_index - 1) % self.n_sustained_keys + 1
 				if not self.arping then
+					local released_active_key = key_id == self.active_key
 					self:set_active_key(self.sustained_keys[self.arp_index])
-					if self.gate_mode == 2 then
+					if released_active_key and self.gate_mode == 2 then
 						self.on_gate(true)
 					end
 				end
