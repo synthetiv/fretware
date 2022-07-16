@@ -31,6 +31,7 @@ function Keyboard.new(x, y, width, height)
 		sustained_keys = {}, -- stack of sustained key IDs
 		n_sustained_keys = 0,
 		arp_index = 0,
+		arp_insert = 0,
 		octave = 0,
 		active_key = 0,
 		active_key_x = 8,
@@ -204,10 +205,14 @@ function Keyboard:maybe_release_sustained_keys()
 			if self.arp_index >= i then
 				self.arp_index = self.arp_index - 1
 			end
+			if self.arp_insert >= i then
+				self.arp_insert = self.arp_insert - 1
+			end
 		end
 	end
 	if self.n_sustained_keys > 0 then
 		self.arp_index = (self.arp_index - 1) % self.n_sustained_keys + 1
+		self.arp_insert = (self.arp_insert - 1) % self.n_sustained_keys + 1
 		-- TODO: should this be handled differently depending on arp state?
 		-- TODO: or gate mode == 4 ?
 		self:set_active_key(sustained_keys[self.arp_index])
@@ -277,6 +282,9 @@ function Keyboard:note(x, y, z)
 				if self.arp_index >= index then
 					self.arp_index = self.arp_index - 1
 				end
+				if self.arp_insert >= index then
+					self.arp_insert = self.arp_insert - 1
+				end
 				self.n_sustained_keys = self.n_sustained_keys - 1
 				self:set_bend_targets()
 				return
@@ -286,6 +294,7 @@ function Keyboard:note(x, y, z)
 			-- glide mode, no arp, or first note held: push new note to the stack
 			self.n_sustained_keys = self.n_sustained_keys + 1
 			self.arp_index = self.n_sustained_keys
+			self.arp_insert = self.n_sustained_keys
 			table.insert(self.sustained_keys, key_id)
 			self:set_active_key(key_id, self.n_sustained_keys == 1)
 			-- set gate high if we're in retrig or pulse mode, or if this is the first note held
@@ -294,7 +303,8 @@ function Keyboard:note(x, y, z)
 			end
 		else
 			-- arp: insert note to be played at next arp tick
-			table.insert(self.sustained_keys, self.arp_index + 1, key_id)
+			self.arp_insert = self.arp_insert + 1
+			table.insert(self.sustained_keys, self.arp_insert, key_id)
 			self.n_sustained_keys = self.n_sustained_keys + 1
 		end
 	else
@@ -309,12 +319,16 @@ function Keyboard:note(x, y, z)
 					if self.arp_index >= i then
 						self.arp_index = self.arp_index - 1
 					end
+					if self.arp_insert >= i then
+						self.arp_insert = self.arp_insert - 1
+					end
 				else
 					i = i + 1
 				end
 			end
 			if self.n_sustained_keys > 0 then
 				self.arp_index = (self.arp_index - 1) % self.n_sustained_keys + 1
+				self.arp_insert = (self.arp_insert - 1) % self.n_sustained_keys + 1
 				if not self.arping then
 					local released_active_key = key_id == self.active_key
 					self:set_active_key(self.sustained_keys[self.arp_index])
@@ -333,6 +347,7 @@ function Keyboard:arp(gate)
 	if self.arping and self.n_sustained_keys > 0 then
 		if gate then
 			self.arp_index = self.arp_index % self.n_sustained_keys + 1
+			self.arp_insert = self.arp_index
 			self:set_active_key(self.sustained_keys[self.arp_index])
 			self.on_arp()
 		end
