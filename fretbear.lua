@@ -32,7 +32,7 @@ function g.key(x, y, z)
 end
 
 function send_pitch_volts()
-	bent_pitch_volts = pitch_volts + k.bend_value / 12 + transpose_volts
+	bent_pitch_volts = pitch_volts + k.bend_value + transpose_volts
 	-- TODO: this added offset for the quantizer really shouldn't be necessary; what's going on here?
 	crow.output[1].volts = bent_pitch_volts + (k.quantizing and 1/24 or 0)
 end
@@ -88,13 +88,17 @@ end
 function init()
 
 	k.on_pitch = function()
-		pitch_volts = k.active_pitch / 12 + k.octave
+		pitch_volts = k.active_pitch + k.octave
 		send_pitch_volts()
 		grid_redraw()
 	end
 
 	k.on_mask = function()
-		crow.output[1].scale(k.mask_notes)
+		if k.mask_notes == 'none' then
+			crow.output[1].scale(k.mask_notes)
+		else
+			crow.output[1].scale(k.mask_notes, 'ji')
+		end
 		-- TODO: send to TT as well, as a bit mask
 	end
 
@@ -129,7 +133,7 @@ function init()
 			if value < 1 then
 				value = math.pow(0.75, 1 - value)
 			end
-			k.bend_range = value
+			k.bend_range = value / 12
 			k:set_bend_targets()
 			k:bend(k.bend_amount)
 			send_pitch_volts()
@@ -156,7 +160,7 @@ function init()
 		name = 'pitch slew',
 		id = 'pitch_slew',
 		type = 'control',
-		controlspec = controlspec.new(0, 0.1, 'lin', 0, 0.005, 's'),
+		controlspec = controlspec.new(0, 0.1, 'lin', 0, 0, 's'),
 		action = function(value)
 			crow.output[1].slew = value
 		end

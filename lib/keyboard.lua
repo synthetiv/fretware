@@ -35,6 +35,7 @@ function Keyboard.new(x, y, width, height)
 		active_key = 0,
 		active_key_x = 8,
 		active_key_y = 6,
+		active_pitch_id = 0,
 		active_pitch = 0,
 		gate_mode = 2,
 		bend_range = 0.5,
@@ -45,6 +46,7 @@ function Keyboard.new(x, y, width, height)
 		bend_amount = 0,
 		bend_value = 0,
 		bend_relax_coefficient = 0.1,
+		ratios = { 567/512, 9/8, 147/128, 21/16, 1323/1024, 189/128, 3/2, 49/32, 7/4, 441/256, 63/32, 2 },
 		mask = { false, false, false, false, false, false, false, false, false, false, false, false },
 		-- TODO: mask presets!
 		mask_notes = 'none', -- for use with Crow output modes
@@ -56,6 +58,10 @@ function Keyboard.new(x, y, width, height)
 		on_arp = function() end
 	}
 	setmetatable(keyboard, Keyboard)
+	keyboard.pitch_values = {}
+	for r = 1, #keyboard.ratios do
+		keyboard.pitch_values[r] = math.log(keyboard.ratios[r]) / math.log(2)
+	end
 	-- start at 0 / middle C
 	keyboard:key(keyboard.x_center, keyboard.y_center, 1)
 	keyboard:key(keyboard.x_center, keyboard.y_center, 0)
@@ -72,13 +78,24 @@ function Keyboard:get_key_id_coords(id)
 	return self.x + x, self.y2 - y
 end
 
-function Keyboard:get_key_pitch(x, y)
+function Keyboard:get_key_pitch_id(x, y)
 	return (x - self.x_center) + (self.y_center - y) * 5
 end
 
-function Keyboard:get_key_id_pitch(id)
+function Keyboard:get_key_id_pitch_id(id)
 	local x, y = self:get_key_id_coords(id)
-	return self:get_key_pitch(x, y)
+	return self:get_key_pitch_id(x, y)
+end
+
+function Keyboard:get_key_id_pitch_value(id)
+	return self:get_pitch_id_value(self:get_key_id_pitch_id(id))
+end
+
+function Keyboard:get_pitch_id_value(p)
+	-- TODO: root note shouldn't have to be 0
+	local pitch_class = p % 12 -- TODO: zero vs 12
+	local octave = math.floor(p / 12)
+	return (self.pitch_values[pitch_class] or 0) + octave
 end
 
 function Keyboard:key(x, y, z)
@@ -95,7 +112,7 @@ function Keyboard:key(x, y, z)
 					if self.mask_edit and not self.quantizing and self.n_sustained_keys > 0 then
 						for k = 1, self.n_sustained_keys do
 							local key_id = self.sustained_keys[k]
-							local pitch_class = self:get_key_id_pitch(key_id) % 12 + 1
+							local pitch_class = self:get_key_id_pitch_id(key_id) % 12 + 1
 							self.mask[pitch_class] = true
 						end
 						self:update_mask_notes()
@@ -162,7 +179,7 @@ function Keyboard:key(x, y, z)
 		end
 	elseif self.mask_edit then
 		if z == 1 then
-			pitch_class = self:get_key_pitch(x, y) % 12 + 1
+			pitch_class = self:get_key_pitch_id(x, y) % 12 + 1
 			self.mask[pitch_class] = not self.mask[pitch_class]
 			self:update_mask_notes()
 		end
@@ -233,7 +250,7 @@ function Keyboard:set_bend_targets()
 		local min = -range
 		local max = range
 		for k = 1, self.n_sustained_keys do
-			local interval = self:get_key_id_pitch(self.sustained_keys[k]) - self.active_pitch
+			local interval = self:get_key_id_pitch_value(self.sustained_keys[k]) - self.active_pitch
 			min = math.min(min, interval)
 			max = math.max(max, interval)
 		end
@@ -349,7 +366,8 @@ function Keyboard:set_active_key(key_id, preserve_bend)
 	local old_pitch = self.active_pitch
 	self.active_key = key_id
 	self.active_key_x, self.active_key_y = self:get_key_id_coords(key_id)
-	self.active_pitch = self:get_key_pitch(self.active_key_x, self.active_key_y)
+	self.active_pitch_id = self:get_key_pitch_id(self.active_key_x, self.active_key_y)
+	self.active_pitch = self:get_pitch_id_value(self.active_pitch_id)
 	if self.gliding and not preserve_bend then
 		self.bend_value = self.bend_value - (self.active_pitch - old_pitch)
 	end
@@ -385,7 +403,7 @@ function Keyboard:draw()
 				end
 			else
 				local key_id = self:get_key_id(x, y)
-				local p = self:get_key_pitch(x, y)
+				local p = self:get_key_pitch_id(x, y)
 				g:led(x, y, self:get_key_level(x, y, key_id, p))
 			end
 		end
@@ -410,7 +428,7 @@ function Keyboard:update_mask_notes()
 	for p = 1, 12 do
 		if self.mask[p] then
 			quantizing = true
-			table.insert(notes, p - 1)
+			table.insert(notes, self.ratios[p])
 		end
 	end
 	self.quantizing = quantizing
@@ -450,15 +468,18 @@ function Keyboard:get_key_level(x, y, key_id, p)
 		end
 	end
 	-- highlight active key, offset by bend as needed
+	-- TODO: this could look/work a lot better.
+	-- find nearest key (pitch- and layout-wise) and next-nearest, and highlight them ONLY.
 	if y == self.active_key_y then
+		local pitch = self:get_key_id_pitch_value(key_id)
 		-- TODO: adjust level based on latch / gate state ...?
-		local bent_diff = math.abs(key_id - self.active_key - self.bend_value - (transpose_volts * 12))
+		local bent_diff = math.abs(pitch - self.active_pitch - self.bend_value - transpose_volts)
 		-- TODO: get actual output volts from crow and use that when drawing, so that the
 		-- effects of slew + quantization are indicated correctly
 		-- the following doesn't work, though, because norns can't just grab output volts synchronously
 		-- local volt_diff = math.abs(key_id - self.active_key - (self.active_pitch - crow.output[1].volts * 12))
-		if bent_diff < 1 then
-			level = led_blend(level, (1 - bent_diff) * 7)
+		if bent_diff < 0.1 then
+			level = led_blend(level, (0.1 - bent_diff) * 70)
 		end
 	end
 	return math.min(15, math.ceil(level))
