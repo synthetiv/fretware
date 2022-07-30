@@ -234,14 +234,14 @@ function Keyboard:find_sustained_key(key_id)
 end
 
 function Keyboard:relax_bend()
-	-- nudge min/max toward targets, and bend_value toward a linear point between min and max,
-	-- thus reducing any offset that may have been caused by changes in min/max points
-	self.bend_max = self.bend_max + (self.bend_max_target - self.bend_max) * self.bend_relax_coefficient
-	self.bend_min = self.bend_min + (self.bend_min_target - self.bend_min) * self.bend_relax_coefficient
-	-- how quickly bend_value should adjust depends on whether there are keys held
-	local linear_bend = self.bend_min + (self.bend_amount + 1) * (self.bend_max - self.bend_min) / 2
-	local coefficient = self.bend_relax_coefficient * (self.n_sustained_keys > 0 and self.bend_relax_coefficient or 2)
-	self.bend_value = self.bend_value + (linear_bend - self.bend_value) * coefficient
+	-- -- nudge min/max toward targets, and bend_value toward a linear point between min and max,
+	-- -- thus reducing any offset that may have been caused by changes in min/max points
+	-- self.bend_max = self.bend_max + (self.bend_max_target - self.bend_max) * self.bend_relax_coefficient
+	-- self.bend_min = self.bend_min + (self.bend_min_target - self.bend_min) * self.bend_relax_coefficient
+	-- -- how quickly bend_value should adjust depends on whether there are keys held
+	-- local linear_bend = self.bend_min + (self.bend_amount + 1) * (self.bend_max - self.bend_min) / 2
+	-- local coefficient = self.bend_relax_coefficient * (self.n_sustained_keys > 0 and self.bend_relax_coefficient or 2)
+	-- self.bend_value = self.bend_value + (linear_bend - self.bend_value) * coefficient
 end
 
 function Keyboard:set_bend_targets()
@@ -356,6 +356,7 @@ function Keyboard:arp(gate)
 end
 
 function Keyboard:bend(amount)
+	amount = math.sin(amount * math.pi / 2)
 	local delta = amount - self.bend_amount
 	if delta > 0 then
 		-- interpolate linearly between (bend, bend_value) and (1, bend_max)
