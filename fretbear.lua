@@ -1,5 +1,6 @@
 -- hi
 
+engine.name = 'Analyst'
 musicutil = require 'musicutil'
 
 Keyboard = include 'lib/keyboard'
@@ -22,6 +23,17 @@ damp_volts = 0
 pitch_volts = 0
 bent_pitch_volts = 0
 transpose_volts = 0
+
+poll_names = {
+	'zero_crossing_pitch',
+	-- 'amp',
+	'pitch_pitch',
+	-- 'pitch_clarity',
+	'tartini_pitch',
+	-- 'tartini_clarity'
+}
+polls = {}
+poll_values = {}
 
 function g.key(x, y, z)
 	k:key(x, y, z)
@@ -86,6 +98,17 @@ function crow_init()
 end
 
 function init()
+
+	for p = 1, #poll_names do
+		local name = poll_names[p]
+		local new_poll = poll.set(name, function(value)
+			poll_values[name] = value
+			-- TODO: quantize values here
+		end)
+		new_poll.time = 1 / 3
+		new_poll:start()
+		polls[name] = new_poll
+	end
 
 	k.on_pitch = function()
 		pitch_volts = k.active_pitch + k.octave
@@ -288,5 +311,11 @@ function cleanup()
 	end
 	if relax_metro ~= nil then
 		relax_metro:stop()
+	end
+	for p = 1, #poll_names do
+		local name = poll_names[p]
+		if polls[name] ~= nil then
+			polls[name]:stop()
+		end
 	end
 end
