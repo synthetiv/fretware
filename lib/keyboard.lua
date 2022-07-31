@@ -1,6 +1,12 @@
 local Keyboard = {}
 Keyboard.__index = Keyboard
 
+local Scale = include 'lib/scale'
+local et12 = {} -- default scale, 12TET
+for p = 1, 12 do
+	et12[p] = p / 12
+end
+
 -- TODO: paraphony with note stack
 -- TODO: quantizer: send inputs to TT and/or crow
 -- TODO: send scale mask to TT for use with QT.B <value> <root=0?> <mask>
@@ -33,6 +39,7 @@ function Keyboard.new(x, y, width, height)
 		arp_index = 0,
 		arp_insert = 0,
 		octave = 0,
+		transposition = 0,
 		active_key = 0,
 		active_key_x = 8,
 		active_key_y = 6,
@@ -47,7 +54,7 @@ function Keyboard.new(x, y, width, height)
 		bend_amount = 0,
 		bend_value = 0,
 		bend_relax_coefficient = 0.1,
-		ratios = { 567/512, 9/8, 147/128, 21/16, 1323/1024, 189/128, 3/2, 49/32, 7/4, 441/256, 63/32, 2 },
+		scale = Scale.new(et12, 12),
 		mask = { false, false, false, false, false, false, false, false, false, false, false, false },
 		-- TODO: mask presets!
 		mask_notes = 'none', -- for use with Crow output modes
@@ -59,10 +66,6 @@ function Keyboard.new(x, y, width, height)
 		on_arp = function() end
 	}
 	setmetatable(keyboard, Keyboard)
-	keyboard.pitch_values = {}
-	for r = 1, #keyboard.ratios do
-		keyboard.pitch_values[r] = math.log(keyboard.ratios[r]) / math.log(2)
-	end
 	-- start at 0 / middle C
 	keyboard:key(keyboard.x_center, keyboard.y_center, 1)
 	keyboard:key(keyboard.x_center, keyboard.y_center, 0)
@@ -94,9 +97,7 @@ end
 
 function Keyboard:get_pitch_id_value(p)
 	-- TODO: root note shouldn't have to be 0
-	local pitch_class = p % 12 -- TODO: zero vs 12
-	local octave = math.floor(p / 12)
-	return (self.pitch_values[pitch_class] or 0) + octave
+	return (self.scale.values[p + self.scale.center_pitch_id] or 0)
 end
 
 function Keyboard:key(x, y, z)
@@ -105,18 +106,21 @@ function Keyboard:key(x, y, z)
 			-- mask edit key
 			if z == 1 then
 				if self.held_keys.shift then
-					self:clear_mask_notes()
+					self.scale.new_mask = {}
+					self.scale:apply_edits()
 					self.mask_edit = false
 				else
 					self.mask_edit = not self.mask_edit
 					-- if no mask is active but notes are sustained, build a mask from those notes
 					if self.mask_edit and not self.quantizing and self.n_sustained_keys > 0 then
+						local mask = {}
 						for k = 1, self.n_sustained_keys do
 							local key_id = self.sustained_keys[k]
-							local pitch_class = self:get_key_id_pitch_id(key_id) % 12 + 1
-							self.mask[pitch_class] = true
+							local pitch_class = self:get_key_id_pitch_id(key_id) % 12 + 1 -- TODO
+							mask[pitch_class] = true
 						end
-						self:update_mask_notes()
+						self.scale.new_mask = mask
+						self.scale:apply_edits()
 					end
 				end
 			end
@@ -180,9 +184,9 @@ function Keyboard:key(x, y, z)
 		end
 	elseif self.mask_edit then
 		if z == 1 then
-			pitch_class = self:get_key_pitch_id(x, y) % 12 + 1
-			self.mask[pitch_class] = not self.mask[pitch_class]
-			self:update_mask_notes()
+			pitch_class = self:get_key_pitch_id(x, y) % 12 + 1 -- TODO
+			self.scale.next_mask[pitch_class] = not self.scale.next_mask[pitch_class]
+			self.scale:apply_edits()
 		end
 	else
 		self:note(x, y, z)
@@ -266,6 +270,11 @@ function Keyboard:set_bend_targets()
 		self.bend_max_target = max
 		self.bend_max = math.max(max, self.bend_value + self.bend_range)
 	end
+end
+
+function Keyboard:transpose(t)
+	self.transposition = t
+	self.on_pitch()
 end
 
 function Keyboard:note(x, y, z)
@@ -427,29 +436,8 @@ function Keyboard:draw()
 end
 
 function Keyboard:is_mask_pitch(p)
-	p = p % 12
-	return self.mask[p + 1]
-end
-
-function Keyboard:clear_mask_notes()
-	for p = 1, 12 do
-		self.mask[p] = false
-	end
-	self:update_mask_notes()
-end
-
-function Keyboard:update_mask_notes()
-	local notes = {}
-	local quantizing = false
-	for p = 1, 12 do
-		if self.mask[p] then
-			quantizing = true
-			table.insert(notes, self.ratios[p])
-		end
-	end
-	self.quantizing = quantizing
-	self.mask_notes = quantizing and notes or 'none'
-	self.on_mask()
+	p = p % self.scale.length
+	return self.scale.mask[p + 1]
 end
 
 function Keyboard:is_white_pitch(p)
@@ -457,7 +445,7 @@ function Keyboard:is_white_pitch(p)
 	if p == 0 or p == 2 or p == 4 or p == 5 or p == 7 or p == 9 or p == 11 then
 		return true
 	end
-	return false 
+	return false
 end
 
 function led_blend(a, b)
@@ -489,7 +477,7 @@ function Keyboard:get_key_level(x, y, key_id, p)
 	if y == self.active_key_y then
 		local pitch = self:get_key_id_pitch_value(key_id)
 		-- TODO: adjust level based on latch / gate state ...?
-		local bent_diff = math.abs(pitch - self.active_pitch - self.bend_value - transpose_volts)
+		local bent_diff = math.abs(pitch - self.active_pitch - self.bend_value - self.transposition)
 		-- TODO: get actual output volts from crow and use that when drawing, so that the
 		-- effects of slew + quantization are indicated correctly
 		-- the following doesn't work, though, because norns can't just grab output volts synchronously

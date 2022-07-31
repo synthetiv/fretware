@@ -22,7 +22,6 @@ amp_volts = 0
 damp_volts = 0
 pitch_volts = 0
 bent_pitch_volts = 0
-transpose_volts = 0
 
 poll_names = {
 	'zero_crossing_pitch',
@@ -44,7 +43,7 @@ function g.key(x, y, z)
 end
 
 function send_pitch_volts()
-	bent_pitch_volts = pitch_volts + k.bend_value + transpose_volts
+	bent_pitch_volts = pitch_volts + k.bend_value
 	-- TODO: this added offset for the quantizer really shouldn't be necessary; what's going on here?
 	crow.output[1].volts = bent_pitch_volts + (k.quantizing and 1/24 or 0)
 end
@@ -86,13 +85,17 @@ function crow_init()
 	params:bang()
 
 	crow.input[1].change = function(gate)
-		k:arp(gate)
+		if k.arping and k.n_sustained_keys > 0 then
+			k:arp(gate)
+		else
+			-- TODO: maybe only when n_sustained_keys > 0?
+			k.on_pitch()
+		end
 	end
 	crow.input[1].mode('change', 1, 0.01, 'both')
 
 	crow.input[2].stream = function(v)
-		transpose_volts = v
-		send_pitch_volts()
+		k:transpose(v)
 	end
 	crow.input[2].mode('stream', 0.01)
 end
@@ -105,23 +108,22 @@ function init()
 			poll_values[name] = value
 			-- TODO: quantize values here
 		end)
-		new_poll.time = 1 / 3
+		new_poll.time = 1 / 10
 		new_poll:start()
 		polls[name] = new_poll
 	end
 
 	k.on_pitch = function()
-		pitch_volts = k.active_pitch + k.octave
+		local pitch = (k.n_sustained_keys > 0) and k.active_pitch or util.clamp(poll_values.pitch_pitch or 0, -5, 5)
+		-- ok, next: quantize, and do this automatically
+		pitch_volts = k.scale:snap(pitch + k.transposition) + k.octave -- k.active_pitch + k.octave
 		send_pitch_volts()
 		grid_redraw()
 	end
 
 	k.on_mask = function()
-		if k.mask_notes == 'none' then
-			crow.output[1].scale(k.mask_notes)
-		else
-			crow.output[1].scale(k.mask_notes, 'ji')
-		end
+		-- local temperament = (k.mask_notes == 'none' or k.ratios == nil) and 12 or 'ji'
+		-- crow.output[1].scale(k.mask_notes, temperament)
 		-- TODO: send to TT as well, as a bit mask
 	end
 
@@ -132,7 +134,7 @@ function init()
 			crow.output[4]()
 		end
 		if gate then
-			crow.ii.tt.script_v(1, pitch_volts + transpose_volts)
+			-- crow.ii.tt.script_v(1, pitch_volts + transpose_volts)
 		end
 	end
 
@@ -145,12 +147,13 @@ function init()
 		type = 'number',
 		min = -7,
 		max = 24,
-		default = -3,
+		default = 2,
 		formatter = function(param)
-			if k.bend_range < 1 then
+			local value = param:get()
+			if value < 1 then
 				return string.format('%.2f', k.bend_range)
 			end
-			return string.format('%d', k.bend_range)
+			return string.format('%d', value)
 		end,
 		action = function(value)
 			if value < 1 then
