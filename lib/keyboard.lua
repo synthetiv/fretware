@@ -116,7 +116,7 @@ function Keyboard:key(x, y, z)
 						local mask = {}
 						for k = 1, self.n_sustained_keys do
 							local key_id = self.sustained_keys[k]
-							local pitch_class = self:get_key_id_pitch_id(key_id) % 12 + 1 -- TODO
+							local pitch_class = self:get_key_id_pitch_id(key_id) % self.scale.length + 1
 							mask[pitch_class] = true
 						end
 						self.scale.new_mask = mask
@@ -184,7 +184,7 @@ function Keyboard:key(x, y, z)
 		end
 	elseif self.mask_edit then
 		if z == 1 then
-			pitch_class = self:get_key_pitch_id(x, y) % 12 + 1 -- TODO
+			pitch_class = self:get_key_pitch_id(x, y) % self.scale.length + 1
 			self.scale.next_mask[pitch_class] = not self.scale.next_mask[pitch_class]
 			self.scale:apply_edits()
 		end
@@ -416,6 +416,10 @@ function Keyboard:draw()
 	g:led(self.x, self.y2 - 3, self.arping and 7 or 2)
 	g:led(self.x, self.y2 - 2, self.held_keys.latch and 7 or 2)
 	g:led(self.x, self.y2, self.held_keys.shift and 15 or 6)
+
+	local hand_pitch = self.scale:snap(self.active_pitch) - self.bend_value
+	local sampled_pitch = self.scale:snap(detected_pitch + self.transposition) - self.bend_value
+
 	for x = self.x + 1, self.x2 do
 		for y = self.y, self.y2 do
 			if y == self.y2 and x > self.x2 - 2 then
@@ -429,7 +433,43 @@ function Keyboard:draw()
 			else
 				local key_id = self:get_key_id(x, y)
 				local p = self:get_key_pitch_id(x, y)
-				g:led(x, y, self:get_key_level(x, y, key_id, p))
+				local level = 0
+				if self.mask_edit then
+					-- show mask
+					level = self:is_mask_pitch(p) and 4 or 0
+					-- when shift is held, highlight Cs as reference points
+					if self.held_keys.shift and p % self.scale.length == 0 then
+						level = led_blend(level, 2)
+					end
+				else
+					-- highlight mask keys
+					level = self:is_mask_pitch(p) and 3 or 0
+					-- highlight sustained keys
+					if self:is_key_sustained(key_id) then
+						level = led_blend(level, 6)
+					end
+				end
+
+				local pitch = self:get_key_id_pitch_value(key_id)
+
+				if self.n_sustained_keys > 0 then
+					local hand_diff = math.abs(pitch - hand_pitch)
+					if hand_diff < 0.1 then
+						level = led_blend(level, (0.1 - hand_diff) * 70) -- TODO: adjust brightness based on Touche pressure?
+					end
+				elseif gate_in then
+					local sampled_diff = math.abs(pitch + self.octave - sampled_pitch)
+					if sampled_diff < 0.1 then
+						level = led_blend(level, (0.1 - sampled_diff) * 70)
+					end
+				end
+
+				local detected_diff = math.abs(pitch + self.octave - poll_values.pitch)
+				if detected_diff < 0.1 then
+					level = led_blend(level, (0.1 - detected_diff) * 70 * (poll_values.amp + poll_values.clarity))
+				end
+
+				g:led(x, y, math.min(15, math.ceil(level)))
 			end
 		end
 	end
@@ -452,41 +492,6 @@ function led_blend(a, b)
 	a = 1 - a / 15
 	b = 1 - b / 15
 	return (1 - (a * b)) * 15
-end
-
-function Keyboard:get_key_level(x, y, key_id, p)
-	local level = 0
-	if self.mask_edit then
-		-- show mask
-		level = self:is_mask_pitch(p) and 4 or 0
-		-- when shift is held, highlight Cs as reference points
-		if self.held_keys.shift and p % 12 == 0 then
-			level = led_blend(level, 2)
-		end
-	else
-		-- highlight white keys
-		level = self:is_white_pitch(p) and 3 or 0
-		-- highlight sustained keys
-		if self:is_key_sustained(key_id) then
-			level = led_blend(level, 6)
-		end
-	end
-	-- highlight active key, offset by bend as needed
-	-- TODO: this could look/work a lot better.
-	-- find nearest key (pitch- and layout-wise) and next-nearest, and highlight them ONLY.
-	if y == self.active_key_y then
-		local pitch = self:get_key_id_pitch_value(key_id)
-		-- TODO: adjust level based on latch / gate state ...?
-		local bent_diff = math.abs(pitch - self.active_pitch - self.bend_value - self.transposition)
-		-- TODO: get actual output volts from crow and use that when drawing, so that the
-		-- effects of slew + quantization are indicated correctly
-		-- the following doesn't work, though, because norns can't just grab output volts synchronously
-		-- local volt_diff = math.abs(key_id - self.active_key - (self.active_pitch - crow.output[1].volts * 12))
-		if bent_diff < 0.1 then
-			level = led_blend(level, (0.1 - bent_diff) * 70)
-		end
-	end
-	return math.min(15, math.ceil(level))
 end
 
 return Keyboard

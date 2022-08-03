@@ -22,14 +22,14 @@ amp_volts = 0
 damp_volts = 0
 pitch_volts = 0
 bent_pitch_volts = 0
+pitch_poll = nil
+detected_pitch = 0
+gate_in = false
 
 poll_names = {
-	'zero_crossing_pitch',
-	-- 'amp',
-	'pitch_pitch',
-	-- 'pitch_clarity',
-	'tartini_pitch',
-	-- 'tartini_clarity'
+	'pitch',
+	'amp',
+	'clarity',
 }
 polls = {}
 poll_values = {}
@@ -85,11 +85,16 @@ function crow_init()
 	params:bang()
 
 	crow.input[1].change = function(gate)
+		gate_in = gate
 		if k.arping and k.n_sustained_keys > 0 then
 			k:arp(gate)
 		else
-			-- TODO: maybe only when n_sustained_keys > 0?
-			k.on_pitch()
+			if gate then
+				detected_pitch = poll_values.pitch
+				k.on_pitch()
+			end
+			-- forward gates w/delay to avoid pitch jump during attack
+			crow.output[4](gate)
 		end
 	end
 	crow.input[1].mode('change', 1, 0.01, 'both')
@@ -104,9 +109,9 @@ function init()
 
 	for p = 1, #poll_names do
 		local name = poll_names[p]
+		poll_values[name] = 0
 		local new_poll = poll.set(name, function(value)
 			poll_values[name] = value
-			-- TODO: quantize values here
 		end)
 		new_poll.time = 1 / 10
 		new_poll:start()
@@ -114,9 +119,8 @@ function init()
 	end
 
 	k.on_pitch = function()
-		local pitch = (k.n_sustained_keys > 0) and k.active_pitch or util.clamp(poll_values.pitch_pitch or 0, -5, 5)
-		-- ok, next: quantize, and do this automatically
-		pitch_volts = k.scale:snap(pitch + k.transposition) + k.octave -- k.active_pitch + k.octave
+		local pitch = (k.n_sustained_keys > 0) and (k.active_pitch + k.octave) or util.clamp(detected_pitch + k.transposition, -5, 5)
+		pitch_volts = k.scale:snap(pitch)
 		send_pitch_volts()
 		grid_redraw()
 	end
@@ -147,7 +151,7 @@ function init()
 		type = 'number',
 		min = -7,
 		max = 24,
-		default = 2,
+		default = -3,
 		formatter = function(param)
 			local value = param:get()
 			if value < 1 then
@@ -257,6 +261,17 @@ function init()
 			if params:get('gate_mode') == 3 then
 				crow.output[4].dyn.length = value
 			end
+		end
+	}
+
+	params:add{
+		type = 'file',
+		id = 'tuning_file',
+		name = 'tuning_file',
+		path = '/home/we/dust/data/fretwork/scales/stefan4.scl',
+		action = function(value)
+			k.scale:read_scala_file(value)
+			k.scale:apply_edits()
 		end
 	}
 

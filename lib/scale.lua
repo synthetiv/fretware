@@ -94,7 +94,7 @@ function Scale:toggle_class(pitch_id)
 	self.next_mask[pitch_class] = not self.next_mask[pitch_class]
 end
 
-function Scale:get_nearest_pitch_id(value)
+function Scale:get_nearest_pitch_id(value, get_pair)
 	local values = self.values
 	-- binary search to find the first pitch ID whose value is higher than the one we want
 	local upper_id = 2
@@ -113,16 +113,25 @@ function Scale:get_nearest_pitch_id(value)
 	end
 	-- check the value below it to see if it's closer than upper_id is
 	local lower_id = upper_id - 1
-	if math.abs(value - values[lower_id]) < math.abs(value - values[upper_id]) then
-		return lower_id
+	if get_pair then
+		local weight = (value - values[lower_id]) / (values[upper_id] - values[lower_id])
+		return lower_id, upper_id, weight
 	else
-		return upper_id
+		if math.abs(value - values[lower_id]) < math.abs(value - values[upper_id]) then
+			return lower_id
+		else
+			return upper_id
+		end
 	end
 end
 
-function Scale:get_nearest_mask_pitch_id(value)
+function Scale:get_nearest_mask_pitch_id(value, get_pair)
 	if self.n_mask_pitches == 0 then
-		return -1
+		if get_pair then
+			return self:get_nearest_pitch_id(value, get_pair)
+		else
+			return -1
+		end
 	end
 	local values = self.values
 	local mask_pitch_ids = self.mask_pitch_ids
@@ -142,10 +151,18 @@ function Scale:get_nearest_mask_pitch_id(value)
 	end
 	local lower_id = mask_pitch_ids[upper_id - 1]
 	upper_id = mask_pitch_ids[upper_id]
-	if math.abs(value - values[lower_id]) < math.abs(value - values[upper_id]) then
-		return lower_id
+	if get_pair then
+		lower_id = upper_id - 1
+		local weight = (value - values[lower_id]) / (values[upper_id] - values[lower_id])
+		return lower_id, upper_id, weight
 	else
-		return upper_id
+		local lower_diff = value - values[lower_id]
+		local upper_diff = value - values[upper_id]
+		if lower_diff < -upper_diff then
+			return lower_id, lower_diff
+		else
+			return upper_id, upper_diff
+		end
 	end
 end
 
