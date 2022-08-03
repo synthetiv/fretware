@@ -90,7 +90,7 @@ function crow_init()
 			k:arp(gate)
 		else
 			if gate then
-				detected_pitch = poll_values.pitch
+				detected_pitch = poll_values.pitch - 1
 				k.on_pitch()
 			end
 			-- forward gates w/delay to avoid pitch jump during attack

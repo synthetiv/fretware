@@ -417,8 +417,17 @@ function Keyboard:draw()
 	g:led(self.x, self.y2 - 2, self.held_keys.latch and 7 or 2)
 	g:led(self.x, self.y2, self.held_keys.shift and 15 or 6)
 
-	local hand_pitch = self.scale:snap(self.active_pitch) - self.bend_value
-	local sampled_pitch = self.scale:snap(detected_pitch + self.transposition) - self.bend_value
+	local hand_pitch_low, hand_pitch_high, hand_pitch_weight = self.scale:get_nearest_mask_pitch_id(self.active_pitch + self.bend_value, true)
+	local sampled_pitch_low, sampled_pitch_high, sampled_pitch_weight = self.scale:get_nearest_mask_pitch_id(detected_pitch + self.transposition + self.bend_value, true)
+	local detected_pitch_low, detected_pitch_high, detected_pitch_weight = self.scale:get_nearest_pitch_id(poll_values.pitch - 1, true)
+
+	local offset = -self.scale.center_pitch_id - self.scale.length * self.octave
+	hand_pitch_low = hand_pitch_low + offset
+	hand_pitch_high = hand_pitch_high + offset
+	sampled_pitch_low = sampled_pitch_low + offset
+	sampled_pitch_high = sampled_pitch_high + offset
+	detected_pitch_low = detected_pitch_low + offset
+	detected_pitch_high = detected_pitch_high + offset
 
 	for x = self.x + 1, self.x2 do
 		for y = self.y, self.y2 do
@@ -453,20 +462,23 @@ function Keyboard:draw()
 				local pitch = self:get_key_id_pitch_value(key_id)
 
 				if self.n_sustained_keys > 0 then
-					local hand_diff = math.abs(pitch - hand_pitch)
-					if hand_diff < 0.1 then
-						level = led_blend(level, (0.1 - hand_diff) * 70) -- TODO: adjust brightness based on Touche pressure?
+					if p == hand_pitch_low then
+						level = led_blend(level, (1 - hand_pitch_weight) * 7)
+					elseif p == hand_pitch_high then
+						level = led_blend(level, hand_pitch_weight * 7)
 					end
 				elseif gate_in then
-					local sampled_diff = math.abs(pitch + self.octave - sampled_pitch)
-					if sampled_diff < 0.1 then
-						level = led_blend(level, (0.1 - sampled_diff) * 70)
+					if p == sampled_pitch_low then
+						level = led_blend(level, (1 - sampled_pitch_weight) * 7)
+					elseif p == sampled_pitch_high then
+						level = led_blend(level, sampled_pitch_weight * 7)
 					end
 				end
 
-				local detected_diff = math.abs(pitch + self.octave - poll_values.pitch)
-				if detected_diff < 0.1 then
-					level = led_blend(level, (0.1 - detected_diff) * 70 * (poll_values.amp + poll_values.clarity))
+				if p == detected_pitch_low then
+					level = led_blend(level, (1 - detected_pitch_weight) * 7 * poll_values.clarity)
+				elseif p == detected_pitch_high then
+					level = led_blend(level, detected_pitch_weight * 7 * poll_values.clarity)
 				end
 
 				g:led(x, y, math.min(15, math.ceil(level)))

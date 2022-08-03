@@ -152,7 +152,6 @@ function Scale:get_nearest_mask_pitch_id(value, get_pair)
 	local lower_id = mask_pitch_ids[upper_id - 1]
 	upper_id = mask_pitch_ids[upper_id]
 	if get_pair then
-		lower_id = upper_id - 1
 		local weight = (value - values[lower_id]) / (values[upper_id] - values[lower_id])
 		return lower_id, upper_id, weight
 	else
