@@ -91,6 +91,7 @@ function crow_init()
 		else
 			if gate then
 				detected_pitch = poll_values.pitch - 1
+				crow.ii.tt.script_v(2, util.clamp(k.scale:snap(detected_pitch + k.transposition), -5, 5))
 				k.on_pitch()
 			end
 			-- forward gates w/delay to avoid pitch jump during attack
