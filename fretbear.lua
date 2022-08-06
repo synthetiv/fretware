@@ -269,7 +269,7 @@ function init()
 		type = 'file',
 		id = 'tuning_file',
 		name = 'tuning_file',
-		path = '/home/we/dust/data/fretwork/scales/stefan4.scl',
+		path = '/home/we/dust/data/fretwork/scales/stefan5.scl',
 		action = function(value)
 			k.scale:read_scala_file(value)
 			k.scale:apply_edits()
