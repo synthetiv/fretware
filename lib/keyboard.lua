@@ -293,7 +293,11 @@ function Keyboard:note(x, y, z)
 					self.arp_insert = self.arp_insert - 1
 				end
 				self.n_sustained_keys = self.n_sustained_keys - 1
-				self:set_bend_targets()
+				if index > self.n_sustained_keys and self.n_sustained_keys > 0 then
+					self:set_active_key(self.sustained_keys[self.n_sustained_keys])
+				else
+					self:set_bend_targets()
+				end
 				return
 			end
 		end
@@ -385,13 +389,16 @@ function Keyboard:bend(amount)
 	self.bend_amount = amount
 end
 
-function Keyboard:set_active_key(key_id, preserve_bend)
+function Keyboard:set_active_key(key_id, glide_jump)
 	local old_pitch = self.active_pitch
 	self.active_key = key_id
 	self.active_key_x, self.active_key_y = self:get_key_id_coords(key_id)
 	self.active_pitch_id = self:get_key_pitch_id(self.active_key_x, self.active_key_y)
 	self.active_pitch = self:get_pitch_id_value(self.active_pitch_id)
-	if self.gliding and not preserve_bend then
+	if self.gliding and not glide_jump then
+		-- glide_jump will hop from (e.g.) 0.1 st above old pitch to 0.1 st above new pitch.
+		-- without glide_jump, bend_value will change to keep the output pitch the same, even while the
+		-- base active pitch changes.
 		self.bend_value = self.bend_value - (self.active_pitch - old_pitch)
 	end
 	self:set_bend_targets()
