@@ -106,8 +106,7 @@ function Keyboard:key(x, y, z)
 			-- mask edit key
 			if z == 1 then
 				if self.held_keys.shift then
-					self.scale.new_mask = {}
-					self.scale:apply_edits()
+					self.scale:set_mask {}
 					self.mask_edit = false
 				else
 					self.mask_edit = not self.mask_edit
@@ -119,8 +118,7 @@ function Keyboard:key(x, y, z)
 							local pitch_class = self:get_key_id_pitch_id(key_id) % self.scale.length + 1
 							mask[pitch_class] = true
 						end
-						self.scale.new_mask = mask
-						self.scale:apply_edits()
+						self.scale:set_mask(mask)
 					end
 				end
 			end
