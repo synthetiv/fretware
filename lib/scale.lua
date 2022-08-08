@@ -46,12 +46,17 @@ function Scale:init(pitch_class_values, length)
 	self.span = span
 	self.mask = mask
 	self.next_mask = next_mask
+	self.mask_empty = true
 end
 
 function Scale:set_mask(new_mask)
 	local mask = self.mask
+	self.mask_empty = true
 	for i = 1, self.length do
 		mask[i] = new_mask[i] or false
+		if mask[i] then
+			self.mask_empty = false
+		end
 	end
 	self:update_mask_pitch_ids()
 end
@@ -166,11 +171,15 @@ function Scale:get_nearest_mask_pitch_id(value, get_pair)
 end
 
 function Scale:snap(value)
-	local nearest_mask_pitch_id = self:get_nearest_mask_pitch_id(value)
-	if nearest_mask_pitch_id == -1 then
-		return value
+end
+
+function Scale:snap(value)
+	local nearest_pitch_id = self:get_nearest_mask_pitch_id(value)
+	if nearest_pitch_id == -1 then
+		-- mask empty? snap to raw scale, without mask
+		nearest_pitch_id = self:get_nearest_pitch_id(value)
 	end
-	return self.values[nearest_mask_pitch_id]
+	return self.values[nearest_pitch_id]
 end
 
 function Scale:mask_to_pitches()

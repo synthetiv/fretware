@@ -22,6 +22,7 @@ amp_volts = 0
 damp_volts = 0
 pitch_volts = 0
 bent_pitch_volts = 0
+do_pitch_detection = false
 pitch_poll = nil
 detected_pitch = 0
 gate_in = false
@@ -91,7 +92,9 @@ function crow_init()
 		else
 			if gate then
 				detected_pitch = poll_values.pitch - 1
-				crow.ii.tt.script_v(2, util.clamp(k.scale:snap(detected_pitch + k.transposition), -5, 5))
+				if do_pitch_detection then
+					crow.ii.tt.script_v(2, util.clamp(k.scale:snap(detected_pitch + k.transposition), -5, 5))
+				end
 				k.on_pitch()
 			end
 			-- forward gates w/delay to avoid pitch jump during attack
@@ -120,7 +123,10 @@ function init()
 	end
 
 	k.on_pitch = function()
-		local pitch = (k.n_sustained_keys > 0) and (k.active_pitch + k.octave) or util.clamp(detected_pitch + k.transposition, -5, 5)
+		local pitch = k.active_pitch + k.octave
+		if do_pitch_detection and k.n_sustained_keys < 1 then
+			pitch = util.clamp(detected_pitch + k.transposition, -5, 5)
+		end
 		pitch_volts = k.scale:snap(pitch)
 		send_pitch_volts()
 		grid_redraw()
@@ -138,8 +144,8 @@ function init()
 		elseif gate then
 			crow.output[4]()
 		end
-		if gate then
-			-- crow.ii.tt.script_v(1, pitch_volts + transpose_volts)
+		if gate and not do_pitch_detection then
+			crow.ii.tt.script_v(2, k.scale:snap(pitch_volts + k.transposition))
 		end
 	end
 
@@ -265,11 +271,25 @@ function init()
 		end
 	}
 
+	-- TODO: add params for tt and crow transposition
+	-- ...and yeah, control from keyboard. you'll want that again
+
+	params:add {
+		name = 'pitch detection',
+		id = 'pitch_detection',
+		type = 'option',
+		options = { 'off', 'on' },
+		default = 1,
+		action = function(value)
+			do_pitch_detection = value == 2
+		end
+	}
+
 	params:add{
 		type = 'file',
 		id = 'tuning_file',
 		name = 'tuning_file',
-		path = '/home/we/dust/data/fretwork/scales/stefan5.scl',
+		path = '/home/we/dust/data/fretwork/scales/12tet.scl',
 		action = function(value)
 			k.scale:read_scala_file(value)
 			k.scale:apply_edits()

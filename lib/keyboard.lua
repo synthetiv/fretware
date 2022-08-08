@@ -30,7 +30,6 @@ function Keyboard.new(x, y, width, height)
 		x_center = 8,
 		y_center = 6,
 		mask_edit = false,
-		quantizing = false,
 		arping = false,
 		gliding = false,
 		held_keys = {}, -- map of key names/ids to boolean states
@@ -111,15 +110,16 @@ function Keyboard:key(x, y, z)
 				else
 					self.mask_edit = not self.mask_edit
 					-- if no mask is active but notes are sustained, build a mask from those notes
-					if self.mask_edit and not self.quantizing and self.n_sustained_keys > 0 then
-						local mask = {}
-						for k = 1, self.n_sustained_keys do
-							local key_id = self.sustained_keys[k]
-							local pitch_class = self:get_key_id_pitch_id(key_id) % self.scale.length + 1
-							mask[pitch_class] = true
-						end
-						self.scale:set_mask(mask)
-					end
+					-- TODO: this ain't working right
+					-- if self.mask_edit and not self.scale.mask_empty and self.n_sustained_keys > 0 then
+					-- 	local mask = {}
+					-- 	for k = 1, self.n_sustained_keys do
+					-- 		local key_id = self.sustained_keys[k]
+					-- 		local pitch_class = self:get_key_id_pitch_id(key_id) % self.scale.length + 1
+					-- 		mask[pitch_class] = true
+					-- 	end
+					-- 	self.scale:set_mask(mask)
+					-- end
 				end
 			end
 		elseif y == self.y2 then
@@ -416,19 +416,22 @@ function Keyboard:is_key_sustained(key_id)
 end
 
 function Keyboard:draw()
-	g:led(self.x, self.y, self.mask_edit and 7 or (self.quantizing and 5 or 2))
+	g:led(self.x, self.y, self.mask_edit and 7 or (self.scale.mask_empty and 2 or 5))
 	g:led(self.x, self.y + 2, self.gliding and 7 or 2)
 	g:led(self.x, self.y2 - 3, self.arping and 7 or 2)
 	g:led(self.x, self.y2 - 2, self.held_keys.latch and 7 or 2)
 	g:led(self.x, self.y2, self.held_keys.shift and 15 or 6)
 
 	local hand_pitch_low, hand_pitch_high, hand_pitch_weight = self.scale:get_nearest_mask_pitch_id(self.active_pitch + self.bend_value + self.octave, true)
+	local transposed_pitch_low, transposed_pitch_high, transposed_pitch_weight = self.scale:get_nearest_mask_pitch_id(self.active_pitch + self.bend_value + self.transposition + self.octave, true)
 	local sampled_pitch_low, sampled_pitch_high, sampled_pitch_weight = self.scale:get_nearest_mask_pitch_id(detected_pitch + self.transposition + self.bend_value, true)
 	local detected_pitch_low, detected_pitch_high, detected_pitch_weight = self.scale:get_nearest_pitch_id(poll_values.pitch - 1, true)
 
 	local offset = -self.scale.center_pitch_id - self.scale.length * self.octave
 	hand_pitch_low = hand_pitch_low + offset
 	hand_pitch_high = hand_pitch_high + offset
+	transposed_pitch_low = transposed_pitch_low + offset
+	transposed_pitch_high = transposed_pitch_high + offset
 	sampled_pitch_low = sampled_pitch_low + offset
 	sampled_pitch_high = sampled_pitch_high + offset
 	detected_pitch_low = detected_pitch_low + offset
@@ -466,13 +469,18 @@ function Keyboard:draw()
 
 				local pitch = self:get_key_id_pitch_value(key_id)
 
-				if self.n_sustained_keys > 0 then
+				if not do_pitch_detection or self.n_sustained_keys > 0 then
 					if p == hand_pitch_low then
 						level = led_blend(level, (1 - hand_pitch_weight) * 7)
 					elseif p == hand_pitch_high then
 						level = led_blend(level, hand_pitch_weight * 7)
 					end
-				elseif gate_in then
+					if p == transposed_pitch_low then
+						level = led_blend(level, (1 - transposed_pitch_weight) * 5)
+					elseif p == transposed_pitch_high then
+						level = led_blend(level, transposed_pitch_weight * 5)
+					end
+				elseif gate_in and do_pitch_detection then
 					if p == sampled_pitch_low then
 						level = led_blend(level, (1 - sampled_pitch_weight) * 7)
 					elseif p == sampled_pitch_high then
@@ -480,10 +488,12 @@ function Keyboard:draw()
 					end
 				end
 
-				if p == detected_pitch_low then
-					level = led_blend(level, (1 - detected_pitch_weight) * 7 * poll_values.clarity)
-				elseif p == detected_pitch_high then
-					level = led_blend(level, detected_pitch_weight * 7 * poll_values.clarity)
+				if do_pitch_detection then
+					if p == detected_pitch_low then
+						level = led_blend(level, (1 - detected_pitch_weight) * 7 * poll_values.clarity)
+					elseif p == detected_pitch_high then
+						level = led_blend(level, detected_pitch_weight * 7 * poll_values.clarity)
+					end
 				end
 
 				g:led(x, y, math.min(15, math.ceil(level)))
