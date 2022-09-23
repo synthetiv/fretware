@@ -97,8 +97,6 @@ function crow_init()
 				end
 				k.on_pitch()
 			end
-			-- forward gates w/delay to avoid pitch jump during attack
-			crow.output[4](gate)
 		end
 	end
 	crow.input[1].mode('change', 1, 0.01, 'both')
