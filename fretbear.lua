@@ -174,6 +174,16 @@ function init()
 			send_pitch_volts()
 		end
 	}
+
+	params:add {
+		name = 'arp direction (1=fwd)',
+		id = 'arp_direction',
+		type = 'control',
+		controlspec = controlspec.new(0, 1, 'lin', 0, 1),
+		action = function(value)
+			k.arp_forward_probability = value
+		end
+	}
 	
 	-- TODO: damp base + range are a way to avoid using an extra attenuator + offset,
 	-- but is that worth it?
