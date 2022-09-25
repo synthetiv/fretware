@@ -156,7 +156,7 @@ function init()
 		type = 'number',
 		min = -7,
 		max = 24,
-		default = -3,
+		default = -2,
 		formatter = function(param)
 			local value = param:get()
 			if value < 1 then
