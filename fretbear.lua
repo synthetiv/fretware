@@ -47,7 +47,7 @@ function send_pitch_volts()
 	bent_pitch_volts = pitch_volts + k.bend_value
 	-- TODO: this added offset for the quantizer really shouldn't be necessary; what's going on here?
 	-- crow.output[1].volts = bent_pitch_volts + (k.quantizing and 1/24 or 0)
-	engine.hz((2 ^ bent_pitch_volts) * params:get('base_freq')) -- TODO: middle C instead
+	engine.pitch(bent_pitch_volts)
 end
 
 function touche.event(data)
@@ -212,7 +212,7 @@ function init()
 		controlspec = controlspec.new(0, 0.1, 'lin', 0, 0, 's'),
 		action = function(value)
 			crow.output[1].slew = value
-			engine.hzlag(value) -- TODO: scale to account for difference between linear slew and one-pole lag...?
+			engine.pitch_slew(value)
 		end
 	}
 	
@@ -286,10 +286,13 @@ function init()
 	}
 
 	params:add {
-		name = 'base freq',
-		id = 'base_freq',
+		name = 'tune',
+		id = 'tune',
 		type = 'control',
-		controlspec = controlspec.new(220, 880, 'exp', 0, 440, "Hz")
+		controlspec = controlspec.new(-12, 12, 'lin', 0, 0, 'st'),
+		action = function(value)
+			engine.base_freq(musicutil.note_num_to_freq(60 + value))
+		end
 	}
 
 	params:add {

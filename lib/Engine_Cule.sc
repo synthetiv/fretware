@@ -15,17 +15,33 @@ Engine_Cule : CroneEngine {
 		// freqBus = Bus.control(context.server);
 
 		SynthDef.new(\line, {
-			arg octave = 0, hz = 440, hzlag = 0.01, fb = 0, fblag = 0.1, fold = 0.3, foldlag = 0.1, amp = 0, amplag = 0.1;
 
-			var sine, folded;
+			// TODO:
+			// - base freq and linear, CV-style pitch
+			// - mod matrix instead of direct amp control
+			arg pitch = 0,
+				pitchSlew = 0.01,
+				baseFreq = 60.midicps,
+				octave = 0,
+				fb = 0,
+				fold = 0.3,
+				amp = 0,
+				lag = 0.1;
 
-			hz = Lag.kr(hz, hzlag);
-			amp = Lag.kr(amp, amplag);
-			fb = Lag.kr(fb, fblag);
-			fold = Lag.kr(fold, foldlag);
+			var hz, sine, folded;
 
-			sine = SinOscFB.ar(2.pow(octave) * hz, fb);
+			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
+			// if I try that, SC seems to just hang forever, no error message
+			pitch = Lag.kr(pitch, pitchSlew);
+			hz = 2.pow(pitch + octave) * baseFreq;
+
+			amp  = Lag.kr(amp, lag);
+			fb   = Lag.kr(fb, lag);
+			fold = Lag.kr(fold, lag);
+
+			sine = SinOscFB.ar(hz, fb);
 			folded = SinOsc.ar(0, pi * fold * sine) * amp;
+
 			Out.ar(context.out_b, folded ! 2);
 		}).add;
 
@@ -36,14 +52,19 @@ Engine_Cule : CroneEngine {
 			\in_r, context.in_b[1]
 		], context.og); // "output" group
 
-		this.addCommand(\hz, "f", {
+		this.addCommand(\pitch, "f", {
 			arg msg;
-			synth.set(\hz, msg[1]);
+			synth.set(\pitch, msg[1]);
 		});
 
-		this.addCommand(\hzlag, "f", {
+		this.addCommand(\pitch_slew, "f", {
 			arg msg;
-			synth.set(\hzlag, msg[1]);
+			synth.set(\pitchSlew, msg[1]);
+		});
+
+		this.addCommand(\base_freq, "f", {
+			arg msg;
+			synth.set(\baseFreq, msg[1]);
 		});
 
 		this.addCommand(\amp, "f", {
