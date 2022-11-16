@@ -146,6 +146,7 @@ function init()
 			-- crow.output[4](gate)
 			engine.gate(gate and 1 or 0)
 		elseif gate then
+
 			crow.output[4]()
 			engine.gate(1)
 			-- TODO: finesse this: there should be control over gate time, and this should handle
@@ -294,6 +295,8 @@ function init()
 		end
 	}
 
+	params:add_separator('engine')
+
 	params:add {
 		name = 'tune',
 		id = 'tune',
@@ -323,6 +326,284 @@ function init()
 			engine.fold(value)
 		end
 	}
+
+	params:add_group('tip', 8)
+
+	params:add {
+		name = 'tip -> amp',
+		id = 'tip_amp',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 1),
+		action = function(value)
+			engine.tip_amp(value)
+		end
+	}
+
+	params:add {
+		name = 'tip -> fb',
+		id = 'tip_fb',
+		type = 'control',
+		controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
+		action = function(value)
+			engine.tip_fb(value)
+		end
+	}
+
+	params:add {
+		name = 'tip -> fold',
+		id = 'tip_fold',
+		type = 'control',
+		controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
+		action = function(value)
+			engine.tip_fold(value)
+		end
+	}
+
+	params:add {
+		name = 'tip -> eg amt',
+		id = 'tip_eg_amount',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 1),
+		action = function(value)
+			engine.tip_eg_amount(value)
+		end
+	}
+
+	params:add {
+		name = 'tip -> lfo A freq',
+		id = 'tip_lfo_a_freq',
+		type = 'control',
+		controlspec = controlspec.new(-3, 3, 'lin', 0, 0),
+		action = function(value)
+			engine.tip_lfo_a_freq(value)
+		end
+	}
+
+	params:add {
+		name = 'tip -> lfo A amt',
+		id = 'tip_lfo_a_amount',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
+		action = function(value)
+			engine.tip_lfo_a_amount(value)
+		end
+	}
+
+	params:add {
+		name = 'tip -> lfo B freq',
+		id = 'tip_lfo_b_freq',
+		type = 'control',
+		controlspec = controlspec.new(-3, 3, 'lin', 0, 0),
+		action = function(value)
+			engine.tip_lfo_b_freq(value)
+		end
+	}
+
+	params:add {
+		name = 'tip -> lfo B amt',
+		id = 'tip_lfo_b_amount',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
+		action = function(value)
+			engine.tip_lfo_b_amount(value)
+		end
+	}
+
+	params:add_group('palm', 8)
+
+	params:add {
+		name = 'palm -> amp',
+		id = 'palm_amp',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 1),
+		action = function(value)
+			engine.palm_amp(value)
+		end
+	}
+
+	params:add {
+		name = 'palm -> fb',
+		id = 'palm_fb',
+		type = 'control',
+		controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
+		action = function(value)
+			engine.palm_fb(value)
+		end
+	}
+
+	params:add {
+		name = 'palm -> fold',
+		id = 'palm_fold',
+		type = 'control',
+		controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
+		action = function(value)
+			engine.palm_fold(value)
+		end
+	}
+
+	params:add {
+		name = 'palm -> eg amt',
+		id = 'palm_eg_amount',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 1),
+		action = function(value)
+			engine.palm_eg_amount(value)
+		end
+	}
+
+	params:add {
+		name = 'palm -> lfo A freq',
+		id = 'palm_lfo_a_freq',
+		type = 'control',
+		controlspec = controlspec.new(-3, 3, 'lin', 0, 0),
+		action = function(value)
+			engine.palm_lfo_a_freq(value)
+		end
+	}
+
+	params:add {
+		name = 'palm -> lfo A amt',
+		id = 'palm_lfo_a_amount',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
+		action = function(value)
+			engine.palm_lfo_a_amount(value)
+		end
+	}
+
+	params:add {
+		name = 'palm -> lfo B freq',
+		id = 'palm_lfo_b_freq',
+		type = 'control',
+		controlspec = controlspec.new(-3, 3, 'lin', 0, 0),
+		action = function(value)
+			engine.palm_lfo_b_freq(value)
+		end
+	}
+
+	params:add {
+		name = 'palm -> lfo B amt',
+		id = 'palm_lfo_b_amount',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
+		action = function(value)
+			engine.palm_lfo_b_amount(value)
+		end
+	}
+
+	params:add_group('lfo A', 5)
+
+	params:add {
+		name = 'lfo A freq',
+		id = 'lfo_a_freq',
+		type = 'control',
+		controlspec = controlspec.new(0.01, 10, 'exp', 0, 0.9, 'Hz'),
+		action = function(value)
+			engine.lfo_a_freq(value)
+		end
+	}
+
+	params:add {
+		name = 'lfo A -> pitch',
+		id = 'lfo_a_pitch',
+		type = 'control',
+		controlspec = controlspec.new(0, 1, 'lin', 0, 0),
+		formatter = function(param)
+			local value = param:get()
+			return string.format('%.2f', value * 12)
+		end,
+		action = function(value)
+			engine.lfo_a_pitch(value)
+		end
+	}
+
+	params:add {
+		name = 'lfo A -> amp',
+		id = 'lfo_a_amp',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
+		action = function(value)
+			engine.lfo_a_amp(value)
+		end
+	}
+
+	params:add {
+		name = 'lfo A -> fb',
+		id = 'lfo_a_fb',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+		action = function(value)
+			engine.lfo_a_fb(value)
+		end
+	}
+
+	params:add {
+		name = 'lfo A -> fold',
+		id = 'lfo_a_fold',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+		action = function(value)
+			engine.lfo_a_fold(value)
+		end
+	}
+
+	params:add_group('lfo B', 5)
+
+	params:add {
+		name = 'lfo B freq',
+		id = 'lfo_b_freq',
+		type = 'control',
+		controlspec = controlspec.new(0.01, 10, 'exp', 0, 0.9, 'Hz'),
+		action = function(value)
+			engine.lfo_b_freq(value)
+		end
+	}
+
+	params:add {
+		name = 'lfo B -> pitch',
+		id = 'lfo_b_pitch',
+		type = 'control',
+		controlspec = controlspec.new(0, 1, 'lin', 0, 0),
+		formatter = function(param)
+			local value = param:get()
+			return string.format('%.2f', value * 12)
+		end,
+		action = function(value)
+			engine.lfo_b_pitch(value)
+		end
+	}
+
+	params:add {
+		name = 'lfo B -> amp',
+		id = 'lfo_b_amp',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
+		action = function(value)
+			engine.lfo_b_amp(value)
+		end
+	}
+
+	params:add {
+		name = 'lfo B -> fb',
+		id = 'lfo_b_fb',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+		action = function(value)
+			engine.lfo_b_fb(value)
+		end
+	}
+
+	params:add {
+		name = 'lfo B -> fold',
+		id = 'lfo_b_fold',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+		action = function(value)
+			engine.lfo_b_fold(value)
+		end
+	}
+
+	params:add_separator('etc')
 
 	-- TODO: add params for tt and crow transposition
 	-- ...and yeah, control from keyboard. you'll want that again

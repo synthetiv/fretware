@@ -107,10 +107,10 @@ Engine_Cule : CroneEngine {
 			modulators = [tip, palm, eg, lfoA, lfoB];
 
 			hz = 2.pow(pitch + octave + Mix([eg, lfoA, lfoB] * [eg_pitch, lfoA_pitch, lfoB_pitch])) * baseFreq;
-			amp = Mix(modulators * [tip_amp, palm_amp, eg_amp, lfoA_amp, lfoB_amp]);
+			amp = Mix(modulators * [tip_amp, palm_amp, eg_amp, lfoA_amp, lfoB_amp]).max(0);
 
-			fb = fb + Mix(modulators * [tip_fb, palm_fb, eg_fb, lfoA_fb, lfoB_fb]);
-			fold = fold + Mix(modulators * [tip_fold, palm_fold, eg_fold, lfoA_fold, lfoB_fold]);
+			fb = (fb + Mix(modulators * [tip_fb, palm_fb, eg_fb, lfoA_fb, lfoB_fb])).max(0);
+			fold = (fold + Mix(modulators * [tip_fold, palm_fold, eg_fold, lfoA_fold, lfoB_fold])).max(0.1);
 
 			sine = SinOscFB.ar(hz, fb);
 			folded = SinOsc.ar(0, pi * fold * sine) * amp;
@@ -153,6 +153,16 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\palm, "f", {
 			arg msg;
 			synth.set(\palm, msg[1]);
+		});
+
+		this.addCommand(\lfo_a_freq, "f", {
+			arg msg;
+			synth.set(\lfoAFreq, msg[1]);
+		});
+
+		this.addCommand(\lfo_b_freq, "f", {
+			arg msg;
+			synth.set(\lfoBFreq, msg[1]);
 		});
 
 		this.addCommand(\fb, "f", {
