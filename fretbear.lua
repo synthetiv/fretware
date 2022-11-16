@@ -162,9 +162,9 @@ function init()
 		max = 24,
 		default = -2,
 		formatter = function(param)
-			local value = param:get()
+			local value = k.bend_range * 12
 			if value < 1 then
-				return string.format('%.2f', k.bend_range)
+				return string.format('%.2f', value)
 			end
 			return string.format('%d', value)
 		end,
