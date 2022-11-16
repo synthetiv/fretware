@@ -17,7 +17,6 @@ Engine_Cule : CroneEngine {
 		SynthDef.new(\line, {
 
 			// TODO:
-			// - base freq and linear, CV-style pitch
 			// - mod matrix instead of direct amp control
 			arg pitch = 0,
 				pitchSlew = 0.01,
