@@ -3,7 +3,12 @@ Engine_Cule : CroneEngine {
 	// TODO: replace or augment buses with buffers
 	// var ampBus;
 	// var freqBus;
+	var pitchBus;
+	var tipBus;
+	var palmBus;
+	var gateBus;
 	var synth;
+	var buffer;
 
 	*new { arg context, doneCallback;
 		^super.new(context, doneCallback);
@@ -11,15 +16,16 @@ Engine_Cule : CroneEngine {
 
 	alloc {
 
-		// ampBus = Bus.control(context.server);
-		// freqBus = Bus.control(context.server);
+		pitchBus = Bus.control(context.server);
+		tipBus = Bus.control(context.server);
+		palmBus = Bus.control(context.server);
+		gateBus = Bus.control(context.server);
 
 		SynthDef.new(\line, {
 
-			arg pitch = 0,
-				tip = 0,
-				palm = 0,
-				gate = 0,
+			arg buffer,
+				delay = 0,
+				freeze = 0,
 
 				baseFreq = 60.midicps,
 				pitchSlew = 0.01,
@@ -73,7 +79,20 @@ Engine_Cule : CroneEngine {
 				// TODO: pitch -> LFO freqs and amounts
 				// TODO: EG -> LFO freqs and amounts, and vice versa
 
-			var controllers, eg, lfoA, lfoB, modulators, hz, amp, sine, folded;
+			var bufferPhase,
+				pitch, tip, palm, gate,
+				controllers,
+				eg, lfoA, lfoB,
+				modulators,
+				hz, amp, sine, folded;
+
+			bufferPhase = Phasor.kr(rate: 1 - freeze, end: BufFrames.kr(buffer));
+			BufWr.kr(In.kr([pitchBus, tipBus, palmBus, gateBus]), buffer, bufferPhase);
+			// TODO: make delay a modulation destination (requires LocalOut/LocalIn)
+			// when freeze is engaged, delay must be at least 1 frame, or we'll be writing to + reading from the same point
+			// TODO: you may want to clear the buffer or reset the delay when freeze is disengaged,
+			// to prevent hearing one delay period's worth of old input... or maybe that's fun
+			# pitch, tip, palm, gate = BufRd.kr(4, buffer, bufferPhase - (delay * ControlRate.ir).max(freeze), interpolation: 1);
 
 			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
 			// if I try that, SC seems to just hang forever, no error message
@@ -120,19 +139,32 @@ Engine_Cule : CroneEngine {
 
 		context.server.sync;
 
+		// TODO: use array fill and stuff -- arrays of buffers and synths
+		buffer = Buffer.alloc(context.server, context.server.sampleRate / context.server.options.blockSize * 8, 4);
 		synth = Synth.new(\line, [
+			\buffer, buffer,
 			\in_l, context.in_b[0],
 			\in_r, context.in_b[1]
 		], context.og); // "output" group
 
+		this.addCommand(\delay, "f", {
+			arg msg;
+			synth.set(\delay, msg[1]);
+		});
+
+		this.addCommand(\freeze, "i", {
+			arg msg;
+			synth.set(\freeze, msg[1]);
+		});
+
 		this.addCommand(\pitch, "f", {
 			arg msg;
-			synth.set(\pitch, msg[1]);
+			pitchBus.setSynchronous(msg[1]);
 		});
 
 		this.addCommand(\gate, "i", {
 			arg msg;
-			synth.set(\gate, msg[1]);
+			gateBus.setSynchronous(msg[1]);
 		});
 
 		this.addCommand(\pitch_slew, "f", {
@@ -147,12 +179,12 @@ Engine_Cule : CroneEngine {
 
 		this.addCommand(\tip, "f", {
 			arg msg;
-			synth.set(\tip, msg[1]);
+			tipBus.setSynchronous(msg[1]);
 		});
 
 		this.addCommand(\palm, "f", {
 			arg msg;
-			synth.set(\palm, msg[1]);
+			palmBus.setSynchronous(msg[1]);
 		});
 
 		this.addCommand(\lfo_a_freq, "f", {
