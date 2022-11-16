@@ -56,14 +56,15 @@ function touche.event(data)
 		-- back = 16, front = 17, left = 18, right = 19
 		if message.cc == 17 then
 			local amp = message.val / 126
-			engine.amp(amp) -- let SC do the scaling
+			engine.tip(amp) -- let SC do the scaling
 			-- amp = math.sqrt(amp) -- fast attack
 			-- amp_volts = 10 * amp
 			-- crow.output[2].volts = amp_volts
 		elseif message.cc == 16 then
-			damp_volts = message.val * params:get('damp_range') / 126 + params:get('damp_base')
+			local damp = message.val / 126
+			engine.palm(damp)
+			-- damp_volts = damp * params:get('damp_range') + params:get('damp_base')
 			-- crow.output[3].volts = damp_volts
-			-- TODO: timbre/damp control
 		elseif message.cc == 18 then
 			k:bend(-math.min(1, message.val / 126)) -- TODO: not sure why 126 is the max value I'm getting from Touche...
 			send_pitch_volts()
@@ -142,9 +143,17 @@ function init()
 
 	k.on_gate = function(gate)
 		if k.gate_mode ~= 3 then
-			crow.output[4](gate)
+			-- crow.output[4](gate)
+			engine.gate(gate and 1 or 0)
 		elseif gate then
 			crow.output[4]()
+			engine.gate(1)
+			-- TODO: finesse this: there should be control over gate time, and this should handle
+			-- overlapping gates
+			clock.run(function()
+				clock.sleep(0.1)
+				engine.gate(0)
+			end)
 		end
 		if gate and not do_pitch_detection then
 			crow.ii.tt.script_v(2, k.scale:snap(pitch_volts + k.transposition))
@@ -224,7 +233,7 @@ function init()
 		action = function(value)
 			crow.output[2].slew = value
 			crow.output[3].slew = value
-			engine.amplag(value) -- TODO: scale to account for difference between linear slew and one-pole lag...?
+			engine.lag(value) -- TODO: scale to account for difference between linear slew and one-pole lag...?
 		end
 	}
 
