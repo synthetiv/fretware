@@ -1,5 +1,7 @@
 Engine_Cule : CroneEngine {
 
+	classvar n_voices = 3;
+
 	// TODO: replace or augment buses with buffers
 	// var ampBus;
 	// var freqBus;
@@ -35,8 +37,10 @@ Engine_Cule : CroneEngine {
 				sustain = 0.8,
 				release = 0.3,
 				egAmount = 1,
+				lfoAType = 0,
 				lfoAFreq = 0.9,
 				lfoAAmount = 1,
+				lfoBType = 0,
 				lfoBFreq = 1.1,
 				lfoBAmount = 1,
 				fb = 0,
@@ -128,16 +132,26 @@ Engine_Cule : CroneEngine {
 				gate,
 				egAmount + Mix(modulators * [tip_egAmount, palm_egAmount, 0, lfoA_egAmount, lfoB_egAmount])
 			);
-			lfoA = SinOsc.kr(
-				lfoAFreq * 2.pow(Mix(modulators * [tip_lfoAFreq, palm_lfoAFreq, eg_lfoAFreq, 0, lfoB_lfoAFreq])),
-				0,
-				lfoAAmount + Mix(modulators * [tip_lfoAAmount, palm_lfoAAmount, eg_lfoAAmount, 0, lfoB_lfoAAmount])
-			);
-			lfoB = SinOsc.kr(
-				lfoBFreq * 2.pow(Mix(modulators * [tip_lfoBFreq, palm_lfoBFreq, eg_lfoBFreq, lfoA_lfoBFreq, 0])),
-				0,
-				lfoBAmount + Mix(modulators * [tip_lfoBAmount, palm_lfoBAmount, eg_lfoBAmount, lfoA_lfoBAmount, 0])
-			);
+
+			lfoAFreq = lfoAFreq * 2.pow(Mix(modulators * [tip_lfoAFreq, palm_lfoAFreq, eg_lfoAFreq, 0, lfoB_lfoAFreq]));
+			lfoAAmount = lfoAAmount + Mix(modulators * [tip_lfoAAmount, palm_lfoAAmount, eg_lfoAAmount, 0, lfoB_lfoAAmount]);
+			lfoA = lfoAAmount * Select.kr(lfoAType, [
+				SinOsc.kr(lfoAFreq),
+				LFTri.kr(lfoAFreq),
+				LFSaw.kr(lfoAFreq),
+				LFNoise1.kr(lfoAFreq),
+				LFNoise0.kr(lfoAFreq)
+			]);
+
+			lfoBFreq = lfoBFreq * 2.pow(Mix(modulators * [tip_lfoBFreq, palm_lfoBFreq, eg_lfoBFreq, lfoA_lfoBFreq, 0]));
+			lfoBAmount = lfoBAmount + Mix(modulators * [tip_lfoBAmount, palm_lfoBAmount, eg_lfoBAmount, lfoA_lfoBAmount, 0]);
+			lfoB = lfoBAmount * Select.kr(lfoBType, [
+				SinOsc.kr(lfoBFreq),
+				LFTri.kr(lfoBFreq),
+				LFSaw.kr(lfoBFreq),
+				LFNoise1.kr(lfoBFreq),
+				LFNoise0.kr(lfoBFreq)
+			]);
 
 			LocalOut.kr([tip, palm, eg, lfoA, lfoB]);
 
@@ -155,10 +169,10 @@ Engine_Cule : CroneEngine {
 
 		context.server.sync;
 
-		buffers = Array.fill(2, {
+		buffers = Array.fill(n_voices, {
 			Buffer.alloc(context.server, context.server.sampleRate / context.server.options.blockSize * 8, 4);
 		});
-		synths = Array.fill(2, {
+		synths = Array.fill(n_voices, {
 			arg i;
 			Synth.new(\line, [
 				\buffer, buffers[i],
@@ -206,6 +220,10 @@ Engine_Cule : CroneEngine {
 			palmBus.setSynchronous(msg[1]);
 		});
 
+		this.addCommand(\lfo_a_type, "ii", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoAType, msg[2] - 1);
+		});
 		this.addCommand(\lfo_a_freq, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\lfoAFreq, msg[2]);
@@ -215,6 +233,10 @@ Engine_Cule : CroneEngine {
 			synths[msg[1] - 1].set(\lfoAAmount, msg[2]);
 		});
 
+		this.addCommand(\lfo_b_type, "ii", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoBType, msg[2] - 1);
+		});
 		this.addCommand(\lfo_b_freq, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\lfoBFreq, msg[2]);

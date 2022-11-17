@@ -212,14 +212,14 @@ function init()
 		name = 'tip -> int clock rate',
 		id = 'tip_clock_rate',
 		type = 'control',
-		controlspec = controlspec.new(-4, 4, 'lin', 0, 0),
+		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
 	}
 	
 	params:add {
 		name = 'palm -> int clock rate',
 		id = 'palm_clock_rate',
 		type = 'control',
-		controlspec = controlspec.new(-4, 4, 'lin', 0, 0),
+		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
 	}
 
 	params:add_group('crow', 7)
@@ -318,7 +318,7 @@ function init()
 		end
 	}
 
-	for v = 1, 2 do
+	for v = 1, 3 do
 
 		params:add_separator('int voice ' .. v)
 
@@ -326,7 +326,7 @@ function init()
 			name = 'pitch lag',
 			id = 'pitch_lag_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.02, 's'),
+			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.01, 's'),
 			action = function(value)
 				engine.pitch_slew(v, value)
 			end
@@ -411,7 +411,7 @@ function init()
 			name = 'tip -> amp',
 			id = 'tip_amp_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 1, 'exp', 0, 1),
+			controlspec = controlspec.new(0.001, 1, 'exp', 0, v < 3 and 1 or 0),
 			action = function(value)
 				engine.tip_amp(v, value - 0.001)
 			end
@@ -461,7 +461,7 @@ function init()
 			name = 'tip -> lfo A freq',
 			id = 'tip_lfo_a_freq_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-3, 3, 'lin', 0, 0),
+			controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
 			action = function(value)
 				engine.tip_lfo_a_freq(v, value)
 			end
@@ -481,7 +481,7 @@ function init()
 			name = 'tip -> lfo B freq',
 			id = 'tip_lfo_b_freq_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-3, 3, 'lin', 0, 0),
+			controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
 			action = function(value)
 				engine.tip_lfo_b_freq(v, value)
 			end
@@ -553,7 +553,7 @@ function init()
 			name = 'palm -> lfo A freq',
 			id = 'palm_lfo_a_freq_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-3, 3, 'lin', 0, 0),
+			controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
 			action = function(value)
 				engine.palm_lfo_a_freq(v, value)
 			end
@@ -573,7 +573,7 @@ function init()
 			name = 'palm -> lfo B freq',
 			id = 'palm_lfo_b_freq_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-3, 3, 'lin', 0, 0),
+			controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
 			action = function(value)
 				engine.palm_lfo_b_freq(v, value)
 			end
@@ -695,7 +695,17 @@ function init()
 			end
 		}
 
-		params:add_group('lfo A', 6)
+		params:add_group('lfo A', 10)
+
+		params:add {
+			name = 'lfo A type',
+			id = 'lfo_a_type_' .. v,
+			type = 'option',
+			options = { 'sine', 'tri', 'saw', 'rand', 's+h' },
+			action = function(value)
+				engine.lfo_a_type(v, value)
+			end
+		}
 
 		params:add {
 			name = 'lfo A freq',
@@ -735,7 +745,7 @@ function init()
 			name = 'lfo A -> delay',
 			id = 'lfo_a_delay_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-2, 2, 'lin', 0, 0),
+			controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
 			action = function(value)
 				engine.lfo_a_delay(v, value)
 			end
@@ -761,7 +771,48 @@ function init()
 			end
 		}
 
-		params:add_group('lfo B', 6)
+		params:add {
+			name = 'lfo A -> eg amt',
+			id = 'lfo_a_eg_amount_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
+			action = function(value)
+				engine.lfo_a_eg_amount(v, value)
+			end
+		}
+
+		params:add {
+			name = 'lfo A -> lfo B freq',
+			id = 'lfo_a_lfo_b_freq_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
+			action = function(value)
+				engine.lfo_a_lfo_b_freq(v, value)
+			end
+		}
+
+		params:add {
+			name = 'lfo A -> lfo B amt',
+			id = 'lfo_a_lfo_b_amount_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
+			action = function(value)
+				engine.lfo_a_lfo_b_amount(v, value)
+			end
+		}
+
+		params:add_group('lfo B', 10)
+
+		params:add {
+			name = 'lfo B type',
+			id = 'lfo_b_type_' .. v,
+			type = 'option',
+			options = { 'sine', 'tri', 'saw', 'rand', 's+h' },
+			default = 4,
+			action = function(value)
+				engine.lfo_b_type(v, value)
+			end
+		}
 
 		params:add {
 			name = 'lfo B freq',
@@ -801,7 +852,7 @@ function init()
 			name = 'lfo B -> delay',
 			id = 'lfo_b_delay_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-5, 5, 'lin', 0, 0.1),
+			controlspec = controlspec.new(-5, 5, 'lin', 0, 0.2),
 			action = function(value)
 				engine.lfo_b_delay(v, value)
 			end
@@ -824,6 +875,36 @@ function init()
 			controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
 			action = function(value)
 				engine.lfo_b_fold(v, value)
+			end
+		}
+
+		params:add {
+			name = 'lfo B -> eg amt',
+			id = 'lfo_b_eg_amount_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
+			action = function(value)
+				engine.lfo_b_eg_amount(v, value)
+			end
+		}
+
+		params:add {
+			name = 'lfo B -> lfo B freq',
+			id = 'lfo_b_lfo_a_freq_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
+			action = function(value)
+				engine.lfo_b_lfo_a_freq(v, value)
+			end
+		}
+
+		params:add {
+			name = 'lfo B -> lfo B amt',
+			id = 'lfo_b_lfo_a_amount_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
+			action = function(value)
+				engine.lfo_b_lfo_a_amount(v, value)
 			end
 		}
 
