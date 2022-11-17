@@ -34,8 +34,11 @@ Engine_Cule : CroneEngine {
 				decay = 0.1,
 				sustain = 0.8,
 				release = 0.3,
+				egAmount = 1,
 				lfoAFreq = 0.9,
+				lfoAAmount = 1,
 				lfoBFreq = 1.1,
+				lfoBAmount = 1,
 				fb = 0,
 				fold = 0.3,
 				lag = 0.1,
@@ -66,18 +69,28 @@ Engine_Cule : CroneEngine {
 				eg_delay = 0,
 				eg_fb = 0,
 				eg_fold = 0,
+				eg_lfoAFreq = 0,
+				eg_lfoAAmount = 0,
+				eg_lfoBFreq = 0,
+				eg_lfoBAmount = 0,
 
 				lfoA_pitch = 0,
 				lfoA_amp = 0,
 				lfoA_delay = 0,
 				lfoA_fb = 0,
 				lfoA_fold = 0,
+				lfoA_egAmount = 0,
+				lfoA_lfoBFreq = 0,
+				lfoA_lfoBAmount = 0,
 
 				lfoB_pitch = 0,
 				lfoB_amp = 0,
 				lfoB_delay = 0,
 				lfoB_fb = 0,
 				lfoB_fold = 0,
+				lfoB_egAmount = 0,
+				lfoB_lfoAFreq = 0,
+				lfoB_lfoAAmount = 0,
 
 				pitch_fb = -0.1,
 				pitch_fold = -0.1;
@@ -86,16 +99,14 @@ Engine_Cule : CroneEngine {
 
 			var bufferPhase,
 				pitch, tip, palm, gate,
-				controllers,
 				eg, lfoA, lfoB,
-				modulators,
 				hz, amp, sine, folded;
 
-			var modulatorsFB = LocalIn.kr(5);
+			var modulators = LocalIn.kr(5);
 
 			bufferPhase = Phasor.kr(rate: 1 - freeze, end: BufFrames.kr(buffer));
 			BufWr.kr(In.kr([pitchBus, tipBus, palmBus, gateBus]), buffer, bufferPhase);
-			delay = delay * 2.pow(Mix(modulatorsFB * [tip_delay, palm_delay, eg_delay, lfoA_delay, lfoB_delay]));
+			delay = delay * 2.pow(Mix(modulators * [tip_delay, palm_delay, eg_delay, lfoA_delay, lfoB_delay]));
 			delay = delay.clip(0, 8);
 			// when freeze is engaged, delay must be at least 1 frame, or we'll be writing to + reading from the same point
 			# pitch, tip, palm, gate = BufRd.kr(4, buffer, bufferPhase - (delay * ControlRate.ir).max(freeze), interpolation: 1);
@@ -112,26 +123,23 @@ Engine_Cule : CroneEngine {
 			fb   = Lag.kr(fb,   lag);
 			fold = Lag.kr(fold, lag);
 
-			controllers = [tip, palm];
-
-			// TODO: use LocalOut/LocalIn to let these modulate one another
 			eg = EnvGen.kr(
 				Env.adsr(attack, decay, sustain, release),
 				gate,
-				1 + Mix(controllers * [tip_egAmount, palm_egAmount])
+				egAmount + Mix(modulators * [tip_egAmount, palm_egAmount, 0, lfoA_egAmount, lfoB_egAmount])
 			);
 			lfoA = SinOsc.kr(
-				lfoAFreq * 2.pow(Mix(controllers * [tip_lfoAFreq, palm_lfoAFreq])),
+				lfoAFreq * 2.pow(Mix(modulators * [tip_lfoAFreq, palm_lfoAFreq, eg_lfoAFreq, 0, lfoB_lfoAFreq])),
 				0,
-				1 + Mix(controllers * [tip_lfoAAmount, palm_lfoAAmount])
+				lfoAAmount + Mix(modulators * [tip_lfoAAmount, palm_lfoAAmount, eg_lfoAAmount, 0, lfoB_lfoAAmount])
 			);
 			lfoB = SinOsc.kr(
-				lfoBFreq * 2.pow(Mix(controllers * [tip_lfoBFreq, palm_lfoBFreq])),
+				lfoBFreq * 2.pow(Mix(modulators * [tip_lfoBFreq, palm_lfoBFreq, eg_lfoBFreq, lfoA_lfoBFreq, 0])),
 				0,
-				1 + Mix(controllers * [tip_lfoBAmount, palm_lfoBAmount])
+				lfoBAmount + Mix(modulators * [tip_lfoBAmount, palm_lfoBAmount, eg_lfoBAmount, lfoA_lfoBAmount, 0])
 			);
 
-			modulators = [tip, palm, eg, lfoA, lfoB];
+			LocalOut.kr([tip, palm, eg, lfoA, lfoB]);
 
 			hz = 2.pow(pitch + octave + Mix([eg, lfoA, lfoB] * [eg_pitch, lfoA_pitch, lfoB_pitch])) * baseFreq;
 			amp = Mix(modulators * [tip_amp, palm_amp, eg_amp, lfoA_amp, lfoB_amp]).max(0);
@@ -141,8 +149,6 @@ Engine_Cule : CroneEngine {
 
 			sine = SinOscFB.ar(hz, fb);
 			folded = SinOsc.ar(0, pi * fold * sine) * amp;
-
-			LocalOut.kr(modulators);
 
 			Out.ar(context.out_b, folded ! 2);
 		}).add;
@@ -204,10 +210,18 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			synths[msg[1] - 1].set(\lfoAFreq, msg[2]);
 		});
+		this.addCommand(\lfo_a_amount, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoAAmount, msg[2]);
+		});
 
 		this.addCommand(\lfo_b_freq, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\lfoBFreq, msg[2]);
+		});
+		this.addCommand(\lfo_b_amount, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoBAmount, msg[2]);
 		});
 
 		this.addCommand(\attack, "if", {
@@ -228,6 +242,11 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\release, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\release, msg[2]);
+		});
+
+		this.addCommand(\eg_amount, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\egAmount, msg[2]);
 		});
 
 		this.addCommand(\fb, "if", {
@@ -344,6 +363,22 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			synths[msg[1] - 1].set(\eg_fold, msg[2]);
 		});
+		this.addCommand(\eg_lfo_a_freq, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\eg_lfoAFreq, msg[2]);
+		});
+		this.addCommand(\eg_lfo_a_amount, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\eg_lfoAAmount, msg[2]);
+		});
+		this.addCommand(\eg_lfo_b_freq, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\eg_lfoBFreq, msg[2]);
+		});
+		this.addCommand(\eg_lfo_b_amount, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\eg_lfoBAmount, msg[2]);
+		});
 
 		this.addCommand(\lfo_a_pitch, "if", {
 			arg msg;
@@ -365,6 +400,18 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			synths[msg[1] - 1].set(\lfoA_fold, msg[2]);
 		});
+		this.addCommand(\lfo_a_eg_amount, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoA_egAmount, msg[2]);
+		});
+		this.addCommand(\lfo_a_lfo_b_freq, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoA_lfoBFreq, msg[2]);
+		});
+		this.addCommand(\lfo_a_lfo_b_amount, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoA_lfoBAmount, msg[2]);
+		});
 
 		this.addCommand(\lfo_b_pitch, "if", {
 			arg msg;
@@ -385,6 +432,18 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\lfo_b_fold, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\lfoB_fold, msg[2]);
+		});
+		this.addCommand(\lfo_b_eg_amount, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoB_egAmount, msg[2]);
+		});
+		this.addCommand(\lfo_b_lfo_a_freq, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoB_lfoAFreq, msg[2]);
+		});
+		this.addCommand(\lfo_b_lfo_a_amount, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoB_lfoAAmount, msg[2]);
 		});
 
 		this.addCommand(\pitch_fb, "if", {

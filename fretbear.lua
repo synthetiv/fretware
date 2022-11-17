@@ -405,7 +405,7 @@ function init()
 			end
 		}
 
-		params:add_group('tip', 6)
+		params:add_group('tip', 9)
 
 		params:add {
 			name = 'tip -> amp',
@@ -447,15 +447,15 @@ function init()
 			end
 		}
 
-		-- params:add {
-		-- 	name = 'tip -> eg amt',
-		-- 	id = 'tip_eg_amount_' .. v,
-		-- 	type = 'control',
-		-- 	controlspec = controlspec.new(0.001, 1, 'exp', 0, 1),
-		-- 	action = function(value)
-		-- 		engine.tip_eg_amount(v, value)
-		-- 	end
-		-- }
+		params:add {
+			name = 'tip -> eg amt',
+			id = 'tip_eg_amount_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0.001, 1, 'exp', 0, 1),
+			action = function(value)
+				engine.tip_eg_amount(v, value)
+			end
+		}
 
 		params:add {
 			name = 'tip -> lfo A freq',
@@ -467,15 +467,15 @@ function init()
 			end
 		}
 
-		-- params:add {
-		-- 	name = 'tip -> lfo A amt',
-		-- 	id = 'tip_lfo_a_amount_' .. v,
-		-- 	type = 'control',
-		-- 	controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
-		-- 	action = function(value)
-		-- 		engine.tip_lfo_a_amount(v, value)
-		-- 	end
-		-- }
+		params:add {
+			name = 'tip -> lfo A amt',
+			id = 'tip_lfo_a_amount_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
+			action = function(value)
+				engine.tip_lfo_a_amount(v, value)
+			end
+		}
 
 		params:add {
 			name = 'tip -> lfo B freq',
@@ -487,17 +487,17 @@ function init()
 			end
 		}
 
-		-- params:add {
-		-- 	name = 'tip -> lfo B amt',
-		-- 	id = 'tip_lfo_b_amount_' .. v,
-		-- 	type = 'control',
-		-- 	controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
-		-- 	action = function(value)
-		-- 		engine.tip_lfo_b_amount(v, value)
-		-- 	end
-		-- }
+		params:add {
+			name = 'tip -> lfo B amt',
+			id = 'tip_lfo_b_amount_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
+			action = function(value)
+				engine.tip_lfo_b_amount(v, value)
+			end
+		}
 
-		params:add_group('palm', 6)
+		params:add_group('palm', 9)
 
 		params:add {
 			name = 'palm -> amp',
@@ -539,15 +539,15 @@ function init()
 			end
 		}
 
-		-- params:add {
-		-- 	name = 'palm -> eg amt',
-		-- 	id = 'palm_eg_amount_' .. v,
-		-- 	type = 'control',
-		-- 	controlspec = controlspec.new(0.001, 1, 'exp', 0, 1),
-		-- 	action = function(value)
-		-- 		engine.palm_eg_amount(v, value)
-		-- 	end
-		-- }
+		params:add {
+			name = 'palm -> eg amt',
+			id = 'palm_eg_amount_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
+			action = function(value)
+				engine.palm_eg_amount(v, value)
+			end
+		}
 
 		params:add {
 			name = 'palm -> lfo A freq',
@@ -559,15 +559,15 @@ function init()
 			end
 		}
 
-		-- params:add {
-		-- 	name = 'palm -> lfo A amt',
-		-- 	id = 'palm_lfo_a_amount_' .. v,
-		-- 	type = 'control',
-		-- 	controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
-		-- 	action = function(value)
-		-- 		engine.palm_lfo_a_amount(v, value)
-		-- 	end
-		-- }
+		params:add {
+			name = 'palm -> lfo A amt',
+			id = 'palm_lfo_a_amount_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
+			action = function(value)
+				engine.palm_lfo_a_amount(v, value)
+			end
+		}
 
 		params:add {
 			name = 'palm -> lfo B freq',
@@ -579,17 +579,17 @@ function init()
 			end
 		}
 
-		-- params:add {
-		-- 	name = 'palm -> lfo B amt',
-		-- 	id = 'palm_lfo_b_amount_' .. v,
-		-- 	type = 'control',
-		-- 	controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
-		-- 	action = function(value)
-		-- 		engine.palm_lfo_b_amount(v, value)
-		-- 	end
-		-- }
+		params:add {
+			name = 'palm -> lfo B amt',
+			id = 'palm_lfo_b_amount_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
+			action = function(value)
+				engine.palm_lfo_b_amount(v, value)
+			end
+		}
 
-		params:add_group('eg', 9)
+		params:add_group('eg', 10)
 
 		params:add {
 			name = 'attack',
@@ -615,7 +615,7 @@ function init()
 			name = 'sustain',
 			id = 'sustain_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0, 1, 'lin', 0, 0.8, ''),
+			controlspec = controlspec.new(0, 1, 'lin', 0, 0.8),
 			action = function(value)
 				engine.sustain(v, value)
 			end
@@ -628,6 +628,16 @@ function init()
 			controlspec = controlspec.new(0.001, 3, 'exp', 0, 0.3, 's'),
 			action = function(value)
 				engine.release(v, value)
+			end
+		}
+
+		params:add {
+			name = 'amount',
+			id = 'eg_amount_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0, 1, 'lin', 0, 1),
+			action = function(value)
+				engine.eg_amount(v, value)
 			end
 		}
 
