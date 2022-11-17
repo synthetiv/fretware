@@ -18,6 +18,8 @@ g = grid.connect()
 
 touche = midi.connect(1)
 
+tip = 0
+palm = 0
 amp_volts = 0
 damp_volts = 0
 pitch_volts = 0
@@ -55,15 +57,14 @@ function touche.event(data)
 	if message.ch == 1 and message.type == 'cc' then
 		-- back = 16, front = 17, left = 18, right = 19
 		if message.cc == 17 then
-			local amp = message.val / 126
-			engine.tip(amp) -- let SC do the scaling
-			-- amp = math.sqrt(amp) -- fast attack
-			-- amp_volts = 10 * amp
+			tip = message.val / 126
+			engine.tip(tip) -- let SC do the scaling
+			-- amp_volts = 10 * math.sqrt(tip) -- fast attack
 			-- crow.output[2].volts = amp_volts
 		elseif message.cc == 16 then
-			local damp = message.val / 126
-			engine.palm(damp)
-			-- damp_volts = damp * params:get('damp_range') + params:get('damp_base')
+			palm = message.val / 126
+			engine.palm(palm)
+			-- damp_volts = palm * params:get('damp_range') + params:get('damp_base')
 			-- crow.output[3].volts = damp_volts
 		elseif message.cc == 18 then
 			k:bend(-math.min(1, message.val / 126)) -- TODO: not sure why 126 is the max value I'm getting from Touche...
@@ -92,7 +93,7 @@ function crow_init()
 	-- TODO: internal clock
 	crow.input[1].change = function(gate)
 		gate_in = gate
-		if k.arping and k.n_sustained_keys > 0 then
+		if params:get('arp_clock_source') == 2 and k.arping and k.n_sustained_keys > 0 then
 			k:arp(gate)
 		else
 			-- if gate then
@@ -190,6 +191,14 @@ function init()
 	}
 
 	params:add {
+		name = 'arp clock source',
+		id = 'arp_clock_source',
+		type = 'option',
+		options = { 'int', 'crow' },
+		default = 1
+	}
+
+	params:add {
 		name = 'arp direction (1=fwd)',
 		id = 'arp_direction',
 		type = 'control',
@@ -198,6 +207,22 @@ function init()
 			k.arp_forward_probability = value
 		end
 	}
+
+	params:add {
+		name = 'tip -> int clock rate',
+		id = 'tip_clock_rate',
+		type = 'control',
+		controlspec = controlspec.new(-4, 4, 'lin', 0, 0),
+	}
+	
+	params:add {
+		name = 'palm -> int clock rate',
+		id = 'palm_clock_rate',
+		type = 'control',
+		controlspec = controlspec.new(-4, 4, 'lin', 0, 0),
+	}
+
+	params:add_group('crow', 7)
 	
 	-- TODO: damp base + range are a way to avoid using an extra attenuator + offset,
 	-- but is that worth it?
@@ -222,9 +247,6 @@ function init()
 		controlspec = controlspec.new(0, 0.1, 'lin', 0, 0, 's'),
 		action = function(value)
 			crow.output[1].slew = value
-			for v = 1, 2 do
-				engine.pitch_slew(v, value)
-			end
 		end
 	}
 	
@@ -236,9 +258,6 @@ function init()
 		action = function(value)
 			crow.output[2].slew = value
 			crow.output[3].slew = value
-			for v = 1, 2 do
-				engine.lag(v, value) -- TODO: scale to account for difference between linear slew and one-pole lag...?
-			end
 		end
 	}
 
@@ -304,12 +323,43 @@ function init()
 		params:add_separator('int voice ' .. v)
 
 		params:add {
+			name = 'pitch lag',
+			id = 'pitch_lag_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.02, 's'),
+			action = function(value)
+				engine.pitch_slew(v, value)
+			end
+		}
+
+		params:add {
+			name = 'other lag',
+			id = 'other_lag_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.1, 's'),
+			action = function(value)
+				engine.lag(v, value)
+			end
+		}
+
+		params:add {
 			name = 'delay',
 			id = 'delay_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0, 8, 'lin', 0, (v - 1) * 0.4, 'sec'),
+			controlspec = controlspec.new(0, 8, 'lin', 0, (v - 1) * 0.4, 's'),
 			action = function(value)
 				engine.delay(v, value)
+			end
+		}
+
+		params:add {
+			name = 'freeze',
+			id = 'freeze_' .. v,
+			type = 'binary',
+			behavior = 'toggle',
+			default = 0,
+			action = function(value)
+				engine.freeze(v, value)
 			end
 		}
 
@@ -363,7 +413,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(0.001, 1, 'exp', 0, 1),
 			action = function(value)
-				engine.tip_amp(v, value)
+				engine.tip_amp(v, value - 0.001)
 			end
 		}
 
@@ -443,9 +493,9 @@ function init()
 			name = 'palm -> amp',
 			id = 'palm_amp_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 1, 'exp', 0, 1),
+			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
 			action = function(value)
-				engine.palm_amp(v, value)
+				engine.palm_amp(v, value - 0.001)
 			end
 		}
 
@@ -519,6 +569,92 @@ function init()
 			end
 		}
 
+		params:add_group('eg', 8)
+
+		params:add {
+			name = 'attack',
+			id = 'attack_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.01, 's'),
+			action = function(value)
+				engine.attack(v, value)
+			end
+		}
+
+		params:add {
+			name = 'decay',
+			id = 'decay_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.1, 's'),
+			action = function(value)
+				engine.decay(v, value)
+			end
+		}
+
+		params:add {
+			name = 'sustain',
+			id = 'sustain_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0, 1, 'lin', 0, 0.8, ''),
+			action = function(value)
+				engine.sustain(v, value)
+			end
+		}
+
+		params:add {
+			name = 'release',
+			id = 'release_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0.001, 3, 'exp', 0, 0.3, 's'),
+			action = function(value)
+				engine.release(v, value)
+			end
+		}
+
+		params:add {
+			name = 'eg -> pitch',
+			id = 'eg_pitch_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-0.2, 0.2, 'lin', 0, 0),
+			formatter = function(param)
+				local value = param:get()
+				return string.format('%.2f', value * 12)
+			end,
+			action = function(value)
+				engine.eg_pitch(v, value)
+			end
+		}
+
+		params:add {
+			name = 'eg -> amp',
+			id = 'eg_amp_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
+			action = function(value)
+				engine.eg_amp(v, value)
+			end
+		}
+
+		params:add {
+			name = 'eg -> fb',
+			id = 'eg_fb_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+			action = function(value)
+				engine.eg_fb(v, value)
+			end
+		}
+
+		params:add {
+			name = 'eg -> fold',
+			id = 'eg_fold_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+			action = function(value)
+				engine.eg_fold(v, value)
+			end
+		}
+
 		params:add_group('lfo A', 5)
 
 		params:add {
@@ -549,7 +685,7 @@ function init()
 			name = 'lfo A -> amp',
 			id = 'lfo_a_amp_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
+			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.lfo_a_amp(v, value)
 			end
@@ -605,7 +741,7 @@ function init()
 			name = 'lfo B -> amp',
 			id = 'lfo_b_amp_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
+			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.lfo_b_amp(v, value)
 			end
@@ -649,7 +785,7 @@ function init()
 		end
 	}
 
-	params:add{
+	params:add {
 		type = 'file',
 		id = 'tuning_file',
 		name = 'tuning_file',
@@ -664,6 +800,18 @@ function init()
 	-- TODO: quantize lock on/off: apply post-bend quantization to keyboard notes
 	
 	params:bang()
+
+	params:set('reverb', 1) -- off
+
+	clock.run(function()
+		local gate = false
+		while true do
+			local tick_mod = tip * params:get('tip_clock_rate') + palm * params:get('palm_clock_rate')
+			clock.sleep(clock.get_beat_sec() * 0.125 * math.pow(0.5, tick_mod))
+			gate = not gate
+			k:arp(gate)
+		end
+	end)
 	
 	relax_metro = metro.init {
 		time = 1 / 40,

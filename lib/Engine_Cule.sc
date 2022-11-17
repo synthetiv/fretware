@@ -200,6 +200,26 @@ Engine_Cule : CroneEngine {
 			synths[msg[1] - 1].set(\lfoBFreq, msg[2]);
 		});
 
+		this.addCommand(\attack, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\attack, msg[2]);
+		});
+
+		this.addCommand(\decay, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\decay, msg[2]);
+		});
+
+		this.addCommand(\sustain, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\sustain, msg[2]);
+		});
+
+		this.addCommand(\release, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\release, msg[2]);
+		});
+
 		this.addCommand(\fb, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\fb, msg[2]);
