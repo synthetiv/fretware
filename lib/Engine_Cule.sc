@@ -7,8 +7,8 @@ Engine_Cule : CroneEngine {
 	var tipBus;
 	var palmBus;
 	var gateBus;
-	var synth;
-	var buffer;
+	var buffers;
+	var synths;
 
 	*new { arg context, doneCallback;
 		^super.new(context, doneCallback);
@@ -139,22 +139,25 @@ Engine_Cule : CroneEngine {
 
 		context.server.sync;
 
-		// TODO: use array fill and stuff -- arrays of buffers and synths
-		buffer = Buffer.alloc(context.server, context.server.sampleRate / context.server.options.blockSize * 8, 4);
-		synth = Synth.new(\line, [
-			\buffer, buffer,
-			\in_l, context.in_b[0],
-			\in_r, context.in_b[1]
-		], context.og); // "output" group
-
-		this.addCommand(\delay, "f", {
-			arg msg;
-			synth.set(\delay, msg[1]);
+		buffers = Array.fill(2, {
+			Buffer.alloc(context.server, context.server.sampleRate / context.server.options.blockSize * 8, 4);
+		});
+		synths = Array.fill(2, {
+			arg i;
+			Synth.new(\line, [
+				\buffer, buffers[i],
+				\delay, i * 0.2
+			], context.og); // "output" group
 		});
 
-		this.addCommand(\freeze, "i", {
+		this.addCommand(\delay, "if", {
 			arg msg;
-			synth.set(\freeze, msg[1]);
+			synths[msg[1] - 1].set(\delay, msg[2]);
+		});
+
+		this.addCommand(\freeze, "ii", {
+			arg msg;
+			synths[msg[1] - 1].set(\freeze, msg[2]);
 		});
 
 		this.addCommand(\pitch, "f", {
@@ -167,14 +170,14 @@ Engine_Cule : CroneEngine {
 			gateBus.setSynchronous(msg[1]);
 		});
 
-		this.addCommand(\pitch_slew, "f", {
+		this.addCommand(\pitch_slew, "if", {
 			arg msg;
-			synth.set(\pitchSlew, msg[1]);
+			synths[msg[1] - 1].set(\pitchSlew, msg[2]);
 		});
 
-		this.addCommand(\base_freq, "f", {
+		this.addCommand(\base_freq, "if", {
 			arg msg;
-			synth.set(\baseFreq, msg[1]);
+			synths[msg[1] - 1].set(\baseFreq, msg[2]);
 		});
 
 		this.addCommand(\tip, "f", {
@@ -187,166 +190,169 @@ Engine_Cule : CroneEngine {
 			palmBus.setSynchronous(msg[1]);
 		});
 
-		this.addCommand(\lfo_a_freq, "f", {
+		this.addCommand(\lfo_a_freq, "if", {
 			arg msg;
-			synth.set(\lfoAFreq, msg[1]);
+			synths[msg[1] - 1].set(\lfoAFreq, msg[2]);
 		});
 
-		this.addCommand(\lfo_b_freq, "f", {
+		this.addCommand(\lfo_b_freq, "if", {
 			arg msg;
-			synth.set(\lfoBFreq, msg[1]);
+			synths[msg[1] - 1].set(\lfoBFreq, msg[2]);
 		});
 
-		this.addCommand(\fb, "f", {
+		this.addCommand(\fb, "if", {
 			arg msg;
-			synth.set(\fb, msg[1]);
+			synths[msg[1] - 1].set(\fb, msg[2]);
 		});
 
-		this.addCommand(\fold, "f", {
+		this.addCommand(\fold, "if", {
 			arg msg;
-			synth.set(\fold, msg[1]);
+			synths[msg[1] - 1].set(\fold, msg[2]);
 		});
 
-		this.addCommand(\octave, "i", {
+		this.addCommand(\octave, "ii", {
 			arg msg;
-			synth.set(\octave, msg[1]);
+			synths[msg[1] - 1].set(\octave, msg[2]);
 		});
 
-		this.addCommand(\lag, "f", {
+		this.addCommand(\lag, "if", {
 			arg msg;
-			synth.set(\lag, msg[1]);
+			synths[msg[1] - 1].set(\lag, msg[2]);
 		});
 
-		this.addCommand(\tip_amp, "f", {
+		this.addCommand(\tip_amp, "if", {
 			arg msg;
-			synth.set(\tip_amp, msg[1]);
+			synths[msg[1] - 1].set(\tip_amp, msg[2]);
 		});
-		this.addCommand(\tip_fb, "f", {
+		this.addCommand(\tip_fb, "if", {
 			arg msg;
-			synth.set(\tip_fb, msg[1]);
+			synths[msg[1] - 1].set(\tip_fb, msg[2]);
 		});
-		this.addCommand(\tip_fold, "f", {
+		this.addCommand(\tip_fold, "if", {
 			arg msg;
-			synth.set(\tip_fold, msg[1]);
+			synths[msg[1] - 1].set(\tip_fold, msg[2]);
 		});
-		this.addCommand(\tip_eg_amount, "f", {
+		this.addCommand(\tip_eg_amount, "if", {
 			arg msg;
-			synth.set(\tip_egAmount, msg[1]);
+			synths[msg[1] - 1].set(\tip_egAmount, msg[2]);
 		});
-		this.addCommand(\tip_lfo_a_freq, "f", {
+		this.addCommand(\tip_lfo_a_freq, "if", {
 			arg msg;
-			synth.set(\tip_lfoAFreq, msg[1]);
+			synths[msg[1] - 1].set(\tip_lfoAFreq, msg[2]);
 		});
-		this.addCommand(\tip_lfo_a_amount, "f", {
+		this.addCommand(\tip_lfo_a_amount, "if", {
 			arg msg;
-			synth.set(\tip_lfoAAmount, msg[1]);
+			synths[msg[1] - 1].set(\tip_lfoAAmount, msg[2]);
 		});
-		this.addCommand(\tip_lfo_b_freq, "f", {
+		this.addCommand(\tip_lfo_b_freq, "if", {
 			arg msg;
-			synth.set(\tip_lfoBFreq, msg[1]);
+			synths[msg[1] - 1].set(\tip_lfoBFreq, msg[2]);
 		});
-		this.addCommand(\tip_lfo_b_amount, "f", {
+		this.addCommand(\tip_lfo_b_amount, "if", {
 			arg msg;
-			synth.set(\tip_lfoBAmount, msg[1]);
-		});
-
-		this.addCommand(\palm_amp, "f", {
-			arg msg;
-			synth.set(\palm_amp, msg[1]);
-		});
-		this.addCommand(\palm_fb, "f", {
-			arg msg;
-			synth.set(\palm_fb, msg[1]);
-		});
-		this.addCommand(\palm_fold, "f", {
-			arg msg;
-			synth.set(\palm_fold, msg[1]);
-		});
-		this.addCommand(\palm_eg_amount, "f", {
-			arg msg;
-			synth.set(\palm_egAmount, msg[1]);
-		});
-		this.addCommand(\palm_lfo_a_freq, "f", {
-			arg msg;
-			synth.set(\palm_lfoAFreq, msg[1]);
-		});
-		this.addCommand(\palm_lfo_a_amount, "f", {
-			arg msg;
-			synth.set(\palm_lfoAAmount, msg[1]);
-		});
-		this.addCommand(\palm_lfo_b_freq, "f", {
-			arg msg;
-			synth.set(\palm_lfoBFreq, msg[1]);
-		});
-		this.addCommand(\palm_lfo_b_amount, "f", {
-			arg msg;
-			synth.set(\palm_lfoBAmount, msg[1]);
+			synths[msg[1] - 1].set(\tip_lfoBAmount, msg[2]);
 		});
 
-		this.addCommand(\eg_pitch, "f", {
+		this.addCommand(\palm_amp, "if", {
 			arg msg;
-			synth.set(\eg_pitch, msg[1]);
+			synths[msg[1] - 1].set(\palm_amp, msg[2]);
 		});
-		this.addCommand(\eg_amp, "f", {
+		this.addCommand(\palm_fb, "if", {
 			arg msg;
-			synth.set(\eg_amp, msg[1]);
+			synths[msg[1] - 1].set(\palm_fb, msg[2]);
 		});
-		this.addCommand(\eg_fb, "f", {
+		this.addCommand(\palm_fold, "if", {
 			arg msg;
-			synth.set(\eg_fb, msg[1]);
+			synths[msg[1] - 1].set(\palm_fold, msg[2]);
 		});
-		this.addCommand(\eg_fold, "f", {
+		this.addCommand(\palm_eg_amount, "if", {
 			arg msg;
-			synth.set(\eg_fold, msg[1]);
+			synths[msg[1] - 1].set(\palm_egAmount, msg[2]);
 		});
-
-		this.addCommand(\lfo_a_pitch, "f", {
+		this.addCommand(\palm_lfo_a_freq, "if", {
 			arg msg;
-			synth.set(\lfoA_pitch, msg[1]);
+			synths[msg[1] - 1].set(\palm_lfoAFreq, msg[2]);
 		});
-		this.addCommand(\lfo_a_amp, "f", {
+		this.addCommand(\palm_lfo_a_amount, "if", {
 			arg msg;
-			synth.set(\lfoA_amp, msg[1]);
+			synths[msg[1] - 1].set(\palm_lfoAAmount, msg[2]);
 		});
-		this.addCommand(\lfo_a_fb, "f", {
+		this.addCommand(\palm_lfo_b_freq, "if", {
 			arg msg;
-			synth.set(\lfoA_fb, msg[1]);
+			synths[msg[1] - 1].set(\palm_lfoBFreq, msg[2]);
 		});
-		this.addCommand(\lfo_a_fold, "f", {
+		this.addCommand(\palm_lfo_b_amount, "if", {
 			arg msg;
-			synth.set(\lfoA_fold, msg[1]);
-		});
-
-		this.addCommand(\lfo_b_pitch, "f", {
-			arg msg;
-			synth.set(\lfoB_pitch, msg[1]);
-		});
-		this.addCommand(\lfo_b_amp, "f", {
-			arg msg;
-			synth.set(\lfoB_amp, msg[1]);
-		});
-		this.addCommand(\lfo_b_fb, "f", {
-			arg msg;
-			synth.set(\lfoB_fb, msg[1]);
-		});
-		this.addCommand(\lfo_b_fold, "f", {
-			arg msg;
-			synth.set(\lfoB_fold, msg[1]);
+			synths[msg[1] - 1].set(\palm_lfoBAmount, msg[2]);
 		});
 
-		this.addCommand(\pitch_fb, "f", {
+		this.addCommand(\eg_pitch, "if", {
 			arg msg;
-			synth.set(\pitch_fb, msg[1]);
+			synths[msg[1] - 1].set(\eg_pitch, msg[2]);
 		});
-		this.addCommand(\pitch_fold, "f", {
+		this.addCommand(\eg_amp, "if", {
 			arg msg;
-			synth.set(\pitch_fold, msg[1]);
+			synths[msg[1] - 1].set(\eg_amp, msg[2]);
+		});
+		this.addCommand(\eg_fb, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\eg_fb, msg[2]);
+		});
+		this.addCommand(\eg_fold, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\eg_fold, msg[2]);
+		});
+
+		this.addCommand(\lfo_a_pitch, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoA_pitch, msg[2]);
+		});
+		this.addCommand(\lfo_a_amp, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoA_amp, msg[2]);
+		});
+		this.addCommand(\lfo_a_fb, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoA_fb, msg[2]);
+		});
+		this.addCommand(\lfo_a_fold, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoA_fold, msg[2]);
+		});
+
+		this.addCommand(\lfo_b_pitch, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoB_pitch, msg[2]);
+		});
+		this.addCommand(\lfo_b_amp, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoB_amp, msg[2]);
+		});
+		this.addCommand(\lfo_b_fb, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoB_fb, msg[2]);
+		});
+		this.addCommand(\lfo_b_fold, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoB_fold, msg[2]);
+		});
+
+		this.addCommand(\pitch_fb, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\pitch_fb, msg[2]);
+		});
+		this.addCommand(\pitch_fold, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\pitch_fold, msg[2]);
 		});
 	}
 
 	free {
-		synth.free;
-		// ampBus.free;
-		// freqBus.free;
+		synths.do({ |synth| synth.free });
+		buffers.do({ |buffer| buffer.free });
+		pitchBus.free;
+		tipBus.free;
+		palmBus.free;
+		gateBus.free;
 	}
 }
