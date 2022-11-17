@@ -405,7 +405,7 @@ function init()
 			end
 		}
 
-		params:add_group('tip', 5)
+		params:add_group('tip', 6)
 
 		params:add {
 			name = 'tip -> amp',
@@ -414,6 +414,16 @@ function init()
 			controlspec = controlspec.new(0.001, 1, 'exp', 0, 1),
 			action = function(value)
 				engine.tip_amp(v, value - 0.001)
+			end
+		}
+
+		params:add {
+			name = 'tip -> delay',
+			id = 'tip_delay_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
+			action = function(value)
+				engine.tip_delay(v, value)
 			end
 		}
 
@@ -487,7 +497,7 @@ function init()
 		-- 	end
 		-- }
 
-		params:add_group('palm', 5)
+		params:add_group('palm', 6)
 
 		params:add {
 			name = 'palm -> amp',
@@ -496,6 +506,16 @@ function init()
 			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
 			action = function(value)
 				engine.palm_amp(v, value - 0.001)
+			end
+		}
+
+		params:add {
+			name = 'palm -> delay',
+			id = 'palm_delay_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-2, 2, 'lin', 0, 0),
+			action = function(value)
+				engine.palm_delay(v, value)
 			end
 		}
 
@@ -569,7 +589,7 @@ function init()
 		-- 	end
 		-- }
 
-		params:add_group('eg', 8)
+		params:add_group('eg', 9)
 
 		params:add {
 			name = 'attack',
@@ -636,6 +656,16 @@ function init()
 		}
 
 		params:add {
+			name = 'eg -> delay',
+			id = 'eg_delay_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-2, 2, 'lin', 0, 0),
+			action = function(value)
+				engine.eg_delay(v, value)
+			end
+		}
+
+		params:add {
 			name = 'eg -> fb',
 			id = 'eg_fb_' .. v,
 			type = 'control',
@@ -655,7 +685,7 @@ function init()
 			end
 		}
 
-		params:add_group('lfo A', 5)
+		params:add_group('lfo A', 6)
 
 		params:add {
 			name = 'lfo A freq',
@@ -692,6 +722,16 @@ function init()
 		}
 
 		params:add {
+			name = 'lfo A -> delay',
+			id = 'lfo_a_delay_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-2, 2, 'lin', 0, 0),
+			action = function(value)
+				engine.lfo_a_delay(v, value)
+			end
+		}
+
+		params:add {
 			name = 'lfo A -> fb',
 			id = 'lfo_a_fb_' .. v,
 			type = 'control',
@@ -711,7 +751,7 @@ function init()
 			end
 		}
 
-		params:add_group('lfo B', 5)
+		params:add_group('lfo B', 6)
 
 		params:add {
 			name = 'lfo B freq',
@@ -744,6 +784,16 @@ function init()
 			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.lfo_b_amp(v, value)
+			end
+		}
+
+		params:add {
+			name = 'lfo B -> delay',
+			id = 'lfo_b_delay_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-5, 5, 'lin', 0, 0.1),
+			action = function(value)
+				engine.lfo_b_delay(v, value)
 			end
 		}
 

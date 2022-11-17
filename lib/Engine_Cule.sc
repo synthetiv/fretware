@@ -41,6 +41,7 @@ Engine_Cule : CroneEngine {
 				lag = 0.1,
 
 				tip_amp = 1,
+				tip_delay = 0,
 				tip_fb = 0,
 				tip_fold = 0,
 				// TODO: include EG times as mod destinations
@@ -51,6 +52,7 @@ Engine_Cule : CroneEngine {
 				tip_lfoBAmount = 0,
 
 				palm_amp = 0,
+				palm_delay = 0,
 				palm_fb = 0,
 				palm_fold = -1,
 				palm_egAmount = 0,
@@ -61,16 +63,19 @@ Engine_Cule : CroneEngine {
 
 				eg_pitch = 0,
 				eg_amp = 0,
+				eg_delay = 0,
 				eg_fb = 0,
 				eg_fold = 0,
 
 				lfoA_pitch = 0,
 				lfoA_amp = 0,
+				lfoA_delay = 0,
 				lfoA_fb = 0,
 				lfoA_fold = 0,
 
 				lfoB_pitch = 0,
 				lfoB_amp = 0,
+				lfoB_delay = 0,
 				lfoB_fb = 0,
 				lfoB_fold = 0,
 
@@ -86,13 +91,16 @@ Engine_Cule : CroneEngine {
 				modulators,
 				hz, amp, sine, folded;
 
+			var modulatorsFB = LocalIn.kr(5);
+
 			bufferPhase = Phasor.kr(rate: 1 - freeze, end: BufFrames.kr(buffer));
 			BufWr.kr(In.kr([pitchBus, tipBus, palmBus, gateBus]), buffer, bufferPhase);
-			// TODO: make delay a modulation destination (requires LocalOut/LocalIn)
+			delay = delay * 2.pow(Mix(modulatorsFB * [tip_delay, palm_delay, eg_delay, lfoA_delay, lfoB_delay]));
+			delay = delay.clip(0, 8);
 			// when freeze is engaged, delay must be at least 1 frame, or we'll be writing to + reading from the same point
+			# pitch, tip, palm, gate = BufRd.kr(4, buffer, bufferPhase - (delay * ControlRate.ir).max(freeze), interpolation: 1);
 			// TODO: you may want to clear the buffer or reset the delay when freeze is disengaged,
 			// to prevent hearing one delay period's worth of old input... or maybe that's fun
-			# pitch, tip, palm, gate = BufRd.kr(4, buffer, bufferPhase - (delay * ControlRate.ir).max(freeze), interpolation: 1);
 
 			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
 			// if I try that, SC seems to just hang forever, no error message
@@ -133,6 +141,8 @@ Engine_Cule : CroneEngine {
 
 			sine = SinOscFB.ar(hz, fb);
 			folded = SinOsc.ar(0, pi * fold * sine) * amp;
+
+			LocalOut.kr(modulators);
 
 			Out.ar(context.out_b, folded ! 2);
 		}).add;
@@ -244,6 +254,10 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			synths[msg[1] - 1].set(\tip_amp, msg[2]);
 		});
+		this.addCommand(\tip_delay, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\tip_delay, msg[2]);
+		});
 		this.addCommand(\tip_fb, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\tip_fb, msg[2]);
@@ -276,6 +290,10 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\palm_amp, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\palm_amp, msg[2]);
+		});
+		this.addCommand(\palm_delay, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\palm_delay, msg[2]);
 		});
 		this.addCommand(\palm_fb, "if", {
 			arg msg;
@@ -314,6 +332,10 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			synths[msg[1] - 1].set(\eg_amp, msg[2]);
 		});
+		this.addCommand(\eg_delay, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\eg_delay, msg[2]);
+		});
 		this.addCommand(\eg_fb, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\eg_fb, msg[2]);
@@ -331,6 +353,10 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			synths[msg[1] - 1].set(\lfoA_amp, msg[2]);
 		});
+		this.addCommand(\lfo_a_delay, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoA_delay, msg[2]);
+		});
 		this.addCommand(\lfo_a_fb, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\lfoA_fb, msg[2]);
@@ -347,6 +373,10 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\lfo_b_amp, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\lfoB_amp, msg[2]);
+		});
+		this.addCommand(\lfo_b_delay, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoB_delay, msg[2]);
 		});
 		this.addCommand(\lfo_b_fb, "if", {
 			arg msg;
