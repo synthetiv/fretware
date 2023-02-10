@@ -18,6 +18,8 @@ g = grid.connect()
 
 touche = midi.connect(1)
 
+n_voices = 3
+
 tip = 0
 palm = 0
 amp_volts = 0
@@ -318,7 +320,7 @@ function init()
 		end
 	}
 
-	for v = 1, 3 do
+	for v = 1, n_voices do
 
 		params:add_separator('int voice ' .. v)
 
@@ -346,7 +348,7 @@ function init()
 			name = 'delay',
 			id = 'delay_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0, 8, 'lin', 0, (v - 1) * 0.4, 's'),
+			controlspec = controlspec.new(0, 8, 'lin', 0, 0, 's'),
 			action = function(value)
 				engine.delay(v, value)
 			end
@@ -367,7 +369,7 @@ function init()
 			name = 'tune',
 			id = 'tune_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-12, 12, 'lin', 0, 0, 'st'),
+			controlspec = controlspec.new(-12, 12, 'lin', 0, -0.05 + ((v - 1) * 0.1), 'st'),
 			action = function(value)
 				engine.base_freq(v, musicutil.note_num_to_freq(60 + value))
 			end
@@ -389,7 +391,7 @@ function init()
 			name = 'sine fb',
 			id = 'fb_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+			controlspec = controlspec.new(0.001, 10, 'exp', 0, (n_voices - v) / n_voices * 0.3, 0),
 			action = function(value)
 				engine.fb(v, value)
 			end
@@ -399,13 +401,13 @@ function init()
 			name = 'sine fold',
 			id = 'fold_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.1, 10, 'exp', 0, 1),
+			controlspec = controlspec.new(0.1, 10, 'exp', 0, (n_voices - v) / n_voices * 0.6, 0),
 			action = function(value)
 				engine.fold(v, value)
 			end
 		}
 
-		params:add_group('tip', 9)
+		params:add_group('v' .. v .. ' tip', 9)
 
 		params:add {
 			name = 'tip -> amp',
@@ -497,7 +499,7 @@ function init()
 			end
 		}
 
-		params:add_group('palm', 9)
+		params:add_group('v' .. v .. ' palm', 9)
 
 		params:add {
 			name = 'palm -> amp',
@@ -589,7 +591,7 @@ function init()
 			end
 		}
 
-		params:add_group('eg', 10)
+		params:add_group('v' .. v .. ' eg', 10)
 
 		params:add {
 			name = 'attack',
@@ -695,7 +697,7 @@ function init()
 			end
 		}
 
-		params:add_group('lfo A', 10)
+		params:add_group('v' .. v .. ' lfo A', 10)
 
 		params:add {
 			name = 'lfo A type',
@@ -801,7 +803,7 @@ function init()
 			end
 		}
 
-		params:add_group('lfo B', 10)
+		params:add_group('v' .. v .. ' lfo B', 10)
 
 		params:add {
 			name = 'lfo B type',
