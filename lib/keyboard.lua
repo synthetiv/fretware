@@ -217,7 +217,7 @@ function Keyboard:maybe_release_sustained_keys()
 		self.arp_insert = (self.arp_insert - 1) % self.n_sustained_keys + 1
 		-- TODO: should this be handled differently depending on arp state?
 		-- TODO: or gate mode == 4 ?
-		self:set_active_key(sustained_keys[self.arp_index])
+		self:set_active_key(sustained_keys[self.arp_index], true)
 	else
 		-- even if no keys are held, bend targets may need to be reset
 		self:set_bend_targets()
@@ -297,7 +297,7 @@ function Keyboard:note(x, y, z)
 			self.arp_index = self.n_sustained_keys
 			self.arp_insert = self.n_sustained_keys
 			table.insert(self.sustained_keys, key_id)
-			self:set_active_key(key_id, self.n_sustained_keys == 1)
+			self:set_active_key(key_id)
 			-- set gate high if we're in retrig or pulse mode, or if this is the first note held
 			if (self.gate_mode ~= 1 and not self.gliding) or self.n_sustained_keys == 1 then
 				self.on_gate(true)
@@ -332,7 +332,7 @@ function Keyboard:note(x, y, z)
 				self.arp_insert = (self.arp_insert - 1) % self.n_sustained_keys + 1
 				if not self.arping then
 					local released_active_key = key_id == self.active_key
-					self:set_active_key(self.sustained_keys[self.arp_index], self.n_sustained_keys == 1)
+					self:set_active_key(self.sustained_keys[self.arp_index], true)
 					if released_active_key and self.gate_mode == 2 and not self.gliding then
 						self.on_gate(true)
 					end
@@ -387,22 +387,24 @@ function Keyboard:bend(amount)
 	self.bend_amount = amount
 end
 
-function Keyboard:set_active_key(key_id)
+function Keyboard:set_active_key(key_id, is_release)
+	local old_active_pitch = self.active_pitch
 	self.active_key = key_id
 	self.active_key_x, self.active_key_y = self:get_key_id_coords(key_id)
 	self.active_pitch_id = self:get_key_pitch_id(self.active_key_x, self.active_key_y)
 	self.active_pitch = self:get_pitch_id_value(self.active_pitch_id)
-	local bend_interval = self.bent_pitch - self.active_pitch
 	if not self.gliding or self.n_sustained_keys == 1 then
 		-- when gliding between multiple sustained keys, the bent output pitch is held
 		-- constant, even as the active key changes.
 		-- but when not gliding (when glide mode is off, or when there's only ONE key being
-		-- held/sustained), we instantly move the bent pitch:
+		-- held/sustained), we instantly move the bent pitch.
+		--
+		-- at first, I tried this:
 		-- from (old active pitch + some arbitrary bend interval)
 		-- to (new active pitch + (same interval clamped to standard bend range)).
 		--
-		-- TODO: I think this can & should be tuned further by paying attention to the
-		-- current bend amount and actual bent pitch...
+		-- but that needed to be tuned further by paying attention to the current bend
+		-- amount and actual bent pitch, because...
 		-- if bend amount is negative, then bend interval should be clamped to (-range, 0)
 		-- (test scenario: hold note A, add higher note B, begin to slide up, then release
 		-- B; under current system, bent pitch will now be BELOW note A)
@@ -423,10 +425,18 @@ function Keyboard:set_active_key(key_id)
 		-- or maybe when RELEASING a note, the bent pitch needs to be clamped to the current
 		-- bend min/max, before the min/max points are reset?
 		-- or maybe bent pitch should always reset to active pitch?? idfk
+		--
 		-- ...hey no, it's fine now. just use the NEW active pitch (after whatever change
 		-- caused this function to run) and define the bend interval relative to that.
+		--
+		-- oops, no. that only works well when RELEASING a key.
+		-- watch what happens when you press & release note A, then press & release note B:
+		-- note B bends down slightly in an attempt to match A.
+		--
+		-- TODO: okay, now we've got separate logic for press & release. are we good now??
+		--
 		self.bent_pitch = self.active_pitch + util.clamp(
-			bend_interval,
+			self.bent_pitch - (is_release and self.active_pitch or old_active_pitch),
 			self.bend_range * math.min(0, self.bend_amount),
 			self.bend_range * math.max(0, self.bend_amount)
 		)
