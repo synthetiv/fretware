@@ -45,6 +45,7 @@ function Keyboard.new(x, y, width, height)
 		active_key_y = 6,
 		active_pitch_id = 0,
 		active_pitch = 0,
+		bent_pitch = 0,
 		gate_mode = 2,
 		bend_range = 0.5,
 		bend_min = 0,
@@ -52,7 +53,6 @@ function Keyboard.new(x, y, width, height)
 		bend_min_target = 0,
 		bend_max_target = 0,
 		bend_amount = 0,
-		bend_value = 0,
 		bend_relax_coefficient = 0.1,
 		scale = Scale.new(et12, 12),
 		mask = { false, false, false, false, false, false, false, false, false, false, false, false },
@@ -138,7 +138,7 @@ function Keyboard:key(x, y, z)
 				self.arping = not self.arping
 				if self.arping then
 					self.gliding = false
-					self.bend_value = 0 -- TODO: this is useful when switching from glide mode, but is this ALWAYS a good idea?
+					self.bent_pitch = self.active_pitch -- TODO: this is useful when switching from glide mode, but is this ALWAYS a good idea?
 					self:set_bend_targets()
 				end
 			end
@@ -236,38 +236,28 @@ function Keyboard:find_sustained_key(key_id)
 	return false
 end
 
-function Keyboard:relax_bend()
-	-- -- nudge min/max toward targets, and bend_value toward a linear point between min and max,
-	-- -- thus reducing any offset that may have been caused by changes in min/max points
-	-- self.bend_max = self.bend_max + (self.bend_max_target - self.bend_max) * self.bend_relax_coefficient
-	-- self.bend_min = self.bend_min + (self.bend_min_target - self.bend_min) * self.bend_relax_coefficient
-	-- -- how quickly bend_value should adjust depends on whether there are keys held
-	-- local linear_bend = self.bend_min + (self.bend_amount + 1) * (self.bend_max - self.bend_min) / 2
-	-- local coefficient = self.bend_relax_coefficient * (self.n_sustained_keys > 0 and self.bend_relax_coefficient or 2)
-	-- self.bend_value = self.bend_value + (linear_bend - self.bend_value) * coefficient
-end
-
 function Keyboard:set_bend_targets()
 	if not self.gliding then
-		self.bend_min_target = -self.bend_range
+		self.bend_min_target = self.active_pitch - self.bend_range
 		self.bend_min = self.bend_min_target
-		self.bend_max_target = self.bend_range
+		self.bend_max_target = self.active_pitch + self.bend_range
 		self.bend_max = self.bend_max_target
 	else
 		local range = (self.n_sustained_keys > 1) and 0 or self.bend_range
-		local min = -range
-		local max = range
+		local min = self.active_pitch - range
+		local max = self.active_pitch + range
 		for k = 1, self.n_sustained_keys do
-			local interval = self:get_key_id_pitch_value(self.sustained_keys[k]) - self.active_pitch
-			min = math.min(min, interval)
-			max = math.max(max, interval)
+			local pitch = self:get_key_id_pitch_value(self.sustained_keys[k])
+			min = math.min(min, pitch)
+			max = math.max(max, pitch)
 		end
+		-- TODO: what was I talking about here? vvv
 		-- we want to avoid placing bend_value outside the range, so we set target values directly,
 		-- but actual mins/maxes may differ based on current bend value
 		self.bend_min_target = min
-		self.bend_min = math.min(min, self.bend_value - self.bend_range)
+		self.bend_min = math.min(min, self.bent_pitch - self.bend_range)
 		self.bend_max_target = max
-		self.bend_max = math.max(max, self.bend_value + self.bend_range)
+		self.bend_max = math.max(max, self.bent_pitch + self.bend_range)
 	end
 end
 
@@ -343,7 +333,7 @@ function Keyboard:note(x, y, z)
 				self.arp_insert = (self.arp_insert - 1) % self.n_sustained_keys + 1
 				if not self.arping then
 					local released_active_key = key_id == self.active_key
-					self:set_active_key(self.sustained_keys[self.arp_index])
+					self:set_active_key(self.sustained_keys[self.arp_index], self.n_sustained_keys == 1)
 					if released_active_key and self.gate_mode == 2 and not self.gliding then
 						self.on_gate(true)
 					end
@@ -379,36 +369,45 @@ function Keyboard:bend(amount)
 	amount = math.sin(amount * math.pi / 2)
 	local delta = amount - self.bend_amount
 	if delta > 0 then
-		-- interpolate linearly between (bend, bend_value) and (1, bend_max)
-		self.bend_value = self.bend_value + (self.bend_max - self.bend_value) * delta / (1 - self.bend_amount)
+		-- interpolate linearly between (bend, bent_pitch) and (1, bend_max)
+		self.bent_pitch = self.bent_pitch + (self.bend_max - self.bent_pitch) * delta / (1 - self.bend_amount)
 		-- move min point toward center, if we can / need to
 		-- NB, this assumes bend_min <= -bend_range,
 		-- which is safe as long as bend_range <= smallest interval on keyboard
 		if self.bend_min < self.bend_min_target then
-			self.bend_min = util.clamp(self.bend_min, self.bend_value - self.bend_range, self.bend_min_target)
+			self.bend_min = util.clamp(self.bend_min, self.bent_pitch - self.bend_range, self.bend_min_target)
 		end
 	else
-		-- interpolate linearly between (bend, bend_value) and (-1, bend_min)
-		self.bend_value = self.bend_value + (self.bend_min - self.bend_value) * delta / (-1 - self.bend_amount)
+		-- interpolate linearly between (bend, bent_pitch) and (-1, bend_min)
+		self.bent_pitch = self.bent_pitch + (self.bend_min - self.bent_pitch) * delta / (-1 - self.bend_amount)
 		-- move max point toward center, if we can / need to
 		if self.bend_max > self.bend_max_target then
-			self.bend_max = util.clamp(self.bend_max, self.bend_max_target, self.bend_value + self.bend_range)
+			self.bend_max = util.clamp(self.bend_max, self.bend_max_target, self.bent_pitch + self.bend_range)
 		end
 	end
 	self.bend_amount = amount
 end
 
-function Keyboard:set_active_key(key_id, glide_jump)
-	local old_pitch = self.active_pitch
+function Keyboard:set_active_key(key_id)
+	local bend_interval = self.bent_pitch - self.active_pitch
 	self.active_key = key_id
 	self.active_key_x, self.active_key_y = self:get_key_id_coords(key_id)
 	self.active_pitch_id = self:get_key_pitch_id(self.active_key_x, self.active_key_y)
 	self.active_pitch = self:get_pitch_id_value(self.active_pitch_id)
-	if self.gliding and not glide_jump then
-		-- glide_jump will hop from (e.g.) 0.1 st above old pitch to 0.1 st above new pitch.
-		-- without glide_jump, bend_value will change to keep the output pitch the same, even while the
-		-- base active pitch changes.
-		self.bend_value = self.bend_value - (self.active_pitch - old_pitch)
+	if not self.gliding or self.n_sustained_keys == 1 then
+		-- when gliding between multiple sustained keys, the bent output pitch is held
+		-- constant, even as the active key changes.
+		-- but when not gliding (when glide mode is off, or when there's only ONE key being
+		-- held/sustained), we instantly move the bent pitch:
+		-- from (old active pitch + some arbitrary bend interval)
+		-- to (new active pitch + (same interval clamped to standard bend range)).
+		--
+		-- TODO: I think this can & should be tuned further by paying attention to the
+		-- current bend amount and actual bent pitch...
+		-- if bend amount is negative, then bend interval should be clamped to (-range, 0)
+		-- if old bent pitch is really close to new active pitch, then that should be taken
+		-- into account somehow, too...
+		self.bent_pitch = self.active_pitch + util.clamp(bend_interval, -self.bend_range, self.bend_range)
 	end
 	self:set_bend_targets()
 	self.on_pitch()
@@ -431,9 +430,9 @@ function Keyboard:draw()
 	g:led(self.x, self.y2 - 2, self.held_keys.latch and 7 or 2)
 	g:led(self.x, self.y2, self.held_keys.shift and 15 or 6)
 
-	local hand_pitch_low, hand_pitch_high, hand_pitch_weight = self.scale:get_nearest_mask_pitch_id(self.active_pitch + self.bend_value + self.octave, true)
-	local transposed_pitch_low, transposed_pitch_high, transposed_pitch_weight = self.scale:get_nearest_mask_pitch_id(self.active_pitch + self.bend_value + self.transposition + self.octave, true)
-	local sampled_pitch_low, sampled_pitch_high, sampled_pitch_weight = self.scale:get_nearest_mask_pitch_id(detected_pitch + self.transposition + self.bend_value, true)
+	local hand_pitch_low, hand_pitch_high, hand_pitch_weight = self.scale:get_nearest_mask_pitch_id(self.bent_pitch + self.octave, true)
+	local transposed_pitch_low, transposed_pitch_high, transposed_pitch_weight = self.scale:get_nearest_mask_pitch_id(self.bent_pitch + self.transposition + self.octave, true)
+	-- local sampled_pitch_low, sampled_pitch_high, sampled_pitch_weight = self.scale:get_nearest_mask_pitch_id(detected_pitch + self.transposition + self.bend_value, true)
 	-- local detected_pitch_low, detected_pitch_high, detected_pitch_weight = self.scale:get_nearest_pitch_id(poll_values.pitch - 1, true)
 
 	local offset = -self.scale.center_pitch_id - self.scale.length * self.octave
@@ -441,8 +440,8 @@ function Keyboard:draw()
 	hand_pitch_high = hand_pitch_high + offset
 	transposed_pitch_low = transposed_pitch_low + offset
 	transposed_pitch_high = transposed_pitch_high + offset
-	sampled_pitch_low = sampled_pitch_low + offset
-	sampled_pitch_high = sampled_pitch_high + offset
+	-- sampled_pitch_low = sampled_pitch_low + offset
+	-- sampled_pitch_high = sampled_pitch_high + offset
 	-- detected_pitch_low = detected_pitch_low + offset
 	-- detected_pitch_high = detected_pitch_high + offset
 
@@ -489,12 +488,12 @@ function Keyboard:draw()
 					elseif p == transposed_pitch_high then
 						level = led_blend(level, transposed_pitch_weight * 5)
 					end
-				elseif gate_in and do_pitch_detection then
-					if p == sampled_pitch_low then
-						level = led_blend(level, (1 - sampled_pitch_weight) * 7)
-					elseif p == sampled_pitch_high then
-						level = led_blend(level, sampled_pitch_weight * 7)
-					end
+				-- elseif gate_in and do_pitch_detection then
+				-- 	if p == sampled_pitch_low then
+				-- 		level = led_blend(level, (1 - sampled_pitch_weight) * 7)
+				-- 	elseif p == sampled_pitch_high then
+				-- 		level = led_blend(level, sampled_pitch_weight * 7)
+				-- 	end
 				end
 
 				-- if do_pitch_detection then

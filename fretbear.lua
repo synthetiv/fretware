@@ -24,8 +24,6 @@ tip = 0
 palm = 0
 amp_volts = 0
 damp_volts = 0
-pitch_volts = 0
-bent_pitch_volts = 0
 do_pitch_detection = false
 -- pitch_poll = nil
 detected_pitch = 0
@@ -48,10 +46,9 @@ function g.key(x, y, z)
 end
 
 function send_pitch_volts()
-	bent_pitch_volts = pitch_volts + k.bend_value
 	-- TODO: this added offset for the quantizer really shouldn't be necessary; what's going on here?
 	-- crow.output[1].volts = bent_pitch_volts + (k.quantizing and 1/24 or 0)
-	engine.pitch(bent_pitch_volts)
+	engine.pitch(k.bent_pitch + k.octave)
 end
 
 function touche.event(data)
@@ -133,7 +130,6 @@ function init()
 		if do_pitch_detection and k.n_sustained_keys < 1 then
 			pitch = util.clamp(detected_pitch + k.transposition, -5, 5)
 		end
-		pitch_volts = k.scale:snap(pitch)
 		send_pitch_volts()
 		grid_redraw()
 	end
@@ -160,7 +156,8 @@ function init()
 			end)
 		end
 		if gate and not do_pitch_detection then
-			crow.ii.tt.script_v(2, k.scale:snap(pitch_volts + k.transposition))
+			-- TODO: I've lost track of what this is supposed to do...
+			crow.ii.tt.script_v(2, k.scale:snap(k.active_pitch + k.transposition))
 		end
 	end
 
@@ -955,15 +952,6 @@ function init()
 			k:arp(gate)
 		end
 	end)
-	
-	relax_metro = metro.init {
-		time = 1 / 40,
-		event = function()
-			k:relax_bend()
-			send_pitch_volts() -- TODO: there's some steppiness here; more slew?
-		end
-	}
-	relax_metro:start()
 	
 	redraw_metro = metro.init {
 		time = 1 / 12,
