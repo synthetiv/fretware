@@ -347,9 +347,9 @@ end
 function Keyboard:arp(gate)
 	if self.arping and self.n_sustained_keys > 0 then
 		if gate then
-			-- > works well with Lua's random range of [0,1):
+			-- < works well with Lua's random range of [0,1):
 			-- 0 prob really will be 0%, and 1.0 prob really will be 100%
-			if math.random() > self.arp_forward_probability then
+			if math.random() < self.arp_forward_probability then
 				-- advance
 				self.arp_index = self.arp_index % self.n_sustained_keys + 1
 			else
