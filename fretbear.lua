@@ -12,7 +12,6 @@ k = Keyboard.new(1, 1, 16, 8)
 -- with envelope(s) + mod matrix (sources: EG1, EG2, touche tip, touche heel)
 
 redraw_metro = nil
-relax_metro = nil
 
 g = grid.connect()
 
@@ -990,9 +989,6 @@ end
 function cleanup()
 	if redraw_metro ~= nil then
 		redraw_metro:stop()
-	end
-	if relax_metro ~= nil then
-		relax_metro:stop()
 	end
 	-- for p = 1, #poll_names do
 	-- 	local name = poll_names[p]

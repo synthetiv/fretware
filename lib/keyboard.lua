@@ -53,7 +53,6 @@ function Keyboard.new(x, y, width, height)
 		bend_min_target = 0,
 		bend_max_target = 0,
 		bend_amount = 0,
-		bend_relax_coefficient = 0.1,
 		scale = Scale.new(et12, 12),
 		mask = { false, false, false, false, false, false, false, false, false, false, false, false },
 		-- TODO: mask presets!
@@ -389,11 +388,11 @@ function Keyboard:bend(amount)
 end
 
 function Keyboard:set_active_key(key_id)
-	local bend_interval = self.bent_pitch - self.active_pitch
 	self.active_key = key_id
 	self.active_key_x, self.active_key_y = self:get_key_id_coords(key_id)
 	self.active_pitch_id = self:get_key_pitch_id(self.active_key_x, self.active_key_y)
 	self.active_pitch = self:get_pitch_id_value(self.active_pitch_id)
+	local bend_interval = self.bent_pitch - self.active_pitch
 	if not self.gliding or self.n_sustained_keys == 1 then
 		-- when gliding between multiple sustained keys, the bent output pitch is held
 		-- constant, even as the active key changes.
@@ -405,9 +404,32 @@ function Keyboard:set_active_key(key_id)
 		-- TODO: I think this can & should be tuned further by paying attention to the
 		-- current bend amount and actual bent pitch...
 		-- if bend amount is negative, then bend interval should be clamped to (-range, 0)
-		-- if old bent pitch is really close to new active pitch, then that should be taken
-		-- into account somehow, too...
-		self.bent_pitch = self.active_pitch + util.clamp(bend_interval, -self.bend_range, self.bend_range)
+		-- (test scenario: hold note A, add higher note B, begin to slide up, then release
+		-- B; under current system, bent pitch will now be BELOW note A)
+		-- if old bent pitch is really close to new active pitch, then maybe that should be
+		-- taken into account somehow, too...
+		-- self.bent_pitch = self.active_pitch + util.clamp(bend_interval, -self.bend_range, self.bend_range)
+		--
+		-- okay, here's new logic... it handles the scenario above well, but something
+		-- is strange about the sequence of events:
+		-- hold A then B, slide up and back DOWN, release A, and you have B-flat
+		-- but hold B then A, slide down, and release A, and you just have B, not B-flat. why?
+		-- ohhhhh, because A is the "active pitch" and if you slide down to it, the "bend
+		-- interval" is 0... ffff.
+		-- so... TODO: "active pitch" isn't really a useful concept when glide is on
+		-- perhaps the bend interval should be the minimum distance between the bent pitch
+		-- and any sustained pitch...?
+		-- or it should be defined in relation to the pitch that was just released?
+		-- or maybe when RELEASING a note, the bent pitch needs to be clamped to the current
+		-- bend min/max, before the min/max points are reset?
+		-- or maybe bent pitch should always reset to active pitch?? idfk
+		-- ...hey no, it's fine now. just use the NEW active pitch (after whatever change
+		-- caused this function to run) and define the bend interval relative to that.
+		self.bent_pitch = self.active_pitch + util.clamp(
+			bend_interval,
+			self.bend_range * math.min(0, self.bend_amount),
+			self.bend_range * math.max(0, self.bend_amount)
+		)
 	end
 	self:set_bend_targets()
 	self.on_pitch()
