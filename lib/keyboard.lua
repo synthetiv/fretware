@@ -283,7 +283,7 @@ function Keyboard:note(x, y, z)
 					self.arp_insert = self.arp_insert - 1
 				end
 				self.n_sustained_keys = self.n_sustained_keys - 1
-				if index > self.n_sustained_keys and self.n_sustained_keys > 0 then
+				if not self.arping and index > self.n_sustained_keys and self.n_sustained_keys > 0 then
 					self:set_active_key(self.sustained_keys[self.n_sustained_keys])
 				else
 					self:set_bend_targets()
@@ -435,11 +435,13 @@ function Keyboard:set_active_key(key_id, is_release)
 		--
 		-- TODO: okay, now we've got separate logic for press & release. are we good now??
 		--
-		self.bent_pitch = self.active_pitch + util.clamp(
-			self.bent_pitch - (is_release and self.active_pitch or old_active_pitch),
+		local bend_interval = self.bent_pitch - (is_release and self.active_pitch or old_active_pitch)
+		bend_interval = util.clamp(
+			bend_interval,
 			self.bend_range * math.min(0, self.bend_amount),
 			self.bend_range * math.max(0, self.bend_amount)
 		)
+		self.bent_pitch = self.active_pitch + bend_interval
 	end
 	self:set_bend_targets()
 	self.on_pitch()
