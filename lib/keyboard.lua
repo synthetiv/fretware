@@ -267,23 +267,24 @@ end
 
 function Keyboard:note(x, y, z)
 	local key_id = self:get_key_id(x, y)
+	local sustained_key_index = self:find_sustained_key(key_id)
+	self.held_keys[key_id] = z == 1
 	-- TODO: if you HOLD an already sustained key and then press another,
 	-- MOVE that key instead of REmoving it
 	if z == 1 then
-		-- key pressed: set held_keys state and add to or remove from sustained_keys
-		self.held_keys[key_id] = true
+		-- key pressed: add to sustained_keys
 		if not self.held_keys.shift then
-			local index = self:find_sustained_key(key_id)
-			if index then
-				table.remove(self.sustained_keys, index)
-				if self.arp_index >= index then
+			-- TODO...
+			if sustained_key_index then
+				table.remove(self.sustained_keys, sustained_key_index)
+				if self.arp_index >= sustained_key_index then
 					self.arp_index = self.arp_index - 1
 				end
-				if self.arp_insert >= index then
+				if self.arp_insert >= sustained_key_index then
 					self.arp_insert = self.arp_insert - 1
 				end
 				self.n_sustained_keys = self.n_sustained_keys - 1
-				if not self.arping and index > self.n_sustained_keys and self.n_sustained_keys > 0 then
+				if not self.arping and sustained_key_index > self.n_sustained_keys and self.n_sustained_keys > 0 then
 					self:set_active_key(self.sustained_keys[self.n_sustained_keys])
 				else
 					self:set_bend_targets()
@@ -309,8 +310,7 @@ function Keyboard:note(x, y, z)
 			self.n_sustained_keys = self.n_sustained_keys + 1
 		end
 	else
-		-- key released: set held_keys_state and maybe release it
-		self.held_keys[key_id] = false
+		-- key released: release or remove from sustained keys
 		if not self.held_keys.latch then
 			local i = 1
 			while i <= self.n_sustained_keys do
@@ -394,47 +394,10 @@ function Keyboard:set_active_key(key_id, is_release)
 	self.active_pitch_id = self:get_key_pitch_id(self.active_key_x, self.active_key_y)
 	self.active_pitch = self:get_pitch_id_value(self.active_pitch_id)
 	if not self.gliding or self.n_sustained_keys == 1 then
-		-- when gliding between multiple sustained keys, the bent output pitch is held
-		-- constant, even as the active key changes.
-		-- but when not gliding (when glide mode is off, or when there's only ONE key being
-		-- held/sustained), we instantly move the bent pitch.
-		--
-		-- at first, I tried this:
-		-- from (old active pitch + some arbitrary bend interval)
-		-- to (new active pitch + (same interval clamped to standard bend range)).
-		--
-		-- but that needed to be tuned further by paying attention to the current bend
-		-- amount and actual bent pitch, because...
-		-- if bend amount is negative, then bend interval should be clamped to (-range, 0)
-		-- (test scenario: hold note A, add higher note B, begin to slide up, then release
-		-- B; under current system, bent pitch will now be BELOW note A)
-		-- if old bent pitch is really close to new active pitch, then maybe that should be
-		-- taken into account somehow, too...
-		-- self.bent_pitch = self.active_pitch + util.clamp(bend_interval, -self.bend_range, self.bend_range)
-		--
-		-- okay, here's new logic... it handles the scenario above well, but something
-		-- is strange about the sequence of events:
-		-- hold A then B, slide up and back DOWN, release A, and you have B-flat
-		-- but hold B then A, slide down, and release A, and you just have B, not B-flat. why?
-		-- ohhhhh, because A is the "active pitch" and if you slide down to it, the "bend
-		-- interval" is 0... ffff.
-		-- so... TODO: "active pitch" isn't really a useful concept when glide is on
-		-- perhaps the bend interval should be the minimum distance between the bent pitch
-		-- and any sustained pitch...?
-		-- or it should be defined in relation to the pitch that was just released?
-		-- or maybe when RELEASING a note, the bent pitch needs to be clamped to the current
-		-- bend min/max, before the min/max points are reset?
-		-- or maybe bent pitch should always reset to active pitch?? idfk
-		--
-		-- ...hey no, it's fine now. just use the NEW active pitch (after whatever change
-		-- caused this function to run) and define the bend interval relative to that.
-		--
-		-- oops, no. that only works well when RELEASING a key.
-		-- watch what happens when you press & release note A, then press & release note B:
-		-- note B bends down slightly in an attempt to match A.
-		--
-		-- TODO: okay, now we've got separate logic for press & release. are we good now??
-		--
+		-- measure the current bend amount. if we've just released a note, measure bend from
+		-- the newly active pitch [TODO: but that basically has the effect of setting bend
+		-- to 0... right?]; if we've just added a note, measure from the previously active
+		-- pitch, so that we can apply the same amount of bend to the new active pitch.
 		local bend_interval = self.bent_pitch - (is_release and self.active_pitch or old_active_pitch)
 		bend_interval = util.clamp(
 			bend_interval,
