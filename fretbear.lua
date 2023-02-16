@@ -362,6 +362,26 @@ function init()
 		}
 
 		params:add {
+			name = 'loop length',
+			id = 'loop_length_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0, 8, 'lin', 0, 0.3, 's'),
+			action = function(value)
+				engine.loop_length(v, value)
+			end
+		}
+
+		params:add {
+			name = 'loop position',
+			id = 'loop_position_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0, 8, 'lin', 0, 0, 's'),
+			action = function(value)
+				engine.loop_position(v, value)
+			end
+		}
+
+		params:add {
 			name = 'tune',
 			id = 'tune_' .. v,
 			type = 'control',

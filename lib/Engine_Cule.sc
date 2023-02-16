@@ -28,6 +28,8 @@ Engine_Cule : CroneEngine {
 			arg buffer,
 				delay = 0,
 				freeze = 0,
+				loopLength = 0.3,
+				loopPosition = 0,
 
 				baseFreq = 60.midicps,
 				pitchSlew = 0.01,
@@ -101,29 +103,24 @@ Engine_Cule : CroneEngine {
 				// TODO: pitch -> LFO freqs and amounts
 				// TODO: EG -> LFO freqs and amounts, and vice versa
 
-			var bufferPhase,
-				delayedControls,
+			var bufferPhase, delayPhase, loopPhase,
 				pitch, tip, palm, gate,
 				eg, lfoA, lfoB,
 				hz, amp, sine, folded;
 
 			var modulators = LocalIn.kr(5);
 
-			bufferPhase = Phasor.kr(end: BufFrames.kr(buffer));
-			delayedControls = BufRd.kr(4, buffer, bufferPhase - (delay * ControlRate.ir) - 1, interpolation: 1);
-			# pitch, tip, palm, gate = delayedControls;
-			// if freeze is active, feed the delay buffer with the delayed signal.
-			// otherwise, feed it the actual control input values.
-			BufWr.kr(
-				Select.kr(freeze, [
-					In.kr([pitchBus, tipBus, palmBus, gateBus]),
-					delayedControls
-				]),
-				buffer,
-				bufferPhase
-			);
+			bufferPhase = Phasor.kr(rate: 1 - freeze, end: BufFrames.kr(buffer));
+			delayPhase = bufferPhase - (delay * ControlRate.ir).max(1); // TODO: I don't get why this is necessary :(
+			// TODO: confirm: I think it's OK to use bufferPhase as the phasor endpoint
+			// here because the phasor endpoint is never reached
+			// TODO: wrap? or will BufRd do that for you?
+			loopPhase = Phasor.kr(trig: freeze, start: bufferPhase - (loopLength * ControlRate.ir), end: bufferPhase) - (loopPosition * ControlRate.ir);
+			BufWr.kr(In.kr([pitchBus, tipBus, palmBus, gateBus]), buffer, bufferPhase);
 			delay = delay * 2.pow(Mix(modulators * [tip_delay, palm_delay, eg_delay, lfoA_delay, lfoB_delay]));
 			delay = delay.clip(0, 8);
+			// delay must be at least 1 frame, or we'll be writing to + reading from the same point
+			# pitch, tip, palm, gate = BufRd.kr(4, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
 			// TODO: you may want to clear the buffer or reset the delay when freeze is disengaged,
 			// to prevent hearing one delay period's worth of old input... or maybe that's fun
 
@@ -203,6 +200,16 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\freeze, "ii", {
 			arg msg;
 			synths[msg[1] - 1].set(\freeze, msg[2]);
+		});
+
+		this.addCommand(\loop_length, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\loopLength, msg[2]);
+		});
+
+		this.addCommand(\loop_position, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\loopPosition, msg[2]);
 		});
 
 		this.addCommand(\pitch, "f", {
