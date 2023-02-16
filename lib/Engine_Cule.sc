@@ -47,6 +47,7 @@ Engine_Cule : CroneEngine {
 				lfoBAmount = 1,
 				fb = 0,
 				fold = 0.3,
+				foldBias = 0,
 				lag = 0.1,
 
 				tip_amp = 1,
@@ -131,10 +132,11 @@ Engine_Cule : CroneEngine {
 			pitch = Lag.kr(pitch, pitchSlew);
 
 			// slew direct control
-			tip  = Lag.kr(tip,  lag);
-			palm = Lag.kr(palm, lag);
-			fb   = Lag.kr(fb,   lag);
-			fold = Lag.kr(fold, lag);
+			tip      = Lag.kr(tip,      lag);
+			palm     = Lag.kr(palm,     lag);
+			fb       = Lag.kr(fb,       lag);
+			fold     = Lag.kr(fold,     lag);
+			foldBias = Lag.kr(foldBias, lag);
 
 			eg = EnvGen.kr(
 				Env.adsr(attack, decay, sustain, release),
@@ -174,9 +176,10 @@ Engine_Cule : CroneEngine {
 
 			fb = (fb + Mix(modulators * [tip_fb, palm_fb, eg_fb, lfoA_fb, lfoB_fb])).max(0);
 			fold = (fold + Mix(modulators * [tip_fold, palm_fold, eg_fold, lfoA_fold, lfoB_fold])).max(0.1);
+			// foldBias = (foldBias + Mix(modulators * [tip_foldBias, palm_foldBias, eg_foldBias, lfoA_foldBias, lfoB_foldBias])).max(0.1);
 
 			sine = SinOscFB.ar(hz, fb);
-			folded = SinOsc.ar(0, pi * fold * sine) * amp;
+			folded = SinOsc.ar(0, pi * (fold * sine + foldBias)) * amp;
 
 			Out.ar(context.out_b, folded ! 2);
 		}).add;
@@ -303,6 +306,11 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\fold, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\fold, msg[2]);
+		});
+
+		this.addCommand(\fold_bias, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\foldBias, msg[2]);
 		});
 
 		this.addCommand(\octave, "ii", {

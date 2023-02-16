@@ -423,6 +423,16 @@ function init()
 			end
 		}
 
+		params:add {
+			name = 'sine fold bias',
+			id = 'fold_bias_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0, 10, 'lin', 0, 0, 0),
+			action = function(value)
+				engine.fold_bias(v, value)
+			end
+		}
+
 		params:add_group('v' .. v .. ' tip', 9)
 
 		params:add {
