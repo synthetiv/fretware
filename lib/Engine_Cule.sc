@@ -103,19 +103,21 @@ Engine_Cule : CroneEngine {
 				// TODO: pitch -> LFO freqs and amounts
 				// TODO: EG -> LFO freqs and amounts, and vice versa
 
-			var bufferPhase, delayPhase, loopPhase,
+			var bufferLength, bufferPhase, delayPhase, loopStart, loopPhase, loopOffset,
 				pitch, tip, palm, gate,
 				eg, lfoA, lfoB,
 				hz, amp, sine, folded;
 
 			var modulators = LocalIn.kr(5);
 
-			bufferPhase = Phasor.kr(rate: 1 - freeze, end: BufFrames.kr(buffer));
+			bufferLength = BufFrames.kr(buffer);
+			bufferPhase = Phasor.kr(rate: 1 - freeze, end: bufferLength);
 			delayPhase = bufferPhase - (delay * ControlRate.ir).max(1); // TODO: I don't get why this is necessary :(
-			// TODO: confirm: I think it's OK to use bufferPhase as the phasor endpoint
-			// here because the phasor endpoint is never reached
-			// TODO: wrap? or will BufRd do that for you?
-			loopPhase = Phasor.kr(trig: freeze, start: bufferPhase - (loopLength * ControlRate.ir), end: bufferPhase) - (loopPosition * ControlRate.ir);
+			// TODO: wrap? or does BufRd do that for you?
+			loopStart = bufferPhase - (loopLength * ControlRate.ir);
+			loopPhase = Phasor.kr(trig: freeze, start: loopStart, end: bufferPhase);
+			loopOffset = Latch.kr(bufferLength - (loopLength * ControlRate.ir), BinaryOpUGen.new('==', loopPhase, loopStart)) * loopPosition;
+			loopPhase = loopPhase - loopOffset;
 			BufWr.kr(In.kr([pitchBus, tipBus, palmBus, gateBus]), buffer, bufferPhase);
 			delay = delay * 2.pow(Mix(modulators * [tip_delay, palm_delay, eg_delay, lfoA_delay, lfoB_delay]));
 			delay = delay.clip(0, 8);
