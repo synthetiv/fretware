@@ -99,6 +99,7 @@ Engine_Cule : CroneEngine {
 				lfoB_lfoAFreq = 0,
 				lfoB_lfoAAmount = 0,
 
+				// TODO: actually apply these modulations!
 				pitch_fb = -0.1,
 				pitch_fold = -0.1;
 				// TODO: pitch -> LFO freqs and amounts
@@ -109,7 +110,7 @@ Engine_Cule : CroneEngine {
 				eg, lfoA, lfoB,
 				hz, amp, sine, folded;
 
-			var modulators = LocalIn.kr(5);
+			var modulators = LocalIn.kr(6);
 
 			bufferLength = BufFrames.kr(buffer);
 			bufferPhase = Phasor.kr(rate: 1 - freeze, end: bufferLength);
@@ -120,7 +121,7 @@ Engine_Cule : CroneEngine {
 			loopOffset = Latch.kr(bufferLength - (loopLength * ControlRate.ir), BinaryOpUGen.new('==', loopPhase, loopStart)) * loopPosition;
 			loopPhase = loopPhase - loopOffset;
 			BufWr.kr(In.kr([pitchBus, tipBus, palmBus, gateBus]), buffer, bufferPhase);
-			delay = delay * 2.pow(Mix(modulators * [tip_delay, palm_delay, eg_delay, lfoA_delay, lfoB_delay]));
+			delay = delay * 2.pow(Mix(modulators * [0, tip_delay, palm_delay, eg_delay, lfoA_delay, lfoB_delay]));
 			delay = delay.clip(0, 8);
 			// delay must be at least 1 frame, or we'll be writing to + reading from the same point
 			# pitch, tip, palm, gate = BufRd.kr(4, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
@@ -146,11 +147,11 @@ Engine_Cule : CroneEngine {
 				// that ^ could be described as multiplying at the input, while
 				// amounts multiply at the output (EG will be scaled like this no
 				// matter where it's used).
-				egAmount + Mix(modulators * [tip_egAmount, palm_egAmount, 0, lfoA_egAmount, lfoB_egAmount])
+				egAmount + Mix(modulators * [0, tip_egAmount, palm_egAmount, 0, lfoA_egAmount, lfoB_egAmount])
 			);
 
-			lfoAFreq = lfoAFreq * 2.pow(Mix(modulators * [tip_lfoAFreq, palm_lfoAFreq, eg_lfoAFreq, 0, lfoB_lfoAFreq]));
-			lfoAAmount = lfoAAmount + Mix(modulators * [tip_lfoAAmount, palm_lfoAAmount, eg_lfoAAmount, 0, lfoB_lfoAAmount]);
+			lfoAFreq = lfoAFreq * 2.pow(Mix(modulators * [0, tip_lfoAFreq, palm_lfoAFreq, eg_lfoAFreq, 0, lfoB_lfoAFreq]));
+			lfoAAmount = lfoAAmount + Mix(modulators * [0, tip_lfoAAmount, palm_lfoAAmount, eg_lfoAAmount, 0, lfoB_lfoAAmount]);
 			lfoA = lfoAAmount * Select.kr(lfoAType, [
 				SinOsc.kr(lfoAFreq),
 				LFTri.kr(lfoAFreq),
@@ -159,8 +160,8 @@ Engine_Cule : CroneEngine {
 				LFNoise0.kr(lfoAFreq)
 			]);
 
-			lfoBFreq = lfoBFreq * 2.pow(Mix(modulators * [tip_lfoBFreq, palm_lfoBFreq, eg_lfoBFreq, lfoA_lfoBFreq, 0]));
-			lfoBAmount = lfoBAmount + Mix(modulators * [tip_lfoBAmount, palm_lfoBAmount, eg_lfoBAmount, lfoA_lfoBAmount, 0]);
+			lfoBFreq = lfoBFreq * 2.pow(Mix(modulators * [0, tip_lfoBFreq, palm_lfoBFreq, eg_lfoBFreq, lfoA_lfoBFreq, 0]));
+			lfoBAmount = lfoBAmount + Mix(modulators * [0, tip_lfoBAmount, palm_lfoBAmount, eg_lfoBAmount, lfoA_lfoBAmount, 0]);
 			lfoB = lfoBAmount * Select.kr(lfoBType, [
 				SinOsc.kr(lfoBFreq),
 				LFTri.kr(lfoBFreq),
@@ -169,14 +170,15 @@ Engine_Cule : CroneEngine {
 				LFNoise0.kr(lfoBFreq)
 			]);
 
-			LocalOut.kr([tip, palm, eg, lfoA, lfoB]);
+			LocalOut.kr([pitch, tip, palm, eg, lfoA, lfoB]);
 
 			hz = 2.pow(pitch + octave + Mix([eg, lfoA, lfoB] * [eg_pitch, lfoA_pitch, lfoB_pitch])) * baseFreq;
-			amp = Mix(modulators * [tip_amp, palm_amp, eg_amp, lfoA_amp, lfoB_amp]).max(0);
+			amp = Mix(modulators * [0, tip_amp, palm_amp, eg_amp, lfoA_amp, lfoB_amp]).max(0);
 
-			fb = (fb + Mix(modulators * [tip_fb, palm_fb, eg_fb, lfoA_fb, lfoB_fb])).max(0);
-			fold = (fold + Mix(modulators * [tip_fold, palm_fold, eg_fold, lfoA_fold, lfoB_fold])).max(0.1);
-			// foldBias = (foldBias + Mix(modulators * [tip_foldBias, palm_foldBias, eg_foldBias, lfoA_foldBias, lfoB_foldBias])).max(0.1);
+			// TODO: scale modulation so that similar amounts of similar sources applied to FB and fold sound vaguely similar
+			fb = (fb + Mix(modulators * [pitch_fb, tip_fb, palm_fb, eg_fb, lfoA_fb, lfoB_fb])).max(0);
+			fold = (fold + Mix(modulators * [pitch_fold, tip_fold, palm_fold, eg_fold, lfoA_fold, lfoB_fold])).max(0.1);
+			// foldBias = (foldBias + Mix(modulators * [0, tip_foldBias, palm_foldBias, eg_foldBias, lfoA_foldBias, lfoB_foldBias])).max(0.1);
 
 			sine = SinOscFB.ar(hz, fb);
 			folded = SinOsc.ar(0, pi * (fold * sine + foldBias)) * amp;

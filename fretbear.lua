@@ -433,6 +433,28 @@ function init()
 			end
 		}
 
+		params:add_group('v' .. v .. ' pitch', 2)
+
+		params:add {
+			name = 'pitch -> fb',
+			id = 'pitch_fb_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
+			action = function(value)
+				engine.pitch_fb(v, value)
+			end
+		}
+
+		params:add {
+			name = 'pitch -> fold',
+			id = 'pitch_fold_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
+			action = function(value)
+				engine.pitch_fold(v, value)
+			end
+		}
+
 		params:add_group('v' .. v .. ' tip', 9)
 
 		params:add {
