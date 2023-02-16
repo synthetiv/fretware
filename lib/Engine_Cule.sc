@@ -130,6 +130,11 @@ Engine_Cule : CroneEngine {
 			eg = EnvGen.kr(
 				Env.adsr(attack, decay, sustain, release),
 				gate,
+				// TODO: "amounts" are a poor replacement for multiplication within
+				// a given modulation routing, e.g. (env * (0.5 + tip)) -> osc_fb.
+				// that ^ could be described as multiplying at the input, while
+				// amounts multiply at the output (EG will be scaled like this no
+				// matter where it's used).
 				egAmount + Mix(modulators * [tip_egAmount, palm_egAmount, 0, lfoA_egAmount, lfoB_egAmount])
 			);
 
