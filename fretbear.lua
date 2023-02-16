@@ -403,12 +403,12 @@ function init()
 		}
 
 		params:add {
-			name = 'tune',
-			id = 'tune_' .. v,
+			name = 'detune',
+			id = 'detune_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-12, 12, 'lin', 0, -0.05 + ((v - 1) * 0.1), 'st'),
 			action = function(value)
-				engine.base_freq(v, musicutil.note_num_to_freq(60 + value))
+				engine.detune(v, value / 12)
 			end
 		}
 

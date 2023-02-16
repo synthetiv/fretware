@@ -34,6 +34,7 @@ Engine_Cule : CroneEngine {
 				loopLength = 0.3,
 				loopPosition = 0,
 
+				detune = 0,
 				baseFreq = 60.midicps,
 				pitchSlew = 0.01,
 				octave = 0,
@@ -104,12 +105,17 @@ Engine_Cule : CroneEngine {
 
 				// TODO: actually apply these modulations!
 				pitch_fb = -0.1,
-				pitch_fold = -0.1;
+				pitch_fold = -0.1,
 				// TODO: pitch -> LFO freqs and amounts
 				// TODO: EG -> LFO freqs and amounts, and vice versa
 
-			var bufferLength, bufferPhase, delayPhase, loopStart, loopPhase, loopOffset,
-				pitch, rawPitch, tip, palm, gate,
+				egGateTrig = 1,
+				trigLength = 0.2,
+				replyRate = 10;
+
+			var bufferLength, bufferPhase, delayPhase,
+				loopStart, loopPhase, loopTrigger, loopOffset,
+				pitch, tip, palm, gate, trig,
 				eg, lfoA, lfoB,
 				hz, amp, sine, folded;
 
@@ -121,19 +127,17 @@ Engine_Cule : CroneEngine {
 			// TODO: wrap? or does BufRd do that for you?
 			loopStart = bufferPhase - (loopLength * ControlRate.ir);
 			loopPhase = Phasor.kr(trig: freeze, start: loopStart, end: bufferPhase);
-			loopOffset = Latch.kr(bufferLength - (loopLength * ControlRate.ir), BinaryOpUGen.new('==', loopPhase, loopStart)) * loopPosition;
+			loopTrigger = BinaryOpUGen.new('==', loopPhase, loopStart);
+			loopOffset = Latch.kr(bufferLength - (loopLength * ControlRate.ir), loopTrigger) * loopPosition;
 			loopPhase = loopPhase - loopOffset;
-			BufWr.kr(In.kr([pitchBus, tipBus, palmBus, gateBus]), buffer, bufferPhase);
+			// TODO: yeah, this trig thing ain't doin shit
+			BufWr.kr([In.kr([pitchBus, tipBus, palmBus, gateBus]), InTrig.kr(gateBus)].flatten, buffer, bufferPhase);
 			delay = delay * 2.pow(Mix(modulators * [0, tip_delay, palm_delay, eg_delay, lfoA_delay, lfoB_delay]));
 			delay = delay.clip(0, 8);
 			// delay must be at least 1 frame, or we'll be writing to + reading from the same point
-			# rawPitch, tip, palm, gate = BufRd.kr(4, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
+			# pitch, tip, palm, gate, trig = BufRd.kr(5, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
 			// TODO: you may want to clear the buffer or reset the delay when freeze is disengaged,
 			// to prevent hearing one delay period's worth of old input... or maybe that's fun
-
-			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
-			// if I try that, SC seems to just hang forever, no error message
-			pitch = Lag.kr(rawPitch, pitchSlew);
 
 			// slew direct control
 			tip      = Lag.kr(tip,      lag);
@@ -144,7 +148,10 @@ Engine_Cule : CroneEngine {
 
 			eg = EnvGen.kr(
 				Env.adsr(attack, decay, sustain, release),
-				gate,
+				Select.kr(egGateTrig, [
+					gate,
+					Trig.kr(trig, trigLength),
+				]),
 				// TODO: "amounts" are a poor replacement for multiplication within
 				// a given modulation routing, e.g. (env * (0.5 + tip)) -> osc_fb.
 				// that ^ could be described as multiplying at the input, while
@@ -175,11 +182,20 @@ Engine_Cule : CroneEngine {
 
 			LocalOut.kr([pitch, tip, palm, eg, lfoA, lfoB]);
 
-			hz = 2.pow(pitch + octave + Mix([eg, lfoA, lfoB] * [eg_pitch, lfoA_pitch, lfoB_pitch])) * baseFreq;
+			pitch = pitch + octave + detune + Mix([eg, lfoA, lfoB] * [eg_pitch, lfoA_pitch, lfoB_pitch]);
 			amp = Mix(modulators * [0, tip_amp, palm_amp, eg_amp, lfoA_amp, lfoB_amp]).max(0);
 
-			// TODO: what about updating these polls on change, instead of or in addition to using an interval??
-			SendReply.kr(trig: Impulse.kr(10) + Changed.kr(rawPitch, 0.01), cmdName: '/voicePitchAmp', values: [voiceIndex, pitch, amp]);
+			// TODO: is this attempt at a retriggering gate bus working?
+			// ...so... it kinda works, now that you're using set() instead of
+			// setSynchronous() [is there a way to do something similar and still use
+			// setSynchronous? IDGI), but because of the way LOOPS work, they can cut
+			// off initial triggers. so you should ALSO trigger a reply when the loop loops.
+			SendReply.kr(trig: Impulse.kr(replyRate) + trig + loopTrigger, cmdName: '/voicePitchAmp', values: [voiceIndex, pitch, amp]);
+
+			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
+			// if I try that, SC seems to just hang forever, no error message
+			pitch = Lag.kr(pitch, pitchSlew);
+			hz = 2.pow(pitch) * baseFreq;
 
 			// TODO: scale modulation so that similar amounts of similar sources applied to FB and fold sound vaguely similar
 			fb = (fb + Mix(modulators * [pitch_fb, tip_fb, palm_fb, eg_fb, lfoA_fb, lfoB_fb])).max(0);
@@ -195,14 +211,15 @@ Engine_Cule : CroneEngine {
 		context.server.sync;
 
 		controlBuffers = Array.fill(n_voices, {
-			Buffer.alloc(context.server, context.server.sampleRate / context.server.options.blockSize * 8, 4);
+			Buffer.alloc(context.server, context.server.sampleRate / context.server.options.blockSize * 8, 5);
 		});
 		synths = Array.fill(n_voices, {
 			arg i;
 			Synth.new(\line, [
 				\voiceIndex, i,
 				\buffer, controlBuffers[i],
-				\delay, i * 0.2
+				\delay, i * 0.2,
+				\baseFreq, 60.midicps
 			], context.og); // "output" group
 		});
 		polls = Array.fill(n_voices, {
@@ -247,12 +264,17 @@ Engine_Cule : CroneEngine {
 
 		this.addCommand(\gate, "i", {
 			arg msg;
-			gateBus.setSynchronous(msg[1]);
+			gateBus.set(msg[1]);
 		});
 
 		this.addCommand(\pitch_slew, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\pitchSlew, msg[2]);
+		});
+
+		this.addCommand(\detune, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\detune, msg[2]);
 		});
 
 		this.addCommand(\base_freq, "if", {
@@ -530,6 +552,19 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\pitch_fold, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\pitch_fold, msg[2]);
+		});
+
+		this.addCommand(\reply_rate, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\replyRate, msg[2]);
+		});
+		this.addCommand(\eg_gate_trig, "ii", {
+			arg msg;
+			synths[msg[1] - 1].set(\egGateTrig, msg[2]);
+		});
+		this.addCommand(\trig_length, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\trigLength, msg[2]);
 		});
 	}
 

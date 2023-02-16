@@ -49,7 +49,7 @@ function Keyboard.new(x, y, width, height)
 		gate_mode = 2,
 		bend_range = 0.5,
 		bend_amount = 0,
-		glide_rate = 0.06,
+		glide_rate = 0.2,
 		glide_min = 0,
 		glide_max = 0,
 		glide_min_target = 0,
@@ -283,10 +283,11 @@ function Keyboard:glide()
 	-- TODO: it might even be useful to save the *unclamped* pitch somewhere and glide that
 	-- around; that would create a small dead zone in the center of the paddle after gliding all
 	-- the way to (and past) a target pitch.
+	local amount = math.abs(self.bend_amount * self.bend_amount * self.bend_amount)
 	if self.bend_amount < 0 then
 		self.bent_pitch = math.max(
 			self.glide_min,
-			self.bent_pitch + (self.glide_min - self.bend_range - self.bent_pitch) * self.glide_rate * 2 * -self.bend_amount
+			self.bent_pitch + (self.glide_min - self.bend_range - self.bent_pitch) * self.glide_rate * amount
 		)
 		-- move glide_max if needed/possible
 		if self.glide_max > self.glide_max_target then
@@ -295,7 +296,7 @@ function Keyboard:glide()
 	elseif self.bend_amount > 0 then
 		self.bent_pitch = math.min(
 			self.glide_max,
-			self.bent_pitch + (self.glide_max + self.bend_range - self.bent_pitch) * self.glide_rate * 2 * self.bend_amount
+			self.bent_pitch + (self.glide_max + self.bend_range - self.bent_pitch) * self.glide_rate * amount
 		)
 		-- move glide_min if needed/possible
 		if self.glide_min < self.glide_min_target then
@@ -529,21 +530,24 @@ function Keyboard:draw()
 
 				if not do_pitch_detection or self.n_sustained_keys > 0 then
 					if p == hand_pitch_low then
-						level = led_blend(level, (1 - hand_pitch_weight) * 7)
+						level = led_blend(level, (1 - hand_pitch_weight) * 5)
 					elseif p == hand_pitch_high then
-						level = led_blend(level, hand_pitch_weight * 7)
+						level = led_blend(level, hand_pitch_weight * 5)
 					end
+					--[[
 					if p == transposed_pitch_low then
 						level = led_blend(level, (1 - transposed_pitch_weight) * 5)
 					elseif p == transposed_pitch_high then
 						level = led_blend(level, transposed_pitch_weight * 5)
 					end
+					--]]
 					for v = 1, n_voices do
 						local voice = self.voice_data[v]
+						-- TODO: why is this so dang dark? oh, there's some kind of interaction between weight and amp, I think?
 						if p == voice.low then
-							level = led_blend(level, (1 - voice.weight) * 50 * voice.amp)
+							level = led_blend(level, (1 - voice.weight) * 20 * math.sqrt(voice.amp))
 						elseif p == voice.high then
-							level = led_blend(level, voice.weight * 50 * voice.amp)
+							level = led_blend(level, voice.weight * 20 * math.sqrt(voice.amp))
 						end
 					end
 				-- elseif gate_in and do_pitch_detection then
