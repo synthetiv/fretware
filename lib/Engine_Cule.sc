@@ -110,7 +110,7 @@ Engine_Cule : CroneEngine {
 			var modulators = LocalIn.kr(5);
 
 			bufferPhase = Phasor.kr(end: BufFrames.kr(buffer));
-			delayedControls = BufRd.kr(4, buffer, bufferPhase - (delay * ControlRate.ir), interpolation: 1);
+			delayedControls = BufRd.kr(4, buffer, bufferPhase - (delay * ControlRate.ir) - 1, interpolation: 1);
 			# pitch, tip, palm, gate = delayedControls;
 			// if freeze is active, feed the delay buffer with the delayed signal.
 			// otherwise, feed it the actual control input values.
