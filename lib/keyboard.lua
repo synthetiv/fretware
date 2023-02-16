@@ -50,9 +50,10 @@ function Keyboard.new(x, y, width, height)
 		bend_range = 0.5,
 		bend_amount = 0,
 		glide_rate = 0.06,
-		glide_range = 0,
 		glide_min = 0,
 		glide_max = 0,
+		glide_min_target = 0,
+		glide_max_target = 0,
 		scale = Scale.new(et12, 12),
 		mask = { false, false, false, false, false, false, false, false, false, false, false, false },
 		-- TODO: mask presets!
@@ -246,16 +247,21 @@ function Keyboard:set_bend_targets()
 	if not self.gliding or self.n_sustained_keys <= 1 then
 		return
 	end
-	local min = math.min(self.active_pitch, self.bent_pitch)
-	local max = math.max(self.active_pitch, self.bent_pitch)
+	local min = self.active_pitch
+	local max = self.active_pitch
 	for k = 1, self.n_sustained_keys do
 		local pitch = self:get_key_id_pitch_value(self.sustained_keys[k])
 		min = math.min(min, pitch)
 		max = math.max(max, pitch)
 	end
-	self.glide_min = min
-	self.glide_max = max
-	self.glide_range = max - min
+	-- if we've just released the highest or lowest note of several, then bent_pitch may now be
+	-- outside the range of [min, max]. so we save the min/max held pitches as "target" values,
+	-- but stretch the range temporarily so that it includes bent_pitch. as bent_pitch moves,
+	-- glide() will adjust the range so that it's no wider than it needs to be.
+	self.glide_min_target = min
+	self.glide_min = math.min(self.bent_pitch, min)
+	self.glide_max_target = max
+	self.glide_max = math.max(self.bent_pitch, max)
 end
 
 function Keyboard:glide()
@@ -273,11 +279,19 @@ function Keyboard:glide()
 			self.glide_min,
 			self.bent_pitch + (self.glide_min - self.bend_range - self.bent_pitch) * self.glide_rate * 2 * -self.bend_amount
 		)
+		-- move glide_max if needed/possible
+		if self.glide_max > self.glide_max_target then
+			self.glide_max = math.max(self.glide_max_target, self.bent_pitch)
+		end
 	elseif self.bend_amount > 0 then
 		self.bent_pitch = math.min(
 			self.glide_max,
 			self.bent_pitch + (self.glide_max + self.bend_range - self.bent_pitch) * self.glide_rate * 2 * self.bend_amount
 		)
+		-- move glide_min if needed/possible
+		if self.glide_min < self.glide_min_target then
+			self.glide_min = math.min(self.glide_min_target, self.bent_pitch)
+		end
 	end
 	--]]
 	self.on_pitch()
