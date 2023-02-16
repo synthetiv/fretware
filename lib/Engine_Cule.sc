@@ -9,8 +9,10 @@ Engine_Cule : CroneEngine {
 	var tipBus;
 	var palmBus;
 	var gateBus;
-	var buffers;
+	var controlBuffers;
 	var synths;
+	var polls;
+	var replyFunc;
 
 	*new { arg context, doneCallback;
 		^super.new(context, doneCallback);
@@ -25,7 +27,8 @@ Engine_Cule : CroneEngine {
 
 		SynthDef.new(\line, {
 
-			arg buffer,
+			arg voiceIndex,
+				buffer,
 				delay = 0,
 				freeze = 0,
 				loopLength = 0.3,
@@ -106,7 +109,7 @@ Engine_Cule : CroneEngine {
 				// TODO: EG -> LFO freqs and amounts, and vice versa
 
 			var bufferLength, bufferPhase, delayPhase, loopStart, loopPhase, loopOffset,
-				pitch, tip, palm, gate,
+				pitch, rawPitch, tip, palm, gate,
 				eg, lfoA, lfoB,
 				hz, amp, sine, folded;
 
@@ -124,13 +127,13 @@ Engine_Cule : CroneEngine {
 			delay = delay * 2.pow(Mix(modulators * [0, tip_delay, palm_delay, eg_delay, lfoA_delay, lfoB_delay]));
 			delay = delay.clip(0, 8);
 			// delay must be at least 1 frame, or we'll be writing to + reading from the same point
-			# pitch, tip, palm, gate = BufRd.kr(4, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
+			# rawPitch, tip, palm, gate = BufRd.kr(4, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
 			// TODO: you may want to clear the buffer or reset the delay when freeze is disengaged,
 			// to prevent hearing one delay period's worth of old input... or maybe that's fun
 
 			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
 			// if I try that, SC seems to just hang forever, no error message
-			pitch = Lag.kr(pitch, pitchSlew);
+			pitch = Lag.kr(rawPitch, pitchSlew);
 
 			// slew direct control
 			tip      = Lag.kr(tip,      lag);
@@ -175,6 +178,9 @@ Engine_Cule : CroneEngine {
 			hz = 2.pow(pitch + octave + Mix([eg, lfoA, lfoB] * [eg_pitch, lfoA_pitch, lfoB_pitch])) * baseFreq;
 			amp = Mix(modulators * [0, tip_amp, palm_amp, eg_amp, lfoA_amp, lfoB_amp]).max(0);
 
+			// TODO: what about updating these polls on change, instead of or in addition to using an interval??
+			SendReply.kr(trig: Impulse.kr(10) + Changed.kr(rawPitch, 0.01), cmdName: '/voicePitchAmp', values: [voiceIndex, pitch, amp]);
+
 			// TODO: scale modulation so that similar amounts of similar sources applied to FB and fold sound vaguely similar
 			fb = (fb + Mix(modulators * [pitch_fb, tip_fb, palm_fb, eg_fb, lfoA_fb, lfoB_fb])).max(0);
 			fold = (fold + Mix(modulators * [pitch_fold, tip_fold, palm_fold, eg_fold, lfoA_fold, lfoB_fold])).max(0.1);
@@ -188,16 +194,31 @@ Engine_Cule : CroneEngine {
 
 		context.server.sync;
 
-		buffers = Array.fill(n_voices, {
+		controlBuffers = Array.fill(n_voices, {
 			Buffer.alloc(context.server, context.server.sampleRate / context.server.options.blockSize * 8, 4);
 		});
 		synths = Array.fill(n_voices, {
 			arg i;
 			Synth.new(\line, [
-				\buffer, buffers[i],
+				\voiceIndex, i,
+				\buffer, controlBuffers[i],
 				\delay, i * 0.2
 			], context.og); // "output" group
 		});
+		polls = Array.fill(n_voices, {
+			arg i;
+			i = i + 1;
+			[
+				this.addPoll(("pitch_" ++ i).asSymbol, periodic: false),
+				this.addPoll(("amp_" ++ i).asSymbol, periodic: false)
+			];
+		});
+		replyFunc = OSCFunc({
+			arg msg;
+			// msg looks like [ '/voicePitchAmp', ??, -1, index, pitch, amp ]
+			polls[msg[3]][0].update(msg[4]);
+			polls[msg[3]][1].update(msg[5]);
+		}, path: '/voicePitchAmp', srcID: context.server.addr);
 
 		this.addCommand(\delay, "if", {
 			arg msg;
@@ -514,10 +535,11 @@ Engine_Cule : CroneEngine {
 
 	free {
 		synths.do({ |synth| synth.free });
-		buffers.do({ |buffer| buffer.free });
+		controlBuffers.do({ |buffer| buffer.free });
 		pitchBus.free;
 		tipBus.free;
 		palmBus.free;
 		gateBus.free;
+		replyFunc.free;
 	}
 }

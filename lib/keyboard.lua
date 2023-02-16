@@ -59,6 +59,7 @@ function Keyboard.new(x, y, width, height)
 		-- TODO: mask presets!
 		mask_notes = 'none', -- for use with Crow output modes
 		mask_edit = false,
+		voice_data = {},
 		-- overridable callbacks
 		on_pitch = function() end,
 		on_gate = function() end,
@@ -66,6 +67,14 @@ function Keyboard.new(x, y, width, height)
 		on_arp = function() end
 	}
 	setmetatable(keyboard, Keyboard)
+	for v = 1, n_voices do
+		keyboard.voice_data[v] = {
+			low = 0,
+			high = 0,
+			weight = 0,
+			amp = 0
+		}
+	end
 	-- start at 0 / middle C
 	keyboard:key(keyboard.x_center, keyboard.y_center, 1)
 	keyboard:key(keyboard.x_center, keyboard.y_center, 0)
@@ -467,6 +476,7 @@ function Keyboard:draw()
 	-- local sampled_pitch_low, sampled_pitch_high, sampled_pitch_weight = self.scale:get_nearest_mask_pitch_id(detected_pitch + self.transposition + self.bend_value, true)
 	-- local detected_pitch_low, detected_pitch_high, detected_pitch_weight = self.scale:get_nearest_pitch_id(poll_values.pitch - 1, true)
 
+	-- TODO: remind me why this exists again...
 	local offset = -self.scale.center_pitch_id - self.scale.length * self.octave
 	hand_pitch_low = hand_pitch_low + offset
 	hand_pitch_high = hand_pitch_high + offset
@@ -476,6 +486,14 @@ function Keyboard:draw()
 	-- sampled_pitch_high = sampled_pitch_high + offset
 	-- detected_pitch_low = detected_pitch_low + offset
 	-- detected_pitch_high = detected_pitch_high + offset
+
+	for v = 1, n_voices do
+		local low, high, weight = self.scale:get_nearest_mask_pitch_id(voice_states[v].pitch, true)
+		self.voice_data[v].low = low + offset
+		self.voice_data[v].high = high + offset
+		self.voice_data[v].weight = weight
+		self.voice_data[v].amp = voice_states[v].amp
+	end
 
 	for x = self.x + 1, self.x2 do
 		for y = self.y, self.y2 do
@@ -519,6 +537,14 @@ function Keyboard:draw()
 						level = led_blend(level, (1 - transposed_pitch_weight) * 5)
 					elseif p == transposed_pitch_high then
 						level = led_blend(level, transposed_pitch_weight * 5)
+					end
+					for v = 1, n_voices do
+						local voice = self.voice_data[v]
+						if p == voice.low then
+							level = led_blend(level, (1 - voice.weight) * 50 * voice.amp)
+						elseif p == voice.high then
+							level = led_blend(level, voice.weight * 50 * voice.amp)
+						end
 					end
 				-- elseif gate_in and do_pitch_detection then
 				-- 	if p == sampled_pitch_low then

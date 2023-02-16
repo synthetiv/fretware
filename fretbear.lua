@@ -3,6 +3,8 @@
 engine.name = 'Cule'
 musicutil = require 'musicutil'
 
+n_voices = 3
+
 Keyboard = include 'lib/keyboard'
 k = Keyboard.new(1, 1, 16, 8)
 
@@ -17,7 +19,13 @@ g = grid.connect()
 
 touche = midi.connect(1)
 
-n_voices = 3
+voice_states = {}
+for v = 1, n_voices do
+	voice_states[v] = {
+		pitch = 0,
+		amp = 0
+	}
+end
 
 tip = 0
 palm = 0
@@ -162,6 +170,19 @@ function init()
 
 	-- TODO: why doesn't crow.add() work anymore?
 	crow_init()
+
+	-- set up polls
+	for v = 1, n_voices do
+		local pitch_poll = poll.set('pitch_' .. v, function(value)
+			voice_states[v].pitch = value
+			grid_redraw()
+		end)
+		pitch_poll:start()
+		local amp_poll = poll.set('amp_' .. v, function(value)
+			voice_states[v].amp = value
+		end)
+		amp_poll:start()
+	end
 
 	params:add {
 		name = 'bend range',
