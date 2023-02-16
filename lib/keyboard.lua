@@ -268,10 +268,6 @@ function Keyboard:glide()
 	-- TODO: it might even be useful to save the *unclamped* pitch somewhere and glide that
 	-- around; that would create a small dead zone in the center of the paddle after gliding all
 	-- the way to (and past) a target pitch.
-	-- TODO: is the "red alert" effect you get when you hold pitch A, swing the paddle right,
-	-- and repeatedly press higher pitch B... desirable? avoidable?
-	-- being able to jump from between A + B right to B just by releasing A certainly seems
-	-- important, not sure how else you could do that voice crack yodel effect
 	if self.bend_amount < 0 then
 		self.bent_pitch = math.max(
 			self.glide_min,
