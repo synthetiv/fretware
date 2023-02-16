@@ -48,11 +48,11 @@ function Keyboard.new(x, y, width, height)
 		bent_pitch = 0,
 		gate_mode = 2,
 		bend_range = 0.5,
-		bend_min = 0,
-		bend_max = 0,
-		bend_min_target = 0,
-		bend_max_target = 0,
 		bend_amount = 0,
+		glide_rate = 0.06,
+		glide_range = 0,
+		glide_min = 0,
+		glide_max = 0,
 		scale = Scale.new(et12, 12),
 		mask = { false, false, false, false, false, false, false, false, false, false, false, false },
 		-- TODO: mask presets!
@@ -68,6 +68,13 @@ function Keyboard.new(x, y, width, height)
 	-- start at 0 / middle C
 	keyboard:key(keyboard.x_center, keyboard.y_center, 1)
 	keyboard:key(keyboard.x_center, keyboard.y_center, 0)
+	-- update glide values when needed
+	clock.run(function()
+		while true do
+			keyboard:glide()
+			clock.sleep(0.01)
+		end
+	end)
 	return keyboard
 end
 
@@ -236,28 +243,48 @@ function Keyboard:find_sustained_key(key_id)
 end
 
 function Keyboard:set_bend_targets()
-	if not self.gliding then
-		self.bend_min_target = self.active_pitch - self.bend_range
-		self.bend_min = self.bend_min_target
-		self.bend_max_target = self.active_pitch + self.bend_range
-		self.bend_max = self.bend_max_target
-	else
-		local range = (self.n_sustained_keys > 1) and 0 or self.bend_range
-		local min = self.active_pitch - range
-		local max = self.active_pitch + range
-		for k = 1, self.n_sustained_keys do
-			local pitch = self:get_key_id_pitch_value(self.sustained_keys[k])
-			min = math.min(min, pitch)
-			max = math.max(max, pitch)
-		end
-		-- TODO: what was I talking about here? vvv
-		-- we want to avoid placing bend_value outside the range, so we set target values directly,
-		-- but actual mins/maxes may differ based on current bend value
-		self.bend_min_target = min
-		self.bend_min = math.min(min, self.bent_pitch - self.bend_range)
-		self.bend_max_target = max
-		self.bend_max = math.max(max, self.bent_pitch + self.bend_range)
+	if not self.gliding or self.n_sustained_keys <= 1 then
+		return
 	end
+	local min = math.min(self.active_pitch, self.bent_pitch)
+	local max = math.max(self.active_pitch, self.bent_pitch)
+	for k = 1, self.n_sustained_keys do
+		local pitch = self:get_key_id_pitch_value(self.sustained_keys[k])
+		min = math.min(min, pitch)
+		max = math.max(max, pitch)
+	end
+	self.glide_min = min
+	self.glide_max = max
+	self.glide_range = max - min
+end
+
+function Keyboard:glide()
+	if not self.gliding or self.n_sustained_keys <= 1 then
+		return
+	end
+	-- one-pole glide with overshoot and clamp: fixed-ISH glide time, expo/log-ISH approach but
+	-- not asymtotic -- because glide is smoothing toward just beyond the min/max, then being
+	-- clamped to min/max
+	-- TODO: it might even be useful to save the *unclamped* pitch somewhere and glide that
+	-- around; that would create a small dead zone in the center of the paddle after gliding all
+	-- the way to (and past) a target pitch.
+	-- TODO: is the "red alert" effect you get when you hold pitch A, swing the paddle right,
+	-- and repeatedly press higher pitch B... desirable? avoidable?
+	-- being able to jump from between A + B right to B just by releasing A certainly seems
+	-- important, not sure how else you could do that voice crack yodel effect
+	if self.bend_amount < 0 then
+		self.bent_pitch = math.max(
+			self.glide_min,
+			self.bent_pitch + (self.glide_min - self.bend_range - self.bent_pitch) * self.glide_rate * 2 * -self.bend_amount
+		)
+	elseif self.bend_amount > 0 then
+		self.bent_pitch = math.min(
+			self.glide_max,
+			self.bent_pitch + (self.glide_max + self.bend_range - self.bent_pitch) * self.glide_rate * 2 * self.bend_amount
+		)
+	end
+	--]]
+	self.on_pitch()
 end
 
 function Keyboard:transpose(t)
@@ -365,23 +392,16 @@ function Keyboard:arp(gate)
 end
 
 function Keyboard:bend(amount)
-	amount = math.sin(amount * math.pi / 2)
-	local delta = amount - self.bend_amount
-	if delta > 0 then
-		-- interpolate linearly between (bend, bent_pitch) and (1, bend_max)
-		self.bent_pitch = self.bent_pitch + (self.bend_max - self.bent_pitch) * delta / (1 - self.bend_amount)
-		-- move min point toward center, if we can / need to
-		-- NB, this assumes bend_min <= -bend_range,
-		-- which is safe as long as bend_range <= smallest interval on keyboard
-		if self.bend_min < self.bend_min_target then
-			self.bend_min = util.clamp(self.bend_min, self.bent_pitch - self.bend_range, self.bend_min_target)
-		end
-	else
-		-- interpolate linearly between (bend, bent_pitch) and (-1, bend_min)
-		self.bent_pitch = self.bent_pitch + (self.bend_min - self.bent_pitch) * delta / (-1 - self.bend_amount)
-		-- move max point toward center, if we can / need to
-		if self.bend_max > self.bend_max_target then
-			self.bend_max = util.clamp(self.bend_max, self.bend_max_target, self.bent_pitch + self.bend_range)
+	-- if not self.gliding then
+	-- 	amount = math.sin(amount * math.pi / 2)
+	-- end
+	-- TODO: document/explain the logic here
+	if not self.gliding or self.n_sustained_keys <= 1 then
+		local delta = amount - self.bend_amount
+		if delta < 0 then
+			self.bent_pitch = self.bent_pitch + (self.active_pitch - self.bend_range - self.bent_pitch) * delta / (-1 - self.bend_amount)
+		else
+			self.bent_pitch = self.bent_pitch + (self.active_pitch + self.bend_range - self.bent_pitch) * delta / (1 - self.bend_amount)
 		end
 	end
 	self.bend_amount = amount
@@ -393,7 +413,12 @@ function Keyboard:set_active_key(key_id, is_release)
 	self.active_key_x, self.active_key_y = self:get_key_id_coords(key_id)
 	self.active_pitch_id = self:get_key_pitch_id(self.active_key_x, self.active_key_y)
 	self.active_pitch = self:get_pitch_id_value(self.active_pitch_id)
-	if not self.gliding or self.n_sustained_keys == 1 then
+	if is_release and self.gliding and self.n_sustained_keys == 1 then
+		-- we just released the 2nd note of a glide pair; jump straight to the new active
+		-- pitch, as if bend value were 0, even though it's not. bend range will linearize
+		-- over time as bend() is called.
+		self.bent_pitch = self.active_pitch
+	elseif not self.gliding or self.n_sustained_keys == 1 then
 		-- measure the current bend amount. if we've just released a note, measure bend from
 		-- the newly active pitch [TODO: but that basically has the effect of setting bend
 		-- to 0... right?]; if we've just added a note, measure from the previously active
