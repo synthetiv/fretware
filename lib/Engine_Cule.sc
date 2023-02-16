@@ -102,18 +102,28 @@ Engine_Cule : CroneEngine {
 				// TODO: EG -> LFO freqs and amounts, and vice versa
 
 			var bufferPhase,
+				delayedControls,
 				pitch, tip, palm, gate,
 				eg, lfoA, lfoB,
 				hz, amp, sine, folded;
 
 			var modulators = LocalIn.kr(5);
 
-			bufferPhase = Phasor.kr(rate: 1 - freeze, end: BufFrames.kr(buffer));
-			BufWr.kr(In.kr([pitchBus, tipBus, palmBus, gateBus]), buffer, bufferPhase);
+			bufferPhase = Phasor.kr(end: BufFrames.kr(buffer));
+			delayedControls = BufRd.kr(4, buffer, bufferPhase - (delay * ControlRate.ir), interpolation: 1);
+			# pitch, tip, palm, gate = delayedControls;
+			// if freeze is active, feed the delay buffer with the delayed signal.
+			// otherwise, feed it the actual control input values.
+			BufWr.kr(
+				Select.kr(freeze, [
+					In.kr([pitchBus, tipBus, palmBus, gateBus]),
+					delayedControls
+				]),
+				buffer,
+				bufferPhase
+			);
 			delay = delay * 2.pow(Mix(modulators * [tip_delay, palm_delay, eg_delay, lfoA_delay, lfoB_delay]));
 			delay = delay.clip(0, 8);
-			// when freeze is engaged, delay must be at least 1 frame, or we'll be writing to + reading from the same point
-			# pitch, tip, palm, gate = BufRd.kr(4, buffer, bufferPhase - (delay * ControlRate.ir).max(freeze), interpolation: 1);
 			// TODO: you may want to clear the buffer or reset the delay when freeze is disengaged,
 			// to prevent hearing one delay period's worth of old input... or maybe that's fun
 
