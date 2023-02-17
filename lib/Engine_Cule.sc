@@ -135,6 +135,7 @@ Engine_Cule : CroneEngine {
 			delayPhase = bufferPhase - (delay * ControlRate.ir).max(1); // TODO: I don't get why this is necessary :(
 			// TODO: wrap? or does BufRd do that for you?
 			loopStart = bufferPhase - (loopLength * ControlRate.ir);
+			// TODO: it doesn't really seem like the freeze trigger is working properly -- OR maybe you need one single engine command to set loop length and start looping
 			loopPhase = Phasor.kr(trig: freeze, start: loopStart, end: bufferPhase);
 			loopTrigger = BinaryOpUGen.new('==', loopPhase, loopStart);
 			loopOffset = Latch.kr(bufferLength - (loopLength * ControlRate.ir), loopTrigger) * loopPosition;
@@ -169,6 +170,7 @@ Engine_Cule : CroneEngine {
 				egAmount + Mix(modulators * [0, tip_egAmount, palm_egAmount, 0, lfoA_egAmount, lfoB_egAmount])
 			);
 
+			// TODO: if you cool it with some of these LFOs, can you bring back SinOscFB?
 			lfoAFreq = lfoAFreq * 2.pow(Mix(modulators * [0, tip_lfoAFreq, palm_lfoAFreq, eg_lfoAFreq, 0, lfoB_lfoAFreq]));
 			lfoAAmount = lfoAAmount + Mix(modulators * [0, tip_lfoAAmount, palm_lfoAAmount, eg_lfoAAmount, 0, lfoB_lfoAAmount]);
 			lfoA = lfoAAmount * Select.kr(lfoAType, [

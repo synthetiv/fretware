@@ -23,7 +23,9 @@ voice_states = {}
 for v = 1, n_voices do
 	voice_states[v] = {
 		pitch = 0,
-		amp = 0
+		amp = 0,
+		frozen = false,
+		loop_armed = false
 	}
 end
 
@@ -45,7 +47,28 @@ gate_in = false
 -- poll_values = {}
 
 function g.key(x, y, z)
-	k:key(x, y, z)
+	if y == 1 and x > 1 and x <= 1 + n_voices then
+		if z == 1 then
+			local v = x - 1
+			local voice = voice_states[v]
+			if voice.frozen then
+				-- stop looping
+				voice.frozen = false
+				voice.loop_armed = false
+			elseif not voice.loop_armed then
+				-- get ready to loop (set loop start time here)
+				voice.loop_armed = util.time()
+			else
+				-- start looping
+				params:set('loop_length_' .. v, util.time() - voice.loop_armed)
+				voice.frozen = true
+				voice.loop_armed = false
+			end
+			engine.freeze(v, voice.frozen and 1 or 0)
+		end
+	else
+		k:key(x, y, z)
+	end
 	-- TODO: sync the whole note stack with TT
 	-- I think you'll need to trigger events from the keyboard class, and... urgh...
 	-- it's more information than you can easily send to TT
@@ -85,9 +108,17 @@ end
 function grid_redraw()
 	g:all(0)
 	k:draw()
-	-- for c = 0, 2 do
-		-- g:led(c + 1, 1, tt_chord == c and 15 or 7)
-	-- end
+	for v = 1, n_voices do
+		local voice = voice_states[v]
+		local level = voice.amp
+		if voice.loop_armed then
+			level = level * 0.5 + 0.5
+		elseif voice.frozen then
+			level = level * 0.75 + 0.25
+		end
+		level = 2 + math.floor(level * 14)
+		g:led(v + 1, 1, level)
+	end
 	g:refresh()
 end
 
@@ -368,17 +399,6 @@ function init()
 			controlspec = controlspec.new(0, 8, 'lin', 0, 0, 's'),
 			action = function(value)
 				engine.delay(v, value)
-			end
-		}
-
-		params:add {
-			name = 'freeze',
-			id = 'freeze_' .. v,
-			type = 'binary',
-			behavior = 'toggle',
-			default = 0,
-			action = function(value)
-				engine.freeze(v, value)
 			end
 		}
 
