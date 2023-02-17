@@ -2,9 +2,6 @@ Engine_Cule : CroneEngine {
 
 	classvar n_voices = 3;
 
-	// TODO: replace or augment buses with buffers
-	// var ampBus;
-	// var freqBus;
 	var pitchBus;
 	var tipBus;
 	var palmBus;
@@ -111,10 +108,10 @@ Engine_Cule : CroneEngine {
 				lfoB_lfoAFreq = 0,
 				lfoB_lfoAAmount = 0,
 
-				// TODO: actually apply these modulations!
 				pitch_fb = -0.1,
 				pitch_fold = -0.1,
 				// TODO: pitch -> LFO freqs and amounts
+				// TODO: pitch -> FM amount
 				// TODO: EG -> LFO freqs and amounts, and vice versa
 
 				voice1_fm = 0,
