@@ -454,6 +454,48 @@ function init()
 			end
 		}
 
+		params:add_group('v' .. v .. ' fm', 4)
+
+		params:add {
+			name = 'voice 1 -> voice ' .. v,
+			id = 'voice1_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0, 20, 'lin', 0, 0),
+			action = function(value)
+				engine.voice1_fm(v, value)
+			end
+		}
+
+		params:add {
+			name = 'voice 2 -> voice ' .. v,
+			id = 'voice2_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0, 20, 'lin', 0, v == 1 and 10 or 0),
+			action = function(value)
+				engine.voice2_fm(v, value)
+			end
+		}
+
+		params:add {
+			name = 'voice 3 -> voice ' .. v,
+			id = 'voice3_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0, 20, 'lin', 0, 0),
+			action = function(value)
+				engine.voice3_fm(v, value)
+			end
+		}
+
+		params:add {
+			name = 'voice ' .. v .. ' out level',
+			id = 'out_level_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0, 1, 'lin', 0, v == 1 and 1 or 0),
+			action = function(value)
+				engine.out_level(v, value)
+			end
+		}
+
 		params:add_group('v' .. v .. ' pitch', 2)
 
 		params:add {

@@ -11,6 +11,7 @@ Engine_Cule : CroneEngine {
 	var gateBus;
 	var controlBuffers;
 	var synths;
+	var synthBuses;
 	var polls;
 	var replyFunc;
 
@@ -25,10 +26,16 @@ Engine_Cule : CroneEngine {
 		palmBus = Bus.control(context.server);
 		gateBus = Bus.control(context.server);
 
+		synthBuses = Array.fill(n_voices, {
+			Bus.audio(context.server);
+		});
+
 		SynthDef.new(\line, {
 
 			arg voiceIndex,
 				buffer,
+				outBus,
+				outLevel = 1,
 				delay = 0,
 				freeze = 0,
 				loopLength = 0.3,
@@ -49,6 +56,7 @@ Engine_Cule : CroneEngine {
 				lfoBType = 0,
 				lfoBFreq = 1.1,
 				lfoBAmount = 1,
+				oscType = 1,
 				fb = 0,
 				fold = 0.3,
 				foldBias = 0,
@@ -109,6 +117,10 @@ Engine_Cule : CroneEngine {
 				// TODO: pitch -> LFO freqs and amounts
 				// TODO: EG -> LFO freqs and amounts, and vice versa
 
+				voice1_fm = 0,
+				voice2_fm = 0,
+				voice3_fm = 0,
+
 				egGateTrig = 1,
 				trigLength = 0.2,
 				replyRate = 10;
@@ -117,7 +129,7 @@ Engine_Cule : CroneEngine {
 				loopStart, loopPhase, loopTrigger, loopOffset,
 				pitch, tip, palm, gate, trig,
 				eg, lfoA, lfoB,
-				hz, amp, sine, folded;
+				hz, amp, fmAmounts, fm, sine, folded;
 
 			var modulators = LocalIn.kr(6);
 
@@ -202,10 +214,18 @@ Engine_Cule : CroneEngine {
 			fold = (fold + Mix(modulators * [pitch_fold, tip_fold, palm_fold, eg_fold, lfoA_fold, lfoB_fold])).max(0.1);
 			// foldBias = (foldBias + Mix(modulators * [0, tip_foldBias, palm_foldBias, eg_foldBias, lfoA_foldBias, lfoB_foldBias])).max(0.1);
 
-			sine = SinOscFB.ar(hz, fb);
+			fm = InFeedback.ar(synthBuses) * [voice1_fm, voice2_fm, voice3_fm];
+			sine = SinOsc.ar(hz, fm.mod(2pi));
+			// TODO: boo... using both SinOsc and SinOscFB causes xruns :(
+			// sine = Select.kr(oscType, [
+			// 	// SinOscFB doesn't update its frequency at audio rate, so things get real weird and atonal
+			// 	SinOscFB.ar(hz * (1 + fm), fb),
+			// 	SinOsc.ar(hz * (1 + fm))
+			// ]);
 			folded = SinOsc.ar(0, pi * (fold * sine + foldBias)) * amp;
 
-			Out.ar(context.out_b, folded ! 2);
+			Out.ar(outBus, folded);
+			Out.ar(context.out_b, folded ! 2 * outLevel);
 		}).add;
 
 		context.server.sync;
@@ -218,6 +238,7 @@ Engine_Cule : CroneEngine {
 			Synth.new(\line, [
 				\voiceIndex, i,
 				\buffer, controlBuffers[i],
+				\outBus, synthBuses[i],
 				\delay, i * 0.2,
 				\baseFreq, 60.midicps
 			], context.og); // "output" group
@@ -343,6 +364,10 @@ Engine_Cule : CroneEngine {
 			synths[msg[1] - 1].set(\egAmount, msg[2]);
 		});
 
+		this.addCommand(\osc_type, "ii", {
+			arg msg;
+			synths[msg[1] - 1].set(\oscType, msg[2]);
+		});
 		this.addCommand(\fb, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\fb, msg[2]);
@@ -552,6 +577,24 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\pitch_fold, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\pitch_fold, msg[2]);
+		});
+
+		this.addCommand(\voice1_fm, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\voice1_fm, msg[2]);
+		});
+		this.addCommand(\voice2_fm, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\voice2_fm, msg[2]);
+		});
+		this.addCommand(\voice3_fm, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\voice3_fm, msg[2]);
+		});
+
+		this.addCommand(\out_level, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\outLevel, msg[2]);
 		});
 
 		this.addCommand(\reply_rate, "if", {
