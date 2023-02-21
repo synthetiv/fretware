@@ -448,7 +448,7 @@ function init()
 			name = 'sine fb',
 			id = 'fb_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 10, 'exp', 0, (n_voices - v) / n_voices * 0.3, 0),
+			controlspec = controlspec.new(0.001, 10, 'exp', 0, (n_voices - v) / n_voices * 0.3),
 			action = function(value)
 				engine.fb(v, value)
 			end
@@ -458,7 +458,7 @@ function init()
 			name = 'sine fold',
 			id = 'fold_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.1, 10, 'exp', 0, (n_voices - v) / n_voices * 0.6, 0),
+			controlspec = controlspec.new(0.1, 10, 'exp', 0, (n_voices - v) / n_voices * 0.6),
 			action = function(value)
 				engine.fold(v, value)
 			end
@@ -468,7 +468,7 @@ function init()
 			name = 'sine fold bias',
 			id = 'fold_bias_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0, 10, 'lin', 0, 0, 0),
+			controlspec = controlspec.new(0, 10, 'lin', 0, 0),
 			action = function(value)
 				engine.fold_bias(v, value)
 			end
@@ -490,7 +490,7 @@ function init()
 			name = 'voice 2 -> voice ' .. v,
 			id = 'voice2_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0, 20, 'lin', 0, v == 1 and 10 or 0),
+			controlspec = controlspec.new(0, 20, 'lin', 0, 0),
 			action = function(value)
 				engine.voice2_fm(v, value)
 			end
@@ -510,7 +510,7 @@ function init()
 			name = 'voice ' .. v .. ' out level',
 			id = 'out_level_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0, 1, 'lin', 0, v == 1 and 1 or 0),
+			controlspec = controlspec.new(0, 1, 'lin', 0, 1),
 			action = function(value)
 				engine.out_level(v, value)
 			end
@@ -544,7 +544,7 @@ function init()
 			name = 'tip -> amp',
 			id = 'tip_amp_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 1, 'exp', 0, v < 3 and 1 or 0),
+			controlspec = controlspec.new(0.001, 1, 'exp', 0, 1),
 			action = function(value)
 				engine.tip_amp(v, value - 0.001)
 			end
