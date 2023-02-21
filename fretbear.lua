@@ -406,7 +406,7 @@ function init()
 			name = 'loop length',
 			id = 'loop_length_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0, 8, 'lin', 0, 0.3, 's'),
+			controlspec = controlspec.new(0, 16, 'lin', 0, 0.3, 's'),
 			action = function(value)
 				engine.loop_length(v, value)
 			end

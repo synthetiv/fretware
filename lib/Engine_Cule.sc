@@ -1,6 +1,7 @@
 Engine_Cule : CroneEngine {
 
-	classvar n_voices = 3;
+	classvar nVoices = 3;
+	classvar maxLoopTime = 16;
 
 	var pitchBus;
 	var tipBus;
@@ -23,7 +24,7 @@ Engine_Cule : CroneEngine {
 		palmBus = Bus.control(context.server);
 		gateBus = Bus.control(context.server);
 
-		synthBuses = Array.fill(n_voices, {
+		synthBuses = Array.fill(nVoices, {
 			Bus.audio(context.server);
 		});
 
@@ -229,10 +230,10 @@ Engine_Cule : CroneEngine {
 
 		context.server.sync;
 
-		controlBuffers = Array.fill(n_voices, {
-			Buffer.alloc(context.server, context.server.sampleRate / context.server.options.blockSize * 8, 5);
+		controlBuffers = Array.fill(nVoices, {
+			Buffer.alloc(context.server, context.server.sampleRate / context.server.options.blockSize * maxLoopTime, 5);
 		});
-		synths = Array.fill(n_voices, {
+		synths = Array.fill(nVoices, {
 			arg i;
 			Synth.new(\line, [
 				\voiceIndex, i,
@@ -242,7 +243,7 @@ Engine_Cule : CroneEngine {
 				\baseFreq, 60.midicps
 			], context.og); // "output" group
 		});
-		polls = Array.fill(n_voices, {
+		polls = Array.fill(nVoices, {
 			arg i;
 			i = i + 1;
 			[
