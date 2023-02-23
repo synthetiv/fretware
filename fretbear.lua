@@ -531,7 +531,7 @@ function init()
 			end
 		}
 
-		params:add_group('v' .. v .. ' pitch', 2)
+		params:add_group('v' .. v .. ' pitch', 3)
 
 		params:add {
 			name = 'pitch -> fb',
@@ -563,7 +563,7 @@ function init()
 			end
 		}
 
-		params:add_group('v' .. v .. ' tip', 9)
+		params:add_group('v' .. v .. ' tip', 10)
 
 		params:add {
 			name = 'tip -> amp',
@@ -665,7 +665,7 @@ function init()
 			end
 		}
 
-		params:add_group('v' .. v .. ' palm', 9)
+		params:add_group('v' .. v .. ' palm', 10)
 
 		params:add {
 			name = 'palm -> amp',
@@ -767,7 +767,7 @@ function init()
 			end
 		}
 
-		params:add_group('v' .. v .. ' eg', 10)
+		params:add_group('v' .. v .. ' eg', 11)
 
 		params:add {
 			name = 'attack',
@@ -883,7 +883,7 @@ function init()
 			end
 		}
 
-		params:add_group('v' .. v .. ' lfo A', 10)
+		params:add_group('v' .. v .. ' lfo A', 11)
 
 		params:add {
 			name = 'lfo A type',
@@ -999,7 +999,7 @@ function init()
 			end
 		}
 
-		params:add_group('v' .. v .. ' lfo B', 10)
+		params:add_group('v' .. v .. ' lfo B', 11)
 
 		params:add {
 			name = 'lfo B type',
