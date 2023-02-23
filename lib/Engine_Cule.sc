@@ -209,6 +209,13 @@ Engine_Cule : CroneEngine {
 			pitch = Lag.kr(pitch, pitchSlew);
 			hz = 2.pow(pitch) * baseFreq;
 
+			// TODO: send these to a bus for another synth to pick up:
+			// hz, fb [as a generic 'timbre1' control?], fold [same?], foldBias [same?], fm
+			// alt synths:
+			// - square with pwm, cutoff, reso
+			// - double saw with detune, cutoff, reso?
+			// TODO: come up with a good way to make param labels descriptive, because who wants 'timbre A' and 'timbre B'
+
 			// TODO: scale modulation so that similar amounts of similar sources applied to FB and fold sound vaguely similar
 			fb = (fb + Mix(modulators * [pitch_fb, tip_fb, palm_fb, eg_fb, lfoA_fb, lfoB_fb])).max(0);
 			fold = (fold + Mix(modulators * [pitch_fold, tip_fold, palm_fold, eg_fold, lfoA_fold, lfoB_fold])).max(0.1);
