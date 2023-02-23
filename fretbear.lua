@@ -76,7 +76,7 @@ end
 function send_pitch_volts()
 	-- TODO: this added offset for the quantizer really shouldn't be necessary; what's going on here?
 	crow.output[1].volts = k.bent_pitch + k.octave + (k.quantizing and 1/24 or 0)
-	engine.pitch(k.bent_pitch + k.octave)
+	control_engine_voices('pitch', k.bent_pitch + k.octave)
 end
 
 function touche.event(data)
@@ -85,11 +85,11 @@ function touche.event(data)
 		-- back = 16, front = 17, left = 18, right = 19
 		if message.cc == 17 then
 			tip = message.val / 126
-			engine.tip(tip) -- let SC do the scaling
+			control_engine_voices('tip', tip) -- let SC do the scaling
 			crow.output[2].volts = 10 * math.sqrt(tip)
 		elseif message.cc == 16 then
 			palm = message.val / 126
-			engine.palm(palm)
+			control_engine_voices('palm', palm)
 			crow.output[3].volts = palm * params:get('damp_range') + params:get('damp_base')
 		elseif message.cc == 18 then
 			k:bend(-math.min(1, message.val / 126)) -- TODO: not sure why 126 is the max value I'm getting from Touche...
@@ -145,6 +145,12 @@ function crow_init()
 	crow.input[2].mode('stream', 0.01)
 end
 
+function control_engine_voices(method, value)
+	for v = 1, n_voices do
+		engine[method](v, value)
+	end
+end
+
 function init()
 
 	-- for p = 1, #poll_names do
@@ -176,16 +182,16 @@ function init()
 	k.on_gate = function(gate)
 		if k.gate_mode ~= 3 then
 			crow.output[4](gate)
-			engine.gate(gate and 1 or 0)
+			control_engine_voices('gate', gate and 1 or 0)
 		elseif gate then
 
 			crow.output[4]()
-			engine.gate(1)
+			control_engine_voices('gate', 1)
 			-- TODO: finesse this: there should be control over gate time, and this should handle
 			-- overlapping gates
 			clock.run(function()
 				clock.sleep(0.1)
-				engine.gate(0)
+				control_engine_voices('gate', 0)
 			end)
 		end
 		if gate and not do_pitch_detection then

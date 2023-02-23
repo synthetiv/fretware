@@ -4,10 +4,6 @@ Engine_Cule : CroneEngine {
 	classvar maxLoopTime = 16;
 
 	var baseFreqBus;
-	var pitchBus;
-	var tipBus;
-	var palmBus;
-	var gateBus;
 	var controlBuffers;
 	var synths;
 	var synthBuses;
@@ -21,10 +17,6 @@ Engine_Cule : CroneEngine {
 	alloc {
 
 		baseFreqBus = Bus.control(context.server);
-		pitchBus = Bus.control(context.server);
-		tipBus = Bus.control(context.server);
-		palmBus = Bus.control(context.server);
-		gateBus = Bus.control(context.server);
 
 		synthBuses = Array.fill(nVoices, {
 			Bus.audio(context.server);
@@ -35,6 +27,11 @@ Engine_Cule : CroneEngine {
 			arg voiceIndex,
 				buffer,
 				outBus,
+				pitch = 0,
+				gate = 0,
+				t_trig = 0,
+				tip = 0,
+				palm = 0,
 				outLevel = 1,
 				delay = 0,
 				freeze = 0,
@@ -132,7 +129,6 @@ Engine_Cule : CroneEngine {
 
 			var bufferLength, bufferPhase, delayPhase,
 				loopStart, loopPhase, loopTrigger, loopOffset,
-				pitch, tip, palm, gate, trig,
 				eg, lfoA, lfoB,
 				hz, amp, fmAmounts, fm, sine, folded;
 
@@ -148,12 +144,11 @@ Engine_Cule : CroneEngine {
 			loopTrigger = BinaryOpUGen.new('==', loopPhase, loopStart);
 			loopOffset = Latch.kr(bufferLength - (loopLength * ControlRate.ir), loopTrigger) * loopPosition;
 			loopPhase = loopPhase - loopOffset;
-			// TODO: yeah, this trig thing ain't doin shit
-			BufWr.kr([In.kr([pitchBus, tipBus, palmBus, gateBus]), InTrig.kr(gateBus)].flatten, buffer, bufferPhase);
+			BufWr.kr([pitch, tip, palm, gate, t_trig], buffer, bufferPhase);
 			delay = delay * 2.pow(Mix(modulators * [0, tip_delay, palm_delay, eg_delay, lfoA_delay, lfoB_delay]));
 			delay = delay.clip(0, 8);
 			// delay must be at least 1 frame, or we'll be writing to + reading from the same point
-			# pitch, tip, palm, gate, trig = BufRd.kr(5, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
+			# pitch, tip, palm, gate, t_trig = BufRd.kr(5, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
 			// TODO: you may want to clear the buffer or reset the delay when freeze is disengaged,
 			// to prevent hearing one delay period's worth of old input... or maybe that's fun
 
@@ -168,7 +163,7 @@ Engine_Cule : CroneEngine {
 				Env.adsr(attack, decay, sustain, release),
 				Select.kr(egGateTrig, [
 					gate,
-					Trig.kr(trig, trigLength),
+					Trig.kr(t_trig, trigLength),
 				]),
 				// TODO: "amounts" are a poor replacement for multiplication within
 				// a given modulation routing, e.g. (env * (0.5 + tip)) -> osc_fb.
@@ -209,7 +204,7 @@ Engine_Cule : CroneEngine {
 			// setSynchronous() [is there a way to do something similar and still use
 			// setSynchronous? IDGI), but because of the way LOOPS work, they can cut
 			// off initial triggers. so you should ALSO trigger a reply when the loop loops.
-			SendReply.kr(trig: Impulse.kr(replyRate) + trig + loopTrigger, cmdName: '/voicePitchAmp', values: [voiceIndex, pitch, amp]);
+			SendReply.kr(trig: Impulse.kr(replyRate) + t_trig + loopTrigger, cmdName: '/voicePitchAmp', values: [voiceIndex, pitch, amp]);
 
 			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
 			// if I try that, SC seems to just hang forever, no error message
@@ -298,14 +293,17 @@ Engine_Cule : CroneEngine {
 			synths[msg[1] - 1].set(\loopPosition, msg[2]);
 		});
 
-		this.addCommand(\pitch, "f", {
+		this.addCommand(\pitch, "if", {
 			arg msg;
-			pitchBus.setSynchronous(msg[1]);
+			synths[msg[1] - 1].set(\pitch, msg[2]);
 		});
 
-		this.addCommand(\gate, "i", {
+		this.addCommand(\gate, "ii", {
 			arg msg;
-			gateBus.set(msg[1]);
+			var synth = synths[msg[1] - 1];
+			var value = msg[2];
+			synth.set(\gate, value);
+			if(value == 1, { synth.set(\t_trig, 1); });
 		});
 
 		this.addCommand(\pitch_slew, "if", {
@@ -318,14 +316,14 @@ Engine_Cule : CroneEngine {
 			synths[msg[1] - 1].set(\detune, msg[2]);
 		});
 
-		this.addCommand(\tip, "f", {
+		this.addCommand(\tip, "if", {
 			arg msg;
-			tipBus.setSynchronous(msg[1]);
+			synths[msg[1] - 1].set(\tip, msg[2]);
 		});
 
-		this.addCommand(\palm, "f", {
+		this.addCommand(\palm, "if", {
 			arg msg;
-			palmBus.setSynchronous(msg[1]);
+			synths[msg[1] - 1].set(\palm, msg[2]);
 		});
 
 		this.addCommand(\lfo_a_type, "ii", {
@@ -653,10 +651,6 @@ Engine_Cule : CroneEngine {
 	free {
 		synths.do({ |synth| synth.free });
 		controlBuffers.do({ |buffer| buffer.free });
-		pitchBus.free;
-		tipBus.free;
-		palmBus.free;
-		gateBus.free;
 		replyFunc.free;
 	}
 }
