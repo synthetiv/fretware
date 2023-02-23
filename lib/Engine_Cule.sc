@@ -241,7 +241,7 @@ Engine_Cule : CroneEngine {
 		// TODO: come up with a good way to make param labels descriptive, because who wants 'timbre A' and 'timbre B'
 
 		SynthDef.new(\sine, {
-			arg fmBus, controlBus, outBus, outLevel = 0.1;
+			arg fmBus, controlBus, outBus, outLevel = 0.2;
 			var hz, amp, fb, fold, foldBias,
 				sine, folded;
 			# hz, amp, fb, fold, foldBias = In.kr(controlBus, 5);
