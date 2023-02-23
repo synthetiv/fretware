@@ -505,7 +505,7 @@ function init()
 			name = 'voice ' .. v .. ' out level',
 			id = 'out_level_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0, 1, 'lin', 0, 1),
+			controlspec = controlspec.new(0, 1, 'lin', 0, v == 1 and 1 or 0),
 			action = function(value)
 				engine.out_level(v, value)
 			end
@@ -530,6 +530,16 @@ function init()
 			controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
 			action = function(value)
 				engine.pitch_fold(v, value)
+			end
+		}
+
+		params:add {
+			name = 'pitch -> fold bias',
+			id = 'pitch_fold_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
+			action = function(value)
+				engine.pitch_fold_bias(v, value)
 			end
 		}
 
@@ -572,6 +582,16 @@ function init()
 			controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
 			action = function(value)
 				engine.tip_fold(v, value)
+			end
+		}
+
+		params:add {
+			name = 'tip -> fold bias',
+			id = 'tip_fold_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
+			action = function(value)
+				engine.tip_fold_bias(v, value)
 			end
 		}
 
@@ -664,6 +684,16 @@ function init()
 			controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
 			action = function(value)
 				engine.palm_fold(v, value)
+			end
+		}
+
+		params:add {
+			name = 'palm -> fold bias',
+			id = 'palm_fold_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
+			action = function(value)
+				engine.palm_fold_bias(v, value)
 			end
 		}
 
@@ -823,6 +853,16 @@ function init()
 			end
 		}
 
+		params:add {
+			name = 'eg -> fold bias',
+			id = 'eg_fold_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+			action = function(value)
+				engine.eg_fold_bias(v, value)
+			end
+		}
+
 		params:add_group('v' .. v .. ' lfo A', 10)
 
 		params:add {
@@ -896,6 +936,16 @@ function init()
 			controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
 			action = function(value)
 				engine.lfo_a_fold(v, value)
+			end
+		}
+
+		params:add {
+			name = 'lfo A -> fold bias',
+			id = 'lfo_a_fold_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+			action = function(value)
+				engine.lfo_a_fold_bias(v, value)
 			end
 		}
 
@@ -1003,6 +1053,16 @@ function init()
 			controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
 			action = function(value)
 				engine.lfo_b_fold(v, value)
+			end
+		}
+
+		params:add {
+			name = 'lfo B -> fold bias',
+			id = 'lfo_b_fold_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+			action = function(value)
+				engine.lfo_b_fold_bias(v, value)
 			end
 		}
 

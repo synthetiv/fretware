@@ -64,6 +64,7 @@ Engine_Cule : CroneEngine {
 				tip_delay = 0,
 				tip_fb = 0,
 				tip_fold = 0,
+				tip_foldBias = 0,
 				// TODO: include EG times as mod destinations
 				tip_egAmount = 0,
 				tip_lfoAFreq = 0,
@@ -75,6 +76,7 @@ Engine_Cule : CroneEngine {
 				palm_delay = 0,
 				palm_fb = 0,
 				palm_fold = -1,
+				palm_foldBias = 0,
 				palm_egAmount = 0,
 				palm_lfoAFreq = 0,
 				palm_lfoAAmount = 0,
@@ -86,6 +88,7 @@ Engine_Cule : CroneEngine {
 				eg_delay = 0,
 				eg_fb = 0,
 				eg_fold = 0,
+				eg_foldBias = 0,
 				eg_lfoAFreq = 0,
 				eg_lfoAAmount = 0,
 				eg_lfoBFreq = 0,
@@ -96,6 +99,7 @@ Engine_Cule : CroneEngine {
 				lfoA_delay = 0,
 				lfoA_fb = 0,
 				lfoA_fold = 0,
+				lfoA_foldBias = 0,
 				lfoA_egAmount = 0,
 				lfoA_lfoBFreq = 0,
 				lfoA_lfoBAmount = 0,
@@ -105,12 +109,14 @@ Engine_Cule : CroneEngine {
 				lfoB_delay = 0,
 				lfoB_fb = 0,
 				lfoB_fold = 0,
+				lfoB_foldBias = 0,
 				lfoB_egAmount = 0,
 				lfoB_lfoAFreq = 0,
 				lfoB_lfoAAmount = 0,
 
 				pitch_fb = -0.1,
 				pitch_fold = -0.1,
+				pitch_foldBias = 0,
 				// TODO: pitch -> LFO freqs and amounts
 				// TODO: pitch -> FM amount
 				// TODO: EG -> LFO freqs and amounts, and vice versa
@@ -219,7 +225,7 @@ Engine_Cule : CroneEngine {
 			// TODO: scale modulation so that similar amounts of similar sources applied to FB and fold sound vaguely similar
 			fb = (fb + Mix(modulators * [pitch_fb, tip_fb, palm_fb, eg_fb, lfoA_fb, lfoB_fb])).max(0);
 			fold = (fold + Mix(modulators * [pitch_fold, tip_fold, palm_fold, eg_fold, lfoA_fold, lfoB_fold])).max(0.1);
-			// foldBias = (foldBias + Mix(modulators * [0, tip_foldBias, palm_foldBias, eg_foldBias, lfoA_foldBias, lfoB_foldBias])).max(0.1);
+			foldBias = (foldBias + Mix(modulators * [0, tip_foldBias, palm_foldBias, eg_foldBias, lfoA_foldBias, lfoB_foldBias]));
 
 			fm = InFeedback.ar(synthBuses) * [voice1_fm, voice2_fm, voice3_fm];
 			sine = SinOsc.ar(hz, fm.mod(2pi));
@@ -416,6 +422,10 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			synths[msg[1] - 1].set(\tip_fold, msg[2]);
 		});
+		this.addCommand(\tip_fold_bias, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\tip_foldBias, msg[2]);
+		});
 		this.addCommand(\tip_eg_amount, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\tip_egAmount, msg[2]);
@@ -452,6 +462,10 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\palm_fold, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\palm_fold, msg[2]);
+		});
+		this.addCommand(\palm_fold_bias, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\palm_foldBias, msg[2]);
 		});
 		this.addCommand(\palm_eg_amount, "if", {
 			arg msg;
@@ -494,6 +508,10 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			synths[msg[1] - 1].set(\eg_fold, msg[2]);
 		});
+		this.addCommand(\eg_fold_bias, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\eg_fold_bias, msg[2]);
+		});
 		this.addCommand(\eg_lfo_a_freq, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\eg_lfoAFreq, msg[2]);
@@ -531,6 +549,10 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			synths[msg[1] - 1].set(\lfoA_fold, msg[2]);
 		});
+		this.addCommand(\lfo_a_fold_bias, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoA_foldBias, msg[2]);
+		});
 		this.addCommand(\lfo_a_eg_amount, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\lfoA_egAmount, msg[2]);
@@ -564,6 +586,10 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			synths[msg[1] - 1].set(\lfoB_fold, msg[2]);
 		});
+		this.addCommand(\lfo_b_fold_bias, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\lfoB_foldBias, msg[2]);
+		});
 		this.addCommand(\lfo_b_eg_amount, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\lfoB_egAmount, msg[2]);
@@ -584,6 +610,10 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\pitch_fold, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\pitch_fold, msg[2]);
+		});
+		this.addCommand(\pitch_fold_bias, "if", {
+			arg msg;
+			synths[msg[1] - 1].set(\pitch_foldBias, msg[2]);
 		});
 
 		this.addCommand(\voice1_fm, "if", {
