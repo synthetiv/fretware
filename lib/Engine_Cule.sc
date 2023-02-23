@@ -5,8 +5,11 @@ Engine_Cule : CroneEngine {
 
 	var baseFreqBus;
 	var controlBuffers;
-	var synths;
-	var synthBuses;
+	var controlSynths;
+	var synthOutBuses;
+	var fmBuses;
+	var controlBuses;
+	var audioSynths;
 	var polls;
 	var replyFunc;
 
@@ -18,21 +21,33 @@ Engine_Cule : CroneEngine {
 
 		baseFreqBus = Bus.control(context.server);
 
-		synthBuses = Array.fill(nVoices, {
+		// direct outs from audio synths, to be mixed by control synths into fm signals
+		synthOutBuses = Array.fill(nVoices, {
 			Bus.audio(context.server);
+		});
+
+		// buses for audio rate FM signals: mixed by control synths, applied by audio synths
+		fmBuses = Array.fill(nVoices, {
+			Bus.audio(context.server);
+		});
+
+		// buses for sending data from control synths to hot-swappable audio synths:
+		// frequency, amp, and three timbre parameters
+		controlBuses = Array.fill(nVoices, {
+			Bus.control(context.server, 5);
 		});
 
 		SynthDef.new(\line, {
 
 			arg voiceIndex,
 				buffer,
-				outBus,
+				fmBus,
+				controlBus,
 				pitch = 0,
 				gate = 0,
 				t_trig = 0,
 				tip = 0,
 				palm = 0,
-				outLevel = 1,
 				delay = 0,
 				freeze = 0,
 				loopLength = 0.3,
@@ -130,7 +145,7 @@ Engine_Cule : CroneEngine {
 			var bufferLength, bufferPhase, delayPhase,
 				loopStart, loopPhase, loopTrigger, loopOffset,
 				eg, lfoA, lfoB,
-				hz, amp, fmAmounts, fm, sine, folded;
+				hz, amp;
 
 			var modulators = LocalIn.kr(6);
 
@@ -208,20 +223,29 @@ Engine_Cule : CroneEngine {
 			pitch = Lag.kr(pitch, pitchSlew);
 			hz = 2.pow(pitch) * In.kr(baseFreqBus);
 
-			// TODO: send these to a bus for another synth to pick up:
-			// hz, fb [as a generic 'timbre1' control?], fold [same?], foldBias [same?], fm
-			// alt synths:
-			// - square with pwm, cutoff, reso
-			// - double saw with detune, cutoff, reso?
-			// TODO: come up with a good way to make param labels descriptive, because who wants 'timbre A' and 'timbre B'
-
 			// TODO: scale modulation so that similar amounts of similar sources applied to FB and fold sound vaguely similar
 			fb = (fb + Mix(modulators * [pitch_fb, tip_fb, palm_fb, eg_fb, lfoA_fb, lfoB_fb])).max(0);
 			fold = (fold + Mix(modulators * [pitch_fold, tip_fold, palm_fold, eg_fold, lfoA_fold, lfoB_fold])).max(0.1);
 			foldBias = (foldBias + Mix(modulators * [0, tip_foldBias, palm_foldBias, eg_foldBias, lfoA_foldBias, lfoB_foldBias]));
 
-			fm = InFeedback.ar(synthBuses) * [voice1_fm, voice2_fm, voice3_fm];
-			sine = SinOsc.ar(hz, fm.mod(2pi));
+			// write FM mix to FM bus
+			Out.ar(fmBus, Mix(InFeedback.ar(synthOutBuses) * [voice1_fm, voice2_fm, voice3_fm]));
+
+			// write control signals to control bus
+			Out.kr(controlBus, [hz, amp, fb, fold, foldBias]);
+		}).add;
+
+		// TODO: alt synths:
+		// - square with pwm, cutoff, reso
+		// - double saw with detune, cutoff, reso?
+		// TODO: come up with a good way to make param labels descriptive, because who wants 'timbre A' and 'timbre B'
+
+		SynthDef.new(\sine, {
+			arg fmBus, controlBus, outBus, outLevel = 0.1;
+			var hz, amp, fb, fold, foldBias,
+				sine, folded;
+			# hz, amp, fb, fold, foldBias = In.kr(controlBus, 5);
+			sine = SinOsc.ar(hz, In.ar(fmBus).mod(2pi));
 			// TODO: boo... using both SinOsc and SinOscFB causes xruns :(
 			// sine = Select.kr(oscType, [
 			// 	// SinOscFB doesn't update its frequency at audio rate, so things get real weird and atonal
@@ -241,14 +265,24 @@ Engine_Cule : CroneEngine {
 		controlBuffers = Array.fill(nVoices, {
 			Buffer.alloc(context.server, context.server.sampleRate / context.server.options.blockSize * maxLoopTime, 5);
 		});
-		synths = Array.fill(nVoices, {
+		controlSynths = Array.fill(nVoices, {
 			arg i;
+			// TODO: add to tail?
 			Synth.new(\line, [
 				\voiceIndex, i,
 				\buffer, controlBuffers[i],
-				\outBus, synthBuses[i],
+				\fmBus, fmBuses[i],
+				\controlBus, controlBuses[i],
 				\delay, i * 0.2,
-			], context.og); // "output" group
+			], context.og, \addToTail); // "output" group
+		});
+		audioSynths = Array.fill(nVoices, {
+			arg i;
+			Synth.new(\sine, [
+				\fmBus, fmBuses[i],
+				\controlBus, controlBuses[i],
+				\outBus, synthOutBuses[i],
+			], context.og, \addToTail); // "output" group
 		});
 		polls = Array.fill(nVoices, {
 			arg i;
@@ -272,32 +306,32 @@ Engine_Cule : CroneEngine {
 
 		this.addCommand(\delay, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\delay, msg[2]);
+			controlSynths[msg[1] - 1].set(\delay, msg[2]);
 		});
 
 		this.addCommand(\freeze, "ii", {
 			arg msg;
-			synths[msg[1] - 1].set(\freeze, msg[2]);
+			controlSynths[msg[1] - 1].set(\freeze, msg[2]);
 		});
 
 		this.addCommand(\loop_length, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\loopLength, msg[2]);
+			controlSynths[msg[1] - 1].set(\loopLength, msg[2]);
 		});
 
 		this.addCommand(\loop_position, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\loopPosition, msg[2]);
+			controlSynths[msg[1] - 1].set(\loopPosition, msg[2]);
 		});
 
 		this.addCommand(\pitch, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\pitch, msg[2]);
+			controlSynths[msg[1] - 1].set(\pitch, msg[2]);
 		});
 
 		this.addCommand(\gate, "ii", {
 			arg msg;
-			var synth = synths[msg[1] - 1];
+			var synth = controlSynths[msg[1] - 1];
 			var value = msg[2];
 			synth.set(\gate, value);
 			if(value == 1, { synth.set(\t_trig, 1); });
@@ -305,348 +339,347 @@ Engine_Cule : CroneEngine {
 
 		this.addCommand(\pitch_slew, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\pitchSlew, msg[2]);
+			controlSynths[msg[1] - 1].set(\pitchSlew, msg[2]);
 		});
 
 		this.addCommand(\detune, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\detune, msg[2]);
+			controlSynths[msg[1] - 1].set(\detune, msg[2]);
 		});
 
 		this.addCommand(\tip, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\tip, msg[2]);
+			controlSynths[msg[1] - 1].set(\tip, msg[2]);
 		});
 
 		this.addCommand(\palm, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\palm, msg[2]);
+			controlSynths[msg[1] - 1].set(\palm, msg[2]);
 		});
 
 		this.addCommand(\lfo_a_type, "ii", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoAType, msg[2] - 1);
+			controlSynths[msg[1] - 1].set(\lfoAType, msg[2] - 1);
 		});
 		this.addCommand(\lfo_a_freq, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoAFreq, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoAFreq, msg[2]);
 		});
 		this.addCommand(\lfo_a_amount, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoAAmount, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoAAmount, msg[2]);
 		});
 
 		this.addCommand(\lfo_b_type, "ii", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoBType, msg[2] - 1);
+			controlSynths[msg[1] - 1].set(\lfoBType, msg[2] - 1);
 		});
 		this.addCommand(\lfo_b_freq, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoBFreq, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoBFreq, msg[2]);
 		});
 		this.addCommand(\lfo_b_amount, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoBAmount, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoBAmount, msg[2]);
 		});
 
 		this.addCommand(\attack, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\attack, msg[2]);
+			controlSynths[msg[1] - 1].set(\attack, msg[2]);
 		});
 
 		this.addCommand(\decay, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\decay, msg[2]);
+			controlSynths[msg[1] - 1].set(\decay, msg[2]);
 		});
 
 		this.addCommand(\sustain, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\sustain, msg[2]);
+			controlSynths[msg[1] - 1].set(\sustain, msg[2]);
 		});
 
 		this.addCommand(\release, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\release, msg[2]);
+			controlSynths[msg[1] - 1].set(\release, msg[2]);
 		});
 
 		this.addCommand(\eg_amount, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\egAmount, msg[2]);
+			controlSynths[msg[1] - 1].set(\egAmount, msg[2]);
 		});
 
-		this.addCommand(\osc_type, "ii", {
-			arg msg;
-			synths[msg[1] - 1].set(\oscType, msg[2]);
-		});
 		this.addCommand(\fb, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\fb, msg[2]);
+			controlSynths[msg[1] - 1].set(\fb, msg[2]);
 		});
 
 		this.addCommand(\fold, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\fold, msg[2]);
+			controlSynths[msg[1] - 1].set(\fold, msg[2]);
 		});
 
 		this.addCommand(\fold_bias, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\foldBias, msg[2]);
+			controlSynths[msg[1] - 1].set(\foldBias, msg[2]);
 		});
 
 		this.addCommand(\octave, "ii", {
 			arg msg;
-			synths[msg[1] - 1].set(\octave, msg[2]);
+			controlSynths[msg[1] - 1].set(\octave, msg[2]);
 		});
 
 		this.addCommand(\lag, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lag, msg[2]);
+			controlSynths[msg[1] - 1].set(\lag, msg[2]);
 		});
+
+		// TODO: use loops for this, this is ugly
 
 		this.addCommand(\tip_amp, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\tip_amp, msg[2]);
+			controlSynths[msg[1] - 1].set(\tip_amp, msg[2]);
 		});
 		this.addCommand(\tip_delay, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\tip_delay, msg[2]);
+			controlSynths[msg[1] - 1].set(\tip_delay, msg[2]);
 		});
 		this.addCommand(\tip_fb, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\tip_fb, msg[2]);
+			controlSynths[msg[1] - 1].set(\tip_fb, msg[2]);
 		});
 		this.addCommand(\tip_fold, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\tip_fold, msg[2]);
+			controlSynths[msg[1] - 1].set(\tip_fold, msg[2]);
 		});
 		this.addCommand(\tip_fold_bias, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\tip_foldBias, msg[2]);
+			controlSynths[msg[1] - 1].set(\tip_foldBias, msg[2]);
 		});
 		this.addCommand(\tip_eg_amount, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\tip_egAmount, msg[2]);
+			controlSynths[msg[1] - 1].set(\tip_egAmount, msg[2]);
 		});
 		this.addCommand(\tip_lfo_a_freq, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\tip_lfoAFreq, msg[2]);
+			controlSynths[msg[1] - 1].set(\tip_lfoAFreq, msg[2]);
 		});
 		this.addCommand(\tip_lfo_a_amount, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\tip_lfoAAmount, msg[2]);
+			controlSynths[msg[1] - 1].set(\tip_lfoAAmount, msg[2]);
 		});
 		this.addCommand(\tip_lfo_b_freq, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\tip_lfoBFreq, msg[2]);
+			controlSynths[msg[1] - 1].set(\tip_lfoBFreq, msg[2]);
 		});
 		this.addCommand(\tip_lfo_b_amount, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\tip_lfoBAmount, msg[2]);
+			controlSynths[msg[1] - 1].set(\tip_lfoBAmount, msg[2]);
 		});
 
 		this.addCommand(\palm_amp, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\palm_amp, msg[2]);
+			controlSynths[msg[1] - 1].set(\palm_amp, msg[2]);
 		});
 		this.addCommand(\palm_delay, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\palm_delay, msg[2]);
+			controlSynths[msg[1] - 1].set(\palm_delay, msg[2]);
 		});
 		this.addCommand(\palm_fb, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\palm_fb, msg[2]);
+			controlSynths[msg[1] - 1].set(\palm_fb, msg[2]);
 		});
 		this.addCommand(\palm_fold, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\palm_fold, msg[2]);
+			controlSynths[msg[1] - 1].set(\palm_fold, msg[2]);
 		});
 		this.addCommand(\palm_fold_bias, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\palm_foldBias, msg[2]);
+			controlSynths[msg[1] - 1].set(\palm_foldBias, msg[2]);
 		});
 		this.addCommand(\palm_eg_amount, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\palm_egAmount, msg[2]);
+			controlSynths[msg[1] - 1].set(\palm_egAmount, msg[2]);
 		});
 		this.addCommand(\palm_lfo_a_freq, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\palm_lfoAFreq, msg[2]);
+			controlSynths[msg[1] - 1].set(\palm_lfoAFreq, msg[2]);
 		});
 		this.addCommand(\palm_lfo_a_amount, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\palm_lfoAAmount, msg[2]);
+			controlSynths[msg[1] - 1].set(\palm_lfoAAmount, msg[2]);
 		});
 		this.addCommand(\palm_lfo_b_freq, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\palm_lfoBFreq, msg[2]);
+			controlSynths[msg[1] - 1].set(\palm_lfoBFreq, msg[2]);
 		});
 		this.addCommand(\palm_lfo_b_amount, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\palm_lfoBAmount, msg[2]);
+			controlSynths[msg[1] - 1].set(\palm_lfoBAmount, msg[2]);
 		});
 
 		this.addCommand(\eg_pitch, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\eg_pitch, msg[2]);
+			controlSynths[msg[1] - 1].set(\eg_pitch, msg[2]);
 		});
 		this.addCommand(\eg_amp, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\eg_amp, msg[2]);
+			controlSynths[msg[1] - 1].set(\eg_amp, msg[2]);
 		});
 		this.addCommand(\eg_delay, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\eg_delay, msg[2]);
+			controlSynths[msg[1] - 1].set(\eg_delay, msg[2]);
 		});
 		this.addCommand(\eg_fb, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\eg_fb, msg[2]);
+			controlSynths[msg[1] - 1].set(\eg_fb, msg[2]);
 		});
 		this.addCommand(\eg_fold, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\eg_fold, msg[2]);
+			controlSynths[msg[1] - 1].set(\eg_fold, msg[2]);
 		});
 		this.addCommand(\eg_fold_bias, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\eg_fold_bias, msg[2]);
+			controlSynths[msg[1] - 1].set(\eg_fold_bias, msg[2]);
 		});
 		this.addCommand(\eg_lfo_a_freq, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\eg_lfoAFreq, msg[2]);
+			controlSynths[msg[1] - 1].set(\eg_lfoAFreq, msg[2]);
 		});
 		this.addCommand(\eg_lfo_a_amount, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\eg_lfoAAmount, msg[2]);
+			controlSynths[msg[1] - 1].set(\eg_lfoAAmount, msg[2]);
 		});
 		this.addCommand(\eg_lfo_b_freq, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\eg_lfoBFreq, msg[2]);
+			controlSynths[msg[1] - 1].set(\eg_lfoBFreq, msg[2]);
 		});
 		this.addCommand(\eg_lfo_b_amount, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\eg_lfoBAmount, msg[2]);
+			controlSynths[msg[1] - 1].set(\eg_lfoBAmount, msg[2]);
 		});
 
 		this.addCommand(\lfo_a_pitch, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoA_pitch, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoA_pitch, msg[2]);
 		});
 		this.addCommand(\lfo_a_amp, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoA_amp, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoA_amp, msg[2]);
 		});
 		this.addCommand(\lfo_a_delay, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoA_delay, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoA_delay, msg[2]);
 		});
 		this.addCommand(\lfo_a_fb, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoA_fb, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoA_fb, msg[2]);
 		});
 		this.addCommand(\lfo_a_fold, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoA_fold, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoA_fold, msg[2]);
 		});
 		this.addCommand(\lfo_a_fold_bias, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoA_foldBias, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoA_foldBias, msg[2]);
 		});
 		this.addCommand(\lfo_a_eg_amount, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoA_egAmount, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoA_egAmount, msg[2]);
 		});
 		this.addCommand(\lfo_a_lfo_b_freq, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoA_lfoBFreq, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoA_lfoBFreq, msg[2]);
 		});
 		this.addCommand(\lfo_a_lfo_b_amount, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoA_lfoBAmount, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoA_lfoBAmount, msg[2]);
 		});
 
 		this.addCommand(\lfo_b_pitch, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoB_pitch, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoB_pitch, msg[2]);
 		});
 		this.addCommand(\lfo_b_amp, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoB_amp, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoB_amp, msg[2]);
 		});
 		this.addCommand(\lfo_b_delay, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoB_delay, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoB_delay, msg[2]);
 		});
 		this.addCommand(\lfo_b_fb, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoB_fb, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoB_fb, msg[2]);
 		});
 		this.addCommand(\lfo_b_fold, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoB_fold, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoB_fold, msg[2]);
 		});
 		this.addCommand(\lfo_b_fold_bias, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoB_foldBias, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoB_foldBias, msg[2]);
 		});
 		this.addCommand(\lfo_b_eg_amount, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoB_egAmount, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoB_egAmount, msg[2]);
 		});
 		this.addCommand(\lfo_b_lfo_a_freq, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoB_lfoAFreq, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoB_lfoAFreq, msg[2]);
 		});
 		this.addCommand(\lfo_b_lfo_a_amount, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\lfoB_lfoAAmount, msg[2]);
+			controlSynths[msg[1] - 1].set(\lfoB_lfoAAmount, msg[2]);
 		});
 
 		this.addCommand(\pitch_fb, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\pitch_fb, msg[2]);
+			controlSynths[msg[1] - 1].set(\pitch_fb, msg[2]);
 		});
 		this.addCommand(\pitch_fold, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\pitch_fold, msg[2]);
+			controlSynths[msg[1] - 1].set(\pitch_fold, msg[2]);
 		});
 		this.addCommand(\pitch_fold_bias, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\pitch_foldBias, msg[2]);
+			controlSynths[msg[1] - 1].set(\pitch_foldBias, msg[2]);
 		});
 
 		this.addCommand(\voice1_fm, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\voice1_fm, msg[2]);
+			controlSynths[msg[1] - 1].set(\voice1_fm, msg[2]);
 		});
 		this.addCommand(\voice2_fm, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\voice2_fm, msg[2]);
+			controlSynths[msg[1] - 1].set(\voice2_fm, msg[2]);
 		});
 		this.addCommand(\voice3_fm, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\voice3_fm, msg[2]);
+			controlSynths[msg[1] - 1].set(\voice3_fm, msg[2]);
 		});
 
 		this.addCommand(\out_level, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\outLevel, msg[2]);
+			audioSynths[msg[1] - 1].set(\outLevel, msg[2]);
 		});
 
 		this.addCommand(\reply_rate, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\replyRate, msg[2]);
+			controlSynths[msg[1] - 1].set(\replyRate, msg[2]);
 		});
 		this.addCommand(\eg_gate_trig, "ii", {
 			arg msg;
-			synths[msg[1] - 1].set(\egGateTrig, msg[2]);
+			controlSynths[msg[1] - 1].set(\egGateTrig, msg[2]);
 		});
 		this.addCommand(\trig_length, "if", {
 			arg msg;
-			synths[msg[1] - 1].set(\trigLength, msg[2]);
+			controlSynths[msg[1] - 1].set(\trigLength, msg[2]);
 		});
 	}
 
 	free {
-		synths.do({ |synth| synth.free });
+		controlSynths.do({ |synth| synth.free });
+		audioSynths.do({ |synth| synth.free });
 		controlBuffers.do({ |buffer| buffer.free });
 		replyFunc.free;
 	}
