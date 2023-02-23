@@ -221,7 +221,6 @@ Engine_Cule : CroneEngine {
 			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
 			// if I try that, SC seems to just hang forever, no error message
 			pitch = Lag.kr(pitch, pitchSlew);
-			hz = 2.pow(pitch) * In.kr(baseFreqBus);
 
 			// TODO: scale modulation so that similar amounts of similar sources applied to FB and fold sound vaguely similar
 			fb = (fb + Mix(modulators * [pitch_fb, tip_fb, palm_fb, eg_fb, lfoA_fb, lfoB_fb])).max(0);
@@ -232,7 +231,7 @@ Engine_Cule : CroneEngine {
 			Out.ar(fmBus, Mix(InFeedback.ar(synthOutBuses) * [voice1_fm, voice2_fm, voice3_fm]));
 
 			// write control signals to control bus
-			Out.kr(controlBus, [hz, amp, fb, fold, foldBias]);
+			Out.kr(controlBus, [pitch, amp, fb, fold, foldBias]);
 		}).add;
 
 		// TODO: alt synths:
@@ -242,9 +241,10 @@ Engine_Cule : CroneEngine {
 
 		SynthDef.new(\sine, {
 			arg fmBus, controlBus, outBus, outLevel = 0.2;
-			var hz, amp, fb, fold, foldBias,
-				sine, folded;
-			# hz, amp, fb, fold, foldBias = In.kr(controlBus, 5);
+			var pitch, amp, fb, fold, foldBias,
+				hz, sine, folded;
+			# pitch, amp, fb, fold, foldBias = In.kr(controlBus, 5);
+			hz = 2.pow(pitch) * In.kr(baseFreqBus);
 			sine = SinOsc.ar(hz, In.ar(fmBus).mod(2pi));
 			// TODO: boo... using both SinOsc and SinOscFB causes xruns :(
 			// sine = Select.kr(oscType, [
@@ -256,6 +256,23 @@ Engine_Cule : CroneEngine {
 
 			Out.ar(outBus, folded);
 			Out.ar(context.out_b, folded ! 2 * outLevel);
+		}).add;
+
+		SynthDef.new(\pulse, {
+			arg fmBus, controlBus, outBus, outLevel = 0.2;
+			var pitch, amp, fb, fold, foldBias,
+				hz, pulse, filtered;
+			// TODO: ugh, apparently pulse width modulation isn't a thing
+			// TODO: why does high-frequency FM seem not to do anything? is that just a feature of pulse->pulse FM (quite possible) or is PulseDPW like SinOscFB w/r/t audio-rate frequency updates?
+			// TODO: try filter FM instead of oscillator FM
+			// TODO: try other filters
+			// TODO: make hz->filter amount a parameter
+			# pitch, amp, fb, fold, foldBias = In.kr(controlBus, 5);
+			hz = 2.pow(pitch) * In.kr(baseFreqBus);
+			pulse = PulseDPW.ar(hz);
+			filtered = BMoog.ar(pulse, (2.pow(pitch * foldBias + fb) * In.kr(baseFreqBus) * (1 + In.ar(fmBus))).min(SampleRate.ir / 2), fold) * amp;
+			Out.ar(outBus, pulse * amp);
+			Out.ar(context.out_b, filtered ! 2 * outLevel);
 		}).add;
 
 		context.server.sync;
@@ -278,7 +295,7 @@ Engine_Cule : CroneEngine {
 		});
 		audioSynths = Array.fill(nVoices, {
 			arg i;
-			Synth.new(\sine, [
+			Synth.new(\pulse, [
 				\fmBus, fmBuses[i],
 				\controlBus, controlBuses[i],
 				\outBus, synthOutBuses[i],
