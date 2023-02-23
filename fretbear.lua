@@ -22,6 +22,7 @@ touche = midi.connect(1)
 voice_states = {}
 for v = 1, n_voices do
 	voice_states[v] = {
+		control = v == 1,
 		pitch = 0,
 		amp = 0,
 		frozen = false,
@@ -45,24 +46,30 @@ gate_in = false
 -- poll_values = {}
 
 function g.key(x, y, z)
-	if y == 1 and x > 1 and x <= 1 + n_voices then
+	if y >= 1 and y <= 2 and x > 1 and x <= 1 + n_voices then
 		if z == 1 then
 			local v = x - 1
 			local voice = voice_states[v]
-			if voice.frozen then
-				-- stop looping
-				voice.frozen = false
-				voice.loop_armed = false
-			elseif not voice.loop_armed then
-				-- get ready to loop (set loop start time here)
-				voice.loop_armed = util.time()
-			else
-				-- start looping
-				params:set('loop_length_' .. v, util.time() - voice.loop_armed)
-				voice.frozen = true
-				voice.loop_armed = false
+			if y == 1 then
+				if voice.frozen then
+					-- stop looping
+					voice.frozen = false
+					voice.loop_armed = false
+				elseif not voice.loop_armed then
+					-- get ready to loop (set loop start time here)
+					voice.loop_armed = util.time()
+				else
+					-- start looping
+					params:set('loop_length_' .. v, util.time() - voice.loop_armed)
+					voice.frozen = true
+					voice.loop_armed = false
+				end
+				engine.freeze(v, voice.frozen and 1 or 0)
+			elseif y == 2 then
+				voice.control = not voice.control
+				-- TODO: does it make sense to set everything (or some things: tip,
+				-- palm) to 0 when setting control to false?
 			end
-			engine.freeze(v, voice.frozen and 1 or 0)
 		end
 	else
 		k:key(x, y, z)
@@ -114,6 +121,7 @@ function grid_redraw()
 		end
 		level = 2 + math.floor(level * 14)
 		g:led(v + 1, 1, level)
+		g:led(v + 1, 2, voice.control and 5 or 1)
 	end
 	g:refresh()
 end
@@ -147,7 +155,9 @@ end
 
 function control_engine_voices(method, value)
 	for v = 1, n_voices do
-		engine[method](v, value)
+		if voice_states[v].control then
+			engine[method](v, value)
+		end
 	end
 end
 
