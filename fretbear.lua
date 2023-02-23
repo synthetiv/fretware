@@ -211,6 +211,26 @@ function init()
 	end
 
 	params:add {
+		name = 'base frequency (C)',
+		id = 'base_freq',
+		type = 'control',
+		controlspec = controlspec.new(130, 522, 'exp', 0, musicutil.note_num_to_freq(60), 'Hz'),
+		action = function(value)
+			engine.base_freq(value)
+		end
+	}
+
+	params:add {
+		name = 'base freq reset',
+		id = 'base_freq_reset',
+		type = 'binary',
+		behavior = 'trigger',
+		action = function(value)
+			params:set('base_freq', musicutil.note_num_to_freq(60))
+		end
+	}
+
+	params:add {
 		name = 'bend range',
 		id = 'bend_range',
 		type = 'number',

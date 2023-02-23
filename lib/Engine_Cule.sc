@@ -3,6 +3,7 @@ Engine_Cule : CroneEngine {
 	classvar nVoices = 3;
 	classvar maxLoopTime = 16;
 
+	var baseFreqBus;
 	var pitchBus;
 	var tipBus;
 	var palmBus;
@@ -19,6 +20,7 @@ Engine_Cule : CroneEngine {
 
 	alloc {
 
+		baseFreqBus = Bus.control(context.server);
 		pitchBus = Bus.control(context.server);
 		tipBus = Bus.control(context.server);
 		palmBus = Bus.control(context.server);
@@ -40,7 +42,6 @@ Engine_Cule : CroneEngine {
 				loopPosition = 0,
 
 				detune = 0,
-				baseFreq = 60.midicps,
 				pitchSlew = 0.01,
 				octave = 0,
 				attack = 0.01,
@@ -213,7 +214,7 @@ Engine_Cule : CroneEngine {
 			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
 			// if I try that, SC seems to just hang forever, no error message
 			pitch = Lag.kr(pitch, pitchSlew);
-			hz = 2.pow(pitch) * baseFreq;
+			hz = 2.pow(pitch) * In.kr(baseFreqBus);
 
 			// TODO: send these to a bus for another synth to pick up:
 			// hz, fb [as a generic 'timbre1' control?], fold [same?], foldBias [same?], fm
@@ -243,6 +244,8 @@ Engine_Cule : CroneEngine {
 
 		context.server.sync;
 
+		baseFreqBus.setSynchronous(60.midicps);
+
 		controlBuffers = Array.fill(nVoices, {
 			Buffer.alloc(context.server, context.server.sampleRate / context.server.options.blockSize * maxLoopTime, 5);
 		});
@@ -253,7 +256,6 @@ Engine_Cule : CroneEngine {
 				\buffer, controlBuffers[i],
 				\outBus, synthBuses[i],
 				\delay, i * 0.2,
-				\baseFreq, 60.midicps
 			], context.og); // "output" group
 		});
 		polls = Array.fill(nVoices, {
@@ -270,6 +272,11 @@ Engine_Cule : CroneEngine {
 			polls[msg[3]][0].update(msg[4]);
 			polls[msg[3]][1].update(msg[5]);
 		}, path: '/voicePitchAmp', srcID: context.server.addr);
+
+		this.addCommand(\base_freq, "f", {
+			arg msg;
+			baseFreqBus.setSynchronous(msg[1]);
+		});
 
 		this.addCommand(\delay, "if", {
 			arg msg;
@@ -309,11 +316,6 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\detune, "if", {
 			arg msg;
 			synths[msg[1] - 1].set(\detune, msg[2]);
-		});
-
-		this.addCommand(\base_freq, "if", {
-			arg msg;
-			synths[msg[1] - 1].set(\baseFreq, msg[2]);
 		});
 
 		this.addCommand(\tip, "f", {
