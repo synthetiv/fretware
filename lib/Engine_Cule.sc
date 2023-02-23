@@ -116,7 +116,7 @@ Engine_Cule : CroneEngine {
 				pitch_fold = -0.1,
 				pitch_foldBias = 0,
 				// TODO: pitch -> LFO freqs and amounts
-				// TODO: pitch -> FM amount
+				// TODO: pitch -> FM amounts from other voices
 				// TODO: EG -> LFO freqs and amounts, and vice versa
 
 				voice1_fm = 0,
@@ -139,7 +139,10 @@ Engine_Cule : CroneEngine {
 			delayPhase = bufferPhase - (delay * ControlRate.ir).max(1); // TODO: I don't get why this is necessary :(
 			// TODO: wrap? or does BufRd do that for you?
 			loopStart = bufferPhase - (loopLength * ControlRate.ir);
-			// TODO: it doesn't really seem like the freeze trigger is working properly -- OR maybe you need one single engine command to set loop length and start looping
+			// TODO: it doesn't really seem like the freeze trigger is working the way I
+			// want it to here, because pressing the grid button to begin looping
+			// doesn't jump to the start of the loop. maybe you need one single engine
+			// command to set loop length and start looping?
 			loopPhase = Phasor.kr(trig: freeze, start: loopStart, end: bufferPhase);
 			loopTrigger = BinaryOpUGen.new('==', loopPhase, loopStart);
 			loopOffset = Latch.kr(bufferLength - (loopLength * ControlRate.ir), loopTrigger) * loopPosition;
@@ -149,8 +152,6 @@ Engine_Cule : CroneEngine {
 			delay = delay.clip(0, 8);
 			// delay must be at least 1 frame, or we'll be writing to + reading from the same point
 			# pitch, tip, palm, gate, t_trig = BufRd.kr(5, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
-			// TODO: you may want to clear the buffer or reset the delay when freeze is disengaged,
-			// to prevent hearing one delay period's worth of old input... or maybe that's fun
 
 			// slew direct control
 			tip      = Lag.kr(tip,      lag);
@@ -199,11 +200,7 @@ Engine_Cule : CroneEngine {
 			pitch = pitch + octave + detune + Mix([eg, lfoA, lfoB] * [eg_pitch, lfoA_pitch, lfoB_pitch]);
 			amp = Mix(modulators * [0, tip_amp, palm_amp, eg_amp, lfoA_amp, lfoB_amp]).max(0);
 
-			// TODO: is this attempt at a retriggering gate bus working?
-			// ...so... it kinda works, now that you're using set() instead of
-			// setSynchronous() [is there a way to do something similar and still use
-			// setSynchronous? IDGI), but because of the way LOOPS work, they can cut
-			// off initial triggers. so you should ALSO trigger a reply when the loop loops.
+			// send control values to polls, both regularly (replyRate Hz) and immediately when gate goes high or when voice loops
 			SendReply.kr(trig: Impulse.kr(replyRate) + t_trig + loopTrigger, cmdName: '/voicePitchAmp', values: [voiceIndex, pitch, amp]);
 
 			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
