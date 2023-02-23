@@ -271,7 +271,7 @@ Engine_Cule : CroneEngine {
 
 		SynthDef.new(\pulse, {
 			arg fmBus, controlBus, outBus, outLevel = 0.2;
-			// TODO: I need a fourth parameter here for filter cutoff!
+			// TODO: fit the 4 voice params to a standard range (-1 to 1? 0 to 10?) and then scale that range to something appropriate here
 			var pitch, amp, pulsewidth, cutoff, pitchCutoff, resonance,
 				hz, saw, delayed, pulse, cutoffHz, filtered; // TODO: actually... shouldn't pitch->cutoff routing be handled in the control synth? hmm
 			// TODO: why does high-frequency FM seem not to do anything? is that just a feature of pulse->pulse FM (quite possible) or is PulseDPW like SinOscFB w/r/t audio-rate frequency updates?
