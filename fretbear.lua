@@ -31,8 +31,6 @@ end
 
 tip = 0
 palm = 0
-amp_volts = 0
-damp_volts = 0
 do_pitch_detection = false
 -- pitch_poll = nil
 detected_pitch = 0
@@ -77,7 +75,7 @@ end
 
 function send_pitch_volts()
 	-- TODO: this added offset for the quantizer really shouldn't be necessary; what's going on here?
-	-- crow.output[1].volts = bent_pitch_volts + (k.quantizing and 1/24 or 0)
+	crow.output[1].volts = k.bent_pitch + k.octave + (k.quantizing and 1/24 or 0)
 	engine.pitch(k.bent_pitch + k.octave)
 end
 
@@ -88,13 +86,11 @@ function touche.event(data)
 		if message.cc == 17 then
 			tip = message.val / 126
 			engine.tip(tip) -- let SC do the scaling
-			-- amp_volts = 10 * math.sqrt(tip) -- fast attack
-			-- crow.output[2].volts = amp_volts
+			crow.output[2].volts = 10 * math.sqrt(tip)
 		elseif message.cc == 16 then
 			palm = message.val / 126
 			engine.palm(palm)
-			-- damp_volts = palm * params:get('damp_range') + params:get('damp_base')
-			-- crow.output[3].volts = damp_volts
+			crow.output[3].volts = palm * params:get('damp_range') + params:get('damp_base')
 		elseif message.cc == 18 then
 			k:bend(-math.min(1, message.val / 126)) -- TODO: not sure why 126 is the max value I'm getting from Touche...
 			send_pitch_volts()
@@ -174,13 +170,13 @@ function init()
 
 	k.on_mask = function()
 		-- local temperament = (k.mask_notes == 'none' or k.ratios == nil) and 12 or 'ji'
-		-- crow.output[1].scale(k.mask_notes, temperament)
+		crow.output[1].scale(k.mask_notes, temperament)
 		-- TODO: send to TT as well, as a bit mask
 	end
 
 	k.on_gate = function(gate)
 		if k.gate_mode ~= 3 then
-			-- crow.output[4](gate)
+			crow.output[4](gate)
 			engine.gate(gate and 1 or 0)
 		elseif gate then
 
