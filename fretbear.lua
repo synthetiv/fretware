@@ -457,7 +457,7 @@ function init()
 			name = 'detune',
 			id = 'detune_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-12, 12, 'lin', 0, -0.05 + ((v - 1) * 0.1), 'st'),
+			controlspec = controlspec.new(-12, 12, 'lin', 0, 0, 'st'),
 			action = function(value)
 				engine.detune(v, value / 12)
 			end
@@ -499,6 +499,7 @@ function init()
 			name = 'sine fold bias',
 			id = 'fold_bias_' .. v,
 			type = 'control',
+			-- TODO: scale this way down. 0.5 is probably the most "interesting" value.
 			controlspec = controlspec.new(0, 10, 'lin', 0, 0),
 			action = function(value)
 				engine.fold_bias(v, value)
