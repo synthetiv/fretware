@@ -123,7 +123,6 @@ function crow_init()
 	print('crow add')
 	params:bang()
 
-	-- TODO: internal clock
 	crow.input[1].change = function(gate)
 		gate_in = gate
 		if params:get('arp_clock_source') == 2 and k.arping and k.n_sustained_keys > 0 then
@@ -1078,8 +1077,10 @@ function init()
 		while true do
 			local tick_mod = tip * params:get('tip_clock_rate') + palm * params:get('palm_clock_rate')
 			clock.sleep(clock.get_beat_sec() * 0.125 * math.pow(0.5, tick_mod))
-			gate = not gate
-			k:arp(gate)
+			if params:get('arp_clock_source') == 1 and k.arping and k.n_sustained_keys > 0 then
+				gate = not gate
+				k:arp(gate)
+			end
 		end
 	end)
 	
