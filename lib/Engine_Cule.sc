@@ -266,7 +266,6 @@ Engine_Cule : CroneEngine {
 			// TODO: why does high-frequency FM seem not to do anything? is that just a feature of pulse->pulse FM (quite possible) or is PulseDPW like SinOscFB w/r/t audio-rate frequency updates?
 			// TODO: try filter FM instead of oscillator FM
 			// TODO: try other filters
-			// TODO: make hz->filter amount a parameter
 			# pitch, amp, fb, fold, foldBias = In.kr(controlBus, 5);
 			hz = 2.pow(pitch) * In.kr(baseFreqBus);
 			pulse = PulseDPW.ar(hz);
