@@ -479,7 +479,7 @@ function init()
 			name = 'param 1',
 			id = 'p1_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 10, 'exp', 0, (n_voices - v) / n_voices * 0.3),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.p1(v, value)
 			end
@@ -489,7 +489,7 @@ function init()
 			name = 'param 2',
 			id = 'p2_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.1, 10, 'exp', 0, (n_voices - v) / n_voices * 0.6),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.p2(v, value)
 			end
@@ -499,7 +499,7 @@ function init()
 			name = 'param 3',
 			id = 'p3_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0, 10, 'lin', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.p3(v, value)
 			end
@@ -509,7 +509,7 @@ function init()
 			name = 'param 4',
 			id = 'p4_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0, 10, 'lin', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.p4(v, value)
 			end

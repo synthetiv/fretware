@@ -231,8 +231,8 @@ Engine_Cule : CroneEngine {
 			pitch = Lag.kr(pitch, pitchSlew);
 
 			// TODO: clip these values in the audio synth, not here
-			p1 = (p1 + Mix(modulators * [pitch_p1, tip_p1, palm_p1, eg_p1, lfoA_p1, lfoB_p1])).max(0);
-			p2 = (p2 + Mix(modulators * [pitch_p2, tip_p2, palm_p2, eg_p2, lfoA_p2, lfoB_p2])).max(0.1);
+			p1 = (p1 + Mix(modulators * [pitch_p1, tip_p1, palm_p1, eg_p1, lfoA_p1, lfoB_p1]));
+			p2 = (p2 + Mix(modulators * [pitch_p2, tip_p2, palm_p2, eg_p2, lfoA_p2, lfoB_p2]));
 			p3 = (p3 + Mix(modulators * [pitch_p3, tip_p3, palm_p3, eg_p3, lfoA_p3, lfoB_p3]));
 			p4 = (p4 + Mix(modulators * [pitch_p4, tip_p4, palm_p4, eg_p4, lfoA_p4, lfoB_p4]));
 
@@ -279,13 +279,14 @@ Engine_Cule : CroneEngine {
 			# pitch, amp, pulsewidth, resonance, cutoff, pitchCutoff = In.kr(controlBus, 6);
 			hz = 2.pow(pitch) * In.kr(baseFreqBus);
 			saw = SawDPW.ar(hz);
-			delayed = DelayC.ar(saw, 0.2, hz.reciprocal * pulsewidth);
+			delayed = DelayC.ar(saw, 0.2, hz.reciprocal * pulsewidth.linlin(-1, 1, 0, 1));
 			pulse = delayed - saw;
 			// TODO: bummer, I think BMoog's frequency is updated at control rate, not audio rate. it also seems to be prone to blowing up under heavy modulation, even when clamped to nyquist.
 			// RLPF seems to have the same issue. maybe all filters do...
-			cutoffHz = (2.pow(pitch * pitchCutoff + cutoff) * In.kr(baseFreqBus) * (1 + In.ar(fmBus))).min(SampleRate.ir / 2);
+			cutoffHz = (2.pow(pitch * ((pitchCutoff + 1) * 2) + cutoff.linexp(-1, 1, 0.01, 11) - 1) * In.kr(baseFreqBus) * (1 + In.ar(fmBus)));
+			cutoffHz = cutoffHz.clip(10, SampleRate.ir / 2);
 			// filtered = BMoog.ar(pulse, cutoffHz, resonance) * amp;
-			filtered = RLPF.ar(pulse, cutoffHz, resonance) * amp;
+			filtered = RLPF.ar(pulse, cutoffHz, resonance.linexp(-1, 1, 1, 0.1)) * amp; // TODO: this still gets glitchy sometimes
 			Out.ar(outBus, pulse * amp);
 			Out.ar(context.out_b, filtered ! 2 * outLevel);
 		}).add;
