@@ -145,8 +145,8 @@ Engine_Cule : CroneEngine {
 				voice2_fm = 0,
 				voice3_fm = 0,
 
-				egGateTrig = 1,
-				trigLength = 0.2,
+				egGateTrig = 0,
+				trigLength = 0.01,
 				replyRate = 10;
 
 			var bufferLength, bufferPhase, delayPhase,
