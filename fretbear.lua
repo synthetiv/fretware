@@ -551,7 +551,7 @@ function init()
 			name = 'voice ' .. v .. ' out level',
 			id = 'out_level_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0, 0.5, 'lin', 0, v == 1 and 0.2 or 0),
+			controlspec = controlspec.new(0, 0.5, 'lin', 0, 0.2),
 			action = function(value)
 				engine.out_level(v, value)
 			end
