@@ -563,7 +563,7 @@ function init()
 			name = 'pitch -> p1',
 			id = 'pitch_p1_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.pitch_p1(v, value)
 			end
@@ -573,7 +573,7 @@ function init()
 			name = 'pitch -> p2',
 			id = 'pitch_p2_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.pitch_p2(v, value)
 			end
@@ -583,7 +583,7 @@ function init()
 			name = 'pitch -> p3',
 			id = 'pitch_p2_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.pitch_p3(v, value)
 			end
@@ -593,7 +593,7 @@ function init()
 			name = 'pitch -> p4',
 			id = 'pitch_p2_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.pitch_p4(v, value)
 			end
@@ -605,7 +605,7 @@ function init()
 			name = 'tip -> amp',
 			id = 'tip_amp_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 1, 'exp', 0, 1),
+			controlspec = controlspec.new(0, 1, 'lin', 0, 1),
 			action = function(value)
 				engine.tip_amp(v, value - 0.001)
 			end
@@ -625,7 +625,7 @@ function init()
 			name = 'tip -> p1',
 			id = 'tip_p1_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.tip_p1(v, value)
 			end
@@ -635,7 +635,7 @@ function init()
 			name = 'tip -> p2',
 			id = 'tip_p2_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.tip_p2(v, value)
 			end
@@ -645,7 +645,7 @@ function init()
 			name = 'tip -> p3',
 			id = 'tip_p2_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.tip_p3(v, value)
 			end
@@ -655,7 +655,7 @@ function init()
 			name = 'tip -> p4',
 			id = 'tip_p2_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.tip_p4(v, value)
 			end
@@ -717,7 +717,7 @@ function init()
 			name = 'palm -> amp',
 			id = 'palm_amp_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
+			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.palm_amp(v, value - 0.001)
 			end
@@ -737,7 +737,7 @@ function init()
 			name = 'palm -> p1',
 			id = 'palm_p1_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.palm_p1(v, value)
 			end
@@ -747,7 +747,7 @@ function init()
 			name = 'palm -> p2',
 			id = 'palm_p2_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.palm_p2(v, value)
 			end
@@ -757,7 +757,7 @@ function init()
 			name = 'palm -> p3',
 			id = 'palm_p2_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.palm_p3(v, value)
 			end
@@ -767,7 +767,7 @@ function init()
 			name = 'palm -> p4',
 			id = 'palm_p2_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-10, 10, 'lin', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.palm_p4(v, value)
 			end
@@ -913,7 +913,7 @@ function init()
 			name = 'eg -> p1',
 			id = 'eg_p1_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.eg_p1(v, value)
 			end
@@ -923,7 +923,7 @@ function init()
 			name = 'eg -> p2',
 			id = 'eg_p2_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.eg_p2(v, value)
 			end
@@ -933,7 +933,7 @@ function init()
 			name = 'eg -> p3',
 			id = 'eg_p2_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.eg_p3(v, value)
 			end
@@ -943,7 +943,7 @@ function init()
 			name = 'eg -> p4',
 			id = 'eg_p2_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.eg_p4(v, value)
 			end
@@ -1009,7 +1009,7 @@ function init()
 			name = 'lfo A -> p1',
 			id = 'lfo_a_p1_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.lfo_a_p1(v, value)
 			end
@@ -1019,7 +1019,7 @@ function init()
 			name = 'lfo A -> p2',
 			id = 'lfo_a_p2_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.lfo_a_p2(v, value)
 			end
@@ -1029,7 +1029,7 @@ function init()
 			name = 'lfo A -> p3',
 			id = 'lfo_a_p2_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.lfo_a_p3(v, value)
 			end
@@ -1039,7 +1039,7 @@ function init()
 			name = 'lfo A -> p4',
 			id = 'lfo_a_p2_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.lfo_a_p4(v, value)
 			end
@@ -1136,7 +1136,7 @@ function init()
 			name = 'lfo B -> p1',
 			id = 'lfo_b_p1_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.lfo_b_p1(v, value)
 			end
@@ -1146,7 +1146,7 @@ function init()
 			name = 'lfo B -> p2',
 			id = 'lfo_b_p2_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.lfo_b_p2(v, value)
 			end
@@ -1156,7 +1156,7 @@ function init()
 			name = 'lfo B -> p3',
 			id = 'lfo_b_p2_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.lfo_b_p3(v, value)
 			end
@@ -1166,7 +1166,7 @@ function init()
 			name = 'lfo B -> p4',
 			id = 'lfo_b_p2_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.001, 10, 'exp', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.lfo_b_p4(v, value)
 			end
@@ -1183,7 +1183,7 @@ function init()
 		}
 
 		params:add {
-			name = 'lfo B -> lfo B freq',
+			name = 'lfo B -> lfo A freq',
 			id = 'lfo_b_lfo_a_freq_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
@@ -1193,7 +1193,7 @@ function init()
 		}
 
 		params:add {
-			name = 'lfo B -> lfo B amt',
+			name = 'lfo B -> lfo A amt',
 			id = 'lfo_b_lfo_a_amount_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(0, 1, 'lin', 0, 0),

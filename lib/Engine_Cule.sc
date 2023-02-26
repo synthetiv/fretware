@@ -252,18 +252,14 @@ Engine_Cule : CroneEngine {
 			arg fmBus, controlBus, outBus, outLevel = 0.2;
 			// TODO: use 'fb' and new 4th parameter as ratio & index of a modulating sin oscillator
 			// TODO: scale modulation so that similar amounts of similar sources applied to FB and fold sound vaguely similar
-			var pitch, amp, fb, fold, foldBias, zz,
-				hz, sine, folded;
-			# pitch, amp, fb, fold, foldBias, zz = In.kr(controlBus, 6);
+			var pitch, amp, fmIndex, fmRatio, fold, foldBias,
+				hz, modulator, carrier, sine, folded;
+			# pitch, amp, fmIndex, fmRatio, fold, foldBias = In.kr(controlBus, 6);
 			hz = 2.pow(pitch) * In.kr(baseFreqBus);
-			sine = SinOsc.ar(hz, In.ar(fmBus).mod(2pi));
-			// TODO: boo... using both SinOsc and SinOscFB causes xruns :(
-			// sine = Select.kr(oscType, [
-			// 	// SinOscFB doesn't update its frequency at audio rate, so things get real weird and atonal
-			// 	SinOscFB.ar(hz * (1 + fm), fb),
-			// 	SinOsc.ar(hz * (1 + fm))
-			// ]);
-			folded = SinOsc.ar(0, pi * (fold * sine + foldBias)) * amp;
+			modulator = SinOsc.ar(hz * 2.pow(fmRatio.linlin(-1, 1, -4, 4)));
+			carrier = SinOsc.ar(hz, In.ar(fmBus).mod(2pi) + (modulator * fmIndex.linexp(0, 1, 0.01, 10pi)));
+			sine = LinXFade2.ar(modulator, carrier, fmIndex.linlin(-1, 0, -1, 1));
+			folded = SinOsc.ar(0, (fold.linexp(-1, 1, 0.1, 10pi) * sine + foldBias.linlin(-1, 1, -pi, pi))) * amp;
 
 			Out.ar(outBus, folded);
 			Out.ar(context.out_b, folded ! 2 * outLevel);
@@ -313,7 +309,7 @@ Engine_Cule : CroneEngine {
 		});
 		audioSynths = Array.fill(nVoices, {
 			arg i;
-			Synth.new(\pulse, [
+			Synth.new(\sine, [
 				\fmBus, fmBuses[i],
 				\controlBus, controlBuses[i],
 				\outBus, synthOutBuses[i],
