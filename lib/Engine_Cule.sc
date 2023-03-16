@@ -158,21 +158,16 @@ Engine_Cule : CroneEngine {
 
 			bufferLength = BufFrames.kr(buffer);
 			bufferPhase = Phasor.kr(rate: 1 - freeze, end: bufferLength);
-			delayPhase = bufferPhase - (delay * ControlRate.ir).max(1); // TODO: I don't get why this is necessary :(
-			// TODO: wrap? or does BufRd do that for you?
-			loopStart = bufferPhase - (loopLength * ControlRate.ir);
-			// TODO: it doesn't really seem like the freeze trigger is working the way I
-			// want it to here, because pressing the grid button to begin looping
-			// doesn't jump to the start of the loop. maybe you need one single engine
-			// command to set loop length and start looping?
-			loopPhase = Phasor.kr(trig: freeze, start: loopStart, end: bufferPhase);
+			// delay must be at least 1 frame, or we'll be writing to + reading from the same point
+			delayPhase = bufferPhase - (delay * ControlRate.ir).max(1);
+			loopStart = bufferPhase - (loopLength * ControlRate.ir).min(bufferLength);
+			loopPhase = Phasor.kr(trig: freeze, start: loopStart, end: bufferPhase, resetPos: loopStart);
 			loopTrigger = BinaryOpUGen.new('==', loopPhase, loopStart);
 			loopOffset = Latch.kr(bufferLength - (loopLength * ControlRate.ir), loopTrigger) * loopPosition;
 			loopPhase = loopPhase - loopOffset;
 			BufWr.kr([pitch, tip, palm, gate, t_trig], buffer, bufferPhase);
 			delay = delay * 2.pow(Mix(modulators * [0, tip_delay, palm_delay, eg_delay, lfoA_delay, lfoB_delay]));
 			delay = delay.clip(0, 8);
-			// delay must be at least 1 frame, or we'll be writing to + reading from the same point
 			# pitch, tip, palm, gate, t_trig = BufRd.kr(5, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
 
 			// slew direct control
@@ -340,14 +335,17 @@ Engine_Cule : CroneEngine {
 			controlSynths[msg[1] - 1].set(\delay, msg[2]);
 		});
 
-		this.addCommand(\freeze, "ii", {
+		this.addCommand(\set_loop, "if", {
 			arg msg;
-			controlSynths[msg[1] - 1].set(\freeze, msg[2]);
+			controlSynths[msg[1] - 1].set(
+				\loopLength, msg[2],
+				\freeze, 1
+			);
 		});
 
-		this.addCommand(\loop_length, "if", {
+		this.addCommand(\clear_loop, "i", {
 			arg msg;
-			controlSynths[msg[1] - 1].set(\loopLength, msg[2]);
+			controlSynths[msg[1] - 1].set(\freeze, 0);
 		});
 
 		this.addCommand(\loop_position, "if", {

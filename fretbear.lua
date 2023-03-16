@@ -53,6 +53,7 @@ function g.key(x, y, z)
 			if y == 1 then
 				if voice.frozen then
 					-- stop looping
+					engine.clear_loop(v)
 					voice.frozen = false
 					voice.loop_armed = false
 				elseif not voice.loop_armed then
@@ -60,11 +61,10 @@ function g.key(x, y, z)
 					voice.loop_armed = util.time()
 				else
 					-- start looping
-					params:set('loop_length_' .. v, util.time() - voice.loop_armed)
+					engine.set_loop(v, util.time() - voice.loop_armed)
 					voice.frozen = true
 					voice.loop_armed = false
 				end
-				engine.freeze(v, voice.frozen and 1 or 0)
 			elseif y == 2 then
 				voice.control = not voice.control
 				-- TODO: does it make sense to set everything (or some things: tip,
@@ -430,16 +430,6 @@ function init()
 			controlspec = controlspec.new(0, 8, 'lin', 0, 0, 's'),
 			action = function(value)
 				engine.delay(v, value)
-			end
-		}
-
-		params:add {
-			name = 'loop length',
-			id = 'loop_length_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 16, 'lin', 0, 0.3, 's'),
-			action = function(value)
-				engine.loop_length(v, value)
 			end
 		}
 
