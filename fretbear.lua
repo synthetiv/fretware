@@ -3,7 +3,7 @@
 engine.name = 'Cule'
 musicutil = require 'musicutil'
 
-n_voices = 3
+n_voices = 5
 
 Keyboard = include 'lib/keyboard'
 k = Keyboard.new(1, 1, 16, 8)
@@ -505,37 +505,19 @@ function init()
 			end
 		}
 
-		params:add_group('v' .. v .. ' fm', 4)
+		params:add_group('v' .. v .. ' fm', 6)
 
-		params:add {
-			name = 'voice 1 -> voice ' .. v,
-			id = 'voice1_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 20, 'lin', 0, 0),
-			action = function(value)
-				engine.voice1_fm(v, value)
-			end
-		}
-
-		params:add {
-			name = 'voice 2 -> voice ' .. v,
-			id = 'voice2_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 20, 'lin', 0, 0),
-			action = function(value)
-				engine.voice2_fm(v, value)
-			end
-		}
-
-		params:add {
-			name = 'voice 3 -> voice ' .. v,
-			id = 'voice3_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 20, 'lin', 0, 0),
-			action = function(value)
-				engine.voice3_fm(v, value)
-			end
-		}
+		for w = 1, n_voices do 
+			params:add {
+				name = 'voice ' .. w .. ' -> voice ' .. v,
+				id = 'voice' .. w .. '_' .. v,
+				type = 'control',
+				controlspec = controlspec.new(0, 20, 'lin', 0, 0),
+				action = function(value)
+					engine['voice' .. w ..'_fm'](v, value)
+				end
+			}
+		end
 
 		params:add {
 			name = 'voice ' .. v .. ' out level',
