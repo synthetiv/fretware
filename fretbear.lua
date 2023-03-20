@@ -399,29 +399,552 @@ function init()
 		end
 	}
 
+	params:add_separator('ALL int voices')
+
+	params:add {
+		name = 'pitch lag',
+		id = 'pitch_lag',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.01, 's'),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.pitch_slew(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'other lag',
+		id = 'other_lag',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.1, 's'),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.lag(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'param 1',
+		id = 'p1',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.p1(v, value + params:get('p1_' .. v))
+			end
+		end
+	}
+
+	params:add {
+		name = 'param 2',
+		id = 'p2',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.p2(v, value + params:get('p2_' .. v))
+			end
+		end
+	}
+
+	params:add {
+		name = 'param 3',
+		id = 'p3',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.p3(v, value + params:get('p3_' .. v))
+			end
+		end
+	}
+
+	params:add {
+		name = 'param 4',
+		id = 'p4',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.p4(v, value + params:get('p4_' .. v))
+			end
+		end
+	}
+
+	params:add_group('pitch', 4)
+
+	params:add {
+		name = 'pitch -> p1',
+		id = 'pitch_p1',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.pitch_p1(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'pitch -> p2',
+		id = 'pitch_p2',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.pitch_p2(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'pitch -> p3',
+		id = 'pitch_p3',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.pitch_p3(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'pitch -> p4',
+		id = 'pitch_p4',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.pitch_p4(v, value)
+			end
+		end
+	}
+
+	params:add_group('tip', 11)
+
+	params:add {
+		name = 'tip -> amp',
+		id = 'tip_amp',
+		type = 'control',
+		controlspec = controlspec.new(0, 1, 'lin', 0, 1),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.tip_amp(v, value - 0.001)
+			end
+		end
+	}
+
+	params:add {
+		name = 'tip -> delay',
+		id = 'tip_delay',
+		type = 'control',
+		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.tip_delay(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'tip -> p1',
+		id = 'tip_p1',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.tip_p1(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'tip -> p2',
+		id = 'tip_p2',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.tip_p2(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'tip -> p3',
+		id = 'tip_p3',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.tip_p3(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'tip -> p4',
+		id = 'tip_p4',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.tip_p4(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'tip -> eg amt',
+		id = 'tip_eg_amount',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 1),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.tip_eg_amount(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'tip -> lfo A freq',
+		id = 'tip_lfo_a_freq',
+		type = 'control',
+		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.tip_lfo_a_freq(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'tip -> lfo A amt',
+		id = 'tip_lfo_a_amount',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.tip_lfo_a_amount(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'tip -> lfo B freq',
+		id = 'tip_lfo_b_freq',
+		type = 'control',
+		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.tip_lfo_b_freq(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'tip -> lfo B amt',
+		id = 'tip_lfo_b_amount',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.tip_lfo_b_amount(v, value)
+			end
+		end
+	}
+
+	params:add_group('palm', 11)
+
+	params:add {
+		name = 'palm -> amp',
+		id = 'palm_amp',
+		type = 'control',
+		controlspec = controlspec.new(0, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.palm_amp(v, value - 0.001)
+			end
+		end
+	}
+
+	params:add {
+		name = 'palm -> delay',
+		id = 'palm_delay',
+		type = 'control',
+		controlspec = controlspec.new(-2, 2, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.palm_delay(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'palm -> p1',
+		id = 'palm_p1',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.palm_p1(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'palm -> p2',
+		id = 'palm_p2',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.palm_p2(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'palm -> p3',
+		id = 'palm_p2',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.palm_p3(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'palm -> p4',
+		id = 'palm_p2',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.palm_p4(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'palm -> eg amt',
+		id = 'palm_eg_amount',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.palm_eg_amount(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'palm -> lfo A freq',
+		id = 'palm_lfo_a_freq',
+		type = 'control',
+		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.palm_lfo_a_freq(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'palm -> lfo A amt',
+		id = 'palm_lfo_a_amount',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.palm_lfo_a_amount(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'palm -> lfo B freq',
+		id = 'palm_lfo_b_freq',
+		type = 'control',
+		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.palm_lfo_b_freq(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'palm -> lfo B amt',
+		id = 'palm_lfo_b_amount',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.palm_lfo_b_amount(v, value)
+			end
+		end
+	}
+
+	params:add_group('eg', 12)
+
+	params:add {
+		name = 'attack',
+		id = 'attack',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.01, 's'),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.attack(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'decay',
+		id = 'decay',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.1, 's'),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.decay(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'sustain',
+		id = 'sustain',
+		type = 'control',
+		controlspec = controlspec.new(0, 1, 'lin', 0, 0.8),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.sustain(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'release',
+		id = 'release',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 3, 'exp', 0, 0.3, 's'),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.release(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'amount',
+		id = 'eg_amount',
+		type = 'control',
+		controlspec = controlspec.new(0, 1, 'lin', 0, 1),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.eg_amount(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'eg -> pitch',
+		id = 'eg_pitch',
+		type = 'control',
+		controlspec = controlspec.new(-0.2, 0.2, 'lin', 0, 0),
+		formatter = function(param)
+			local value = param:get()
+			return string.format('%.2f', value * 12)
+		end,
+		action = function(value)
+			for v = 1, n_voices do
+				engine.eg_pitch(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'eg -> amp',
+		id = 'eg_amp',
+		type = 'control',
+		controlspec = controlspec.new(0, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.eg_amp(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'eg -> delay',
+		id = 'eg_delay',
+		type = 'control',
+		controlspec = controlspec.new(-2, 2, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.eg_delay(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'eg -> p1',
+		id = 'eg_p1',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.eg_p1(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'eg -> p2',
+		id = 'eg_p2',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.eg_p2(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'eg -> p3',
+		id = 'eg_p2',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.eg_p3(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'eg -> p4',
+		id = 'eg_p2',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.eg_p4(v, value)
+			end
+		end
+	}
+
+
 	for v = 1, n_voices do
 
 		params:add_separator('int voice ' .. v)
-
-		params:add {
-			name = 'pitch lag',
-			id = 'pitch_lag_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.01, 's'),
-			action = function(value)
-				engine.pitch_slew(v, value)
-			end
-		}
-
-		params:add {
-			name = 'other lag',
-			id = 'other_lag_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.1, 's'),
-			action = function(value)
-				engine.lag(v, value)
-			end
-		}
 
 		params:add {
 			name = 'delay',
@@ -471,7 +994,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.p1(v, value)
+				engine.p1(v, value + params:get('p1'))
 			end
 		}
 
@@ -481,7 +1004,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.p2(v, value)
+				engine.p2(v, value + params:get('p2'))
 			end
 		}
 
@@ -491,7 +1014,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.p3(v, value)
+				engine.p3(v, value + params:get('p3'))
 			end
 		}
 
@@ -501,7 +1024,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.p4(v, value)
+				engine.p4(v, value + params:get('p4'))
 			end
 		}
 
@@ -526,398 +1049,6 @@ function init()
 			controlspec = controlspec.new(0, 0.5, 'lin', 0, 0.2),
 			action = function(value)
 				engine.out_level(v, value)
-			end
-		}
-
-		params:add_group('v' .. v .. ' pitch', 4)
-
-		params:add {
-			name = 'pitch -> p1',
-			id = 'pitch_p1_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.pitch_p1(v, value)
-			end
-		}
-
-		params:add {
-			name = 'pitch -> p2',
-			id = 'pitch_p2_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.pitch_p2(v, value)
-			end
-		}
-
-		params:add {
-			name = 'pitch -> p3',
-			id = 'pitch_p2_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.pitch_p3(v, value)
-			end
-		}
-
-		params:add {
-			name = 'pitch -> p4',
-			id = 'pitch_p2_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.pitch_p4(v, value)
-			end
-		}
-
-		params:add_group('v' .. v .. ' tip', 11)
-
-		params:add {
-			name = 'tip -> amp',
-			id = 'tip_amp_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 1, 'lin', 0, 1),
-			action = function(value)
-				engine.tip_amp(v, value - 0.001)
-			end
-		}
-
-		params:add {
-			name = 'tip -> delay',
-			id = 'tip_delay_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
-			action = function(value)
-				engine.tip_delay(v, value)
-			end
-		}
-
-		params:add {
-			name = 'tip -> p1',
-			id = 'tip_p1_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.tip_p1(v, value)
-			end
-		}
-
-		params:add {
-			name = 'tip -> p2',
-			id = 'tip_p2_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.tip_p2(v, value)
-			end
-		}
-
-		params:add {
-			name = 'tip -> p3',
-			id = 'tip_p2_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.tip_p3(v, value)
-			end
-		}
-
-		params:add {
-			name = 'tip -> p4',
-			id = 'tip_p2_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.tip_p4(v, value)
-			end
-		}
-
-		params:add {
-			name = 'tip -> eg amt',
-			id = 'tip_eg_amount_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0.001, 1, 'exp', 0, 1),
-			action = function(value)
-				engine.tip_eg_amount(v, value)
-			end
-		}
-
-		params:add {
-			name = 'tip -> lfo A freq',
-			id = 'tip_lfo_a_freq_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
-			action = function(value)
-				engine.tip_lfo_a_freq(v, value)
-			end
-		}
-
-		params:add {
-			name = 'tip -> lfo A amt',
-			id = 'tip_lfo_a_amount_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
-			action = function(value)
-				engine.tip_lfo_a_amount(v, value)
-			end
-		}
-
-		params:add {
-			name = 'tip -> lfo B freq',
-			id = 'tip_lfo_b_freq_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
-			action = function(value)
-				engine.tip_lfo_b_freq(v, value)
-			end
-		}
-
-		params:add {
-			name = 'tip -> lfo B amt',
-			id = 'tip_lfo_b_amount_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
-			action = function(value)
-				engine.tip_lfo_b_amount(v, value)
-			end
-		}
-
-		params:add_group('v' .. v .. ' palm', 11)
-
-		params:add {
-			name = 'palm -> amp',
-			id = 'palm_amp_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.palm_amp(v, value - 0.001)
-			end
-		}
-
-		params:add {
-			name = 'palm -> delay',
-			id = 'palm_delay_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-2, 2, 'lin', 0, 0),
-			action = function(value)
-				engine.palm_delay(v, value)
-			end
-		}
-
-		params:add {
-			name = 'palm -> p1',
-			id = 'palm_p1_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.palm_p1(v, value)
-			end
-		}
-
-		params:add {
-			name = 'palm -> p2',
-			id = 'palm_p2_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.palm_p2(v, value)
-			end
-		}
-
-		params:add {
-			name = 'palm -> p3',
-			id = 'palm_p2_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.palm_p3(v, value)
-			end
-		}
-
-		params:add {
-			name = 'palm -> p4',
-			id = 'palm_p2_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.palm_p4(v, value)
-			end
-		}
-
-		params:add {
-			name = 'palm -> eg amt',
-			id = 'palm_eg_amount_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
-			action = function(value)
-				engine.palm_eg_amount(v, value)
-			end
-		}
-
-		params:add {
-			name = 'palm -> lfo A freq',
-			id = 'palm_lfo_a_freq_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
-			action = function(value)
-				engine.palm_lfo_a_freq(v, value)
-			end
-		}
-
-		params:add {
-			name = 'palm -> lfo A amt',
-			id = 'palm_lfo_a_amount_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
-			action = function(value)
-				engine.palm_lfo_a_amount(v, value)
-			end
-		}
-
-		params:add {
-			name = 'palm -> lfo B freq',
-			id = 'palm_lfo_b_freq_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
-			action = function(value)
-				engine.palm_lfo_b_freq(v, value)
-			end
-		}
-
-		params:add {
-			name = 'palm -> lfo B amt',
-			id = 'palm_lfo_b_amount_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
-			action = function(value)
-				engine.palm_lfo_b_amount(v, value)
-			end
-		}
-
-		params:add_group('v' .. v .. ' eg', 12)
-
-		params:add {
-			name = 'attack',
-			id = 'attack_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.01, 's'),
-			action = function(value)
-				engine.attack(v, value)
-			end
-		}
-
-		params:add {
-			name = 'decay',
-			id = 'decay_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.1, 's'),
-			action = function(value)
-				engine.decay(v, value)
-			end
-		}
-
-		params:add {
-			name = 'sustain',
-			id = 'sustain_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 1, 'lin', 0, 0.8),
-			action = function(value)
-				engine.sustain(v, value)
-			end
-		}
-
-		params:add {
-			name = 'release',
-			id = 'release_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0.001, 3, 'exp', 0, 0.3, 's'),
-			action = function(value)
-				engine.release(v, value)
-			end
-		}
-
-		params:add {
-			name = 'amount',
-			id = 'eg_amount_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 1, 'lin', 0, 1),
-			action = function(value)
-				engine.eg_amount(v, value)
-			end
-		}
-
-		params:add {
-			name = 'eg -> pitch',
-			id = 'eg_pitch_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-0.2, 0.2, 'lin', 0, 0),
-			formatter = function(param)
-				local value = param:get()
-				return string.format('%.2f', value * 12)
-			end,
-			action = function(value)
-				engine.eg_pitch(v, value)
-			end
-		}
-
-		params:add {
-			name = 'eg -> amp',
-			id = 'eg_amp_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.eg_amp(v, value)
-			end
-		}
-
-		params:add {
-			name = 'eg -> delay',
-			id = 'eg_delay_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-2, 2, 'lin', 0, 0),
-			action = function(value)
-				engine.eg_delay(v, value)
-			end
-		}
-
-		params:add {
-			name = 'eg -> p1',
-			id = 'eg_p1_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.eg_p1(v, value)
-			end
-		}
-
-		params:add {
-			name = 'eg -> p2',
-			id = 'eg_p2_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.eg_p2(v, value)
-			end
-		}
-
-		params:add {
-			name = 'eg -> p3',
-			id = 'eg_p2_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.eg_p3(v, value)
-			end
-		}
-
-		params:add {
-			name = 'eg -> p4',
-			id = 'eg_p2_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.eg_p4(v, value)
 			end
 		}
 
