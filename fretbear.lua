@@ -9,6 +9,7 @@ Keyboard = include 'lib/keyboard'
 k = Keyboard.new(1, 1, 16, 8)
 
 echo_rate = 1
+echo_div_dirty = true
 
 -- tt_chord = 0
 
@@ -221,7 +222,7 @@ function init()
 
 	-- set up softcut echo
 	softcut.reset()
-	local echo_loop_length = 2
+	local echo_loop_length = 10
 	local echo_head_distance = 0.1
 	for scv = 1, 2 do
 		softcut.enable(scv, 1)
@@ -237,11 +238,28 @@ function init()
 		softcut.level_slew_time(scv, 0.001)
 		softcut.rate_slew_time(scv, 0.7)
 		softcut.play(scv, 1)
+		softcut.pre_filter_dry(scv, 1)
+		softcut.pre_filter_lp(scv, 0)
+		softcut.post_filter_dry(scv, 1)
+		softcut.post_filter_lp(scv, 0)
 	end
 	-- voice 1 = rec head
 	softcut.level_input_cut(1, 1, 1)
 	softcut.level_input_cut(2, 1, 1)
 	softcut.rec(1, 1)
+	softcut.phase_quant(1, 0.125)
+	softcut.event_phase(function(voice, phase)
+		if voice == 1 then
+			if echo_div_dirty then
+				local div = math.pow(2, params:get('echo_time_div'))
+				local new_position = phase - (echo_head_distance * div)
+				new_position = (new_position - 1) % echo_loop_length + 1
+				softcut.position(2, new_position)
+				echo_div_dirty = false
+			end
+		end
+	end)
+	softcut.poll_start_phase()
 	-- voice 2 = play head
 	softcut.level(2, 0.8)
 
@@ -455,6 +473,22 @@ function init()
 		action = function(time)
 			-- softcut voice rates are set based on this, in a clock routine
 			echo_rate = echo_head_distance / time
+			print('new echo rate: ' .. echo_rate)
+		end
+	}
+
+	params:add {
+		name = 'echo time div',
+		id = 'echo_time_div',
+		type = 'number',
+		min = -2,
+		max = 4,
+		default = 0,
+		formatter = function(param)
+			return string.format('%.2fx', math.pow(2, param:get()))
+		end,
+		action = function(value)
+			echo_div_dirty = true
 		end
 	}
 
