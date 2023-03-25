@@ -8,6 +8,8 @@ n_voices = 5
 Keyboard = include 'lib/keyboard'
 k = Keyboard.new(1, 1, 16, 8)
 
+echo_rate = 1
+
 -- tt_chord = 0
 
 -- TODO: internal poly engine -- SinOscFB, VarSaw, SmoothFoldS / SmoothFoldQ
@@ -217,6 +219,32 @@ function init()
 	-- TODO: why doesn't crow.add() work anymore?
 	crow_init()
 
+	-- set up softcut echo
+	softcut.reset()
+	local echo_loop_length = 2
+	local echo_head_distance = 0.1
+	for scv = 1, 2 do
+		softcut.enable(scv, 1)
+		softcut.buffer(scv, 1)
+		softcut.rate(scv, 1)
+		softcut.loop_start(scv, 1)
+		softcut.loop_end(scv, 1 + echo_loop_length)
+		softcut.loop(scv, 1)
+		softcut.fade_time(scv, 0.0005)
+		softcut.rec_level(scv, 1)
+		softcut.pre_level(scv, 0)
+		softcut.position(scv, ((scv - 1) * -echo_head_distance) % echo_loop_length + 1)
+		softcut.level_slew_time(scv, 0.001)
+		softcut.rate_slew_time(scv, 0.7)
+		softcut.play(scv, 1)
+	end
+	-- voice 1 = rec head
+	softcut.level_input_cut(1, 1, 1)
+	softcut.level_input_cut(2, 1, 1)
+	softcut.rec(1, 1)
+	-- voice 2 = play head
+	softcut.level(2, 0.8)
+
 	-- set up polls
 	for v = 1, n_voices do
 		local pitch_poll = poll.set('pitch_' .. v, function(value)
@@ -401,6 +429,36 @@ function init()
 				crow.output[4].dyn.length = value
 			end
 		end
+	}
+
+	params:add_separator('echo')
+
+	params:add {
+		name = 'echo time',
+		id = 'echo_time',
+		type = 'control',
+		controlspec = controlspec.new(0.05, 1, 'lin', 0, 0.23, 's'),
+		action = function(time)
+			-- softcut voice rates are set based on this, in a clock routine
+			echo_rate = echo_head_distance / time
+		end
+	}
+
+	params:add {
+		name = 'echo feedback',
+		id = 'echo_feedback',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.5),
+		action = function(value)
+			softcut.level_cut_cut(2, 1, value)
+		end
+	}
+
+	params:add {
+		name = 'echo drift',
+		id = 'echo_drift',
+		type = 'control',
+		controlspec = controlspec.new(0, 0.1, 'lin', 0, 0.01)
 	}
 
 	params:add_separator('ALL int voices')
@@ -1361,6 +1419,18 @@ function init()
 		end
 	end)
 	
+	clock.run(function()
+		local rate = echo_rate
+		while true do
+			rate = rate + (echo_rate - rate) * 0.2
+			rate = rate + math.random() * params:get('echo_drift')
+			for scv = 1, 2 do
+				softcut.rate(scv, rate)
+			end
+			clock.sleep(0.1)
+		end
+	end)
+
 	redraw_metro = metro.init {
 		time = 1 / 12,
 		event = function()
