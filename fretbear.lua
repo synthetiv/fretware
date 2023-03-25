@@ -67,8 +67,10 @@ function g.key(x, y, z)
 				end
 			elseif y == 2 then
 				voice.control = not voice.control
-				-- TODO: does it make sense to set everything (or some things: tip,
-				-- palm) to 0 when setting control to false?
+				if not voice.control then
+					engine.tip(v, 0)
+					engine.palm(v, 0)
+				end
 			end
 		end
 	else
