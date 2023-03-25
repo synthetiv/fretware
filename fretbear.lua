@@ -1032,7 +1032,17 @@ function init()
 			end
 		}
 
-		params:add_group('v' .. v .. ' fm', 6)
+		params:add {
+			name = 'out level',
+			id = 'out_level_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0, 0.5, 'lin', 0, 0.2),
+			action = function(value)
+				engine.out_level(v, value)
+			end
+		}
+
+		params:add_group('v' .. v .. ' fm', n_voices)
 
 		for w = 1, n_voices do 
 			params:add {
@@ -1045,16 +1055,6 @@ function init()
 				end
 			}
 		end
-
-		params:add {
-			name = 'voice ' .. v .. ' out level',
-			id = 'out_level_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 0.5, 'lin', 0, 0.2),
-			action = function(value)
-				engine.out_level(v, value)
-			end
-		}
 
 		params:add_group('v' .. v .. ' lfo A', 12)
 
