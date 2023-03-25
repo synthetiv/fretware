@@ -67,7 +67,9 @@ function g.key(x, y, z)
 				end
 			elseif y == 2 then
 				voice.control = not voice.control
-				if not voice.control then
+				if voice.control then
+					send_pitch_volts()
+				else
 					engine.tip(v, 0)
 					engine.palm(v, 0)
 				end
