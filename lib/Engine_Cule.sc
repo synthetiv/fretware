@@ -158,14 +158,17 @@ Engine_Cule : CroneEngine {
 
 			var modulators = LocalIn.kr(6);
 
+			var bufferRateScale = 0.5,
+				bufferRate = ControlRate.ir * bufferRateScale;
+
 			bufferLength = BufFrames.kr(buffer);
-			bufferPhase = Phasor.kr(rate: 1 - freeze, end: bufferLength);
+			bufferPhase = Phasor.kr(rate: bufferRateScale * (1 - freeze), end: bufferLength);
 			// delay must be at least 1 frame, or we'll be writing to + reading from the same point
-			delayPhase = bufferPhase - (delay * ControlRate.ir).max(1);
-			loopStart = bufferPhase - (loopLength * ControlRate.ir).min(bufferLength);
-			loopPhase = Phasor.kr(trig: freeze, start: loopStart, end: bufferPhase, resetPos: loopStart);
+			delayPhase = bufferPhase - (delay * bufferRate).max(1);
+			loopStart = bufferPhase - (loopLength * bufferRate).min(bufferLength);
+			loopPhase = Phasor.kr(freeze, bufferRateScale, loopStart, bufferPhase, loopStart);
 			loopTrigger = BinaryOpUGen.new('==', loopPhase, loopStart);
-			loopOffset = Latch.kr(bufferLength - (loopLength * ControlRate.ir), loopTrigger) * loopPosition;
+			loopOffset = Latch.kr(bufferLength - (loopLength * bufferRate), loopTrigger) * loopPosition;
 			loopPhase = loopPhase - loopOffset;
 			BufWr.kr([pitch, tip, palm, gate, t_trig], buffer, bufferPhase);
 			delay = delay * 2.pow(Mix(modulators * [0, tip_delay, palm_delay, eg_delay, lfoA_delay, lfoB_delay]));
