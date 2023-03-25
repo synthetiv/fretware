@@ -434,6 +434,20 @@ function init()
 	params:add_separator('echo')
 
 	params:add {
+		name = 'echo send',
+		id = 'echo_send',
+		type = 'taper',
+		min = 0,
+		max = 1,
+		k = 2,
+		default = 0.2,
+		action = function(value)
+			softcut.level_input_cut(1, 1, value)
+			softcut.level_input_cut(2, 1, value)
+		end
+	}
+
+	params:add {
 		name = 'echo time',
 		id = 'echo_time',
 		type = 'control',
