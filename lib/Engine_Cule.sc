@@ -259,7 +259,7 @@ Engine_Cule : CroneEngine {
 			folded = SinOsc.ar(0, (fold.linexp(-1, 1, 0.1, 10pi) * sine + foldBias.linlin(-1, 1, -pi / 2, pi / 2))) * amp;
 
 			Out.ar(outBus, folded);
-			Out.ar(context.out_b, folded ! 2 * outLevel);
+			Out.ar(context.out_b, folded ! 2 * Lag.kr(outLevel, 0.05));
 		}).add;
 
 		SynthDef.new(\pulse, {
@@ -281,7 +281,7 @@ Engine_Cule : CroneEngine {
 			// filtered = BMoog.ar(pulse, cutoffHz, resonance) * amp;
 			filtered = RLPF.ar(pulse, cutoffHz, resonance.linexp(-1, 1, 1, 0.1)) * amp; // TODO: this still gets glitchy sometimes
 			Out.ar(outBus, pulse * amp);
-			Out.ar(context.out_b, filtered ! 2 * outLevel);
+			Out.ar(context.out_b, filtered ! 2 * Lag.kr(outLevel, 0.05));
 		}).add;
 
 		// TODO: master bus FX like saturation, decimation...?

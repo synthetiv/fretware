@@ -1035,8 +1035,12 @@ function init()
 		params:add {
 			name = 'out level',
 			id = 'out_level_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 0.5, 'lin', 0, 0.2),
+			type = 'taper',
+			min = 0,
+			max = 0.5,
+			k = 2,
+			default = 0.2,
+			-- controlspec = controlspec.new(0, 0.5, 'exp', 0, 0.2),
 			action = function(value)
 				engine.out_level(v, value)
 			end
