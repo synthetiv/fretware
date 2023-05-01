@@ -29,7 +29,8 @@ for v = 1, n_voices do
 		pitch = 0,
 		amp = 0,
 		frozen = false,
-		loop_armed = false
+		loop_armed = false,
+		last_tap = util.time()
 	}
 end
 
@@ -69,13 +70,24 @@ function g.key(x, y, z)
 					voice.loop_armed = false
 				end
 			elseif y == 2 then
-				voice.control = not voice.control
-				if voice.control then
-					send_pitch_volts()
+				local now = util.time()
+				if k.held_keys.shift then
+					local delay = now - voice.last_tap
+					-- if would-be tapped delay time fis out of range, don't modify the time
+					if delay < 8 then
+						params:set('delay_' .. v, delay)
+					end
 				else
-					engine.tip(v, 0)
-					engine.palm(v, 0)
+					voice.control = not voice.control
+					if voice.control then
+						params:set('delay_' .. v, 0)
+						send_pitch_volts()
+					else
+						engine.tip(v, 0)
+						engine.palm(v, 0)
+					end
 				end
+				voice.last_tap = now
 			end
 		end
 	else
@@ -231,7 +243,7 @@ function init()
 		softcut.loop_start(scv, 1)
 		softcut.loop_end(scv, 1 + echo_loop_length)
 		softcut.loop(scv, 1)
-		softcut.fade_time(scv, 0.0005)
+		softcut.fade_time(scv, 0.001)
 		softcut.rec_level(scv, 1)
 		softcut.pre_level(scv, 0)
 		softcut.position(scv, ((scv - 1) * -echo_head_distance) % echo_loop_length + 1)
@@ -326,7 +338,7 @@ function init()
 		id = 'arp_clock_source',
 		type = 'option',
 		options = { 'int', 'crow' },
-		default = 1
+		default = 2
 	}
 
 	params:add {
@@ -473,7 +485,6 @@ function init()
 		action = function(time)
 			-- softcut voice rates are set based on this, in a clock routine
 			echo_rate = echo_head_distance / time
-			print('new echo rate: ' .. echo_rate)
 		end
 	}
 
@@ -506,7 +517,7 @@ function init()
 		name = 'echo drift',
 		id = 'echo_drift',
 		type = 'control',
-		controlspec = controlspec.new(0, 0.1, 'lin', 0, 0.01)
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.05)
 	}
 
 	params:add_separator('ALL int voices')
@@ -643,6 +654,7 @@ function init()
 		action = function(value)
 			for v = 1, n_voices do
 				engine.tip_amp(v, value - 0.001)
+				engine.eg_amp(v, 1 - value + 0.001)
 			end
 		end
 	}
@@ -797,7 +809,7 @@ function init()
 		name = 'palm -> p1',
 		id = 'palm_p1',
 		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		controlspec = controlspec.new(-1, 1, 'lin', 0, -0.25),
 		action = function(value)
 			for v = 1, n_voices do
 				engine.palm_p1(v, value)
@@ -821,7 +833,7 @@ function init()
 		name = 'palm -> p3',
 		id = 'palm_p2',
 		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		controlspec = controlspec.new(-1, 1, 'lin', 0, -0.25),
 		action = function(value)
 			for v = 1, n_voices do
 				engine.palm_p3(v, value)
@@ -986,7 +998,7 @@ function init()
 		controlspec = controlspec.new(0, 1, 'lin', 0, 0),
 		action = function(value)
 			for v = 1, n_voices do
-				engine.eg_amp(v, value)
+				-- engine.eg_amp(v, value)
 			end
 		end
 	}
@@ -1471,7 +1483,7 @@ function init()
 		local rate = echo_rate
 		while true do
 			rate = rate + (echo_rate - rate) * 0.2
-			rate = rate + math.random() * params:get('echo_drift')
+			rate = rate + math.random() * params:get('echo_drift') / 10
 			for scv = 1, 2 do
 				softcut.rate(scv, rate)
 			end
