@@ -248,7 +248,7 @@ function init()
 		softcut.loop_start(scv, 1)
 		softcut.loop_end(scv, 1 + echo_loop_length)
 		softcut.loop(scv, 1)
-		softcut.fade_time(scv, 0.001)
+		softcut.fade_time(scv, 0.01)
 		softcut.rec_level(scv, 1)
 		softcut.pre_level(scv, 0)
 		softcut.position(scv, ((scv - 1) * -echo_head_distance) % echo_loop_length + 1)
@@ -1069,6 +1069,41 @@ function init()
 		end
 	}
 
+	params:add {
+		name = 'fm cutoff',
+		id = 'fm_cutoff',
+		type = 'control',
+		controlspec = controlspec.new(32, 23000, 'exp', 0, 12000, 'Hz'),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.fm_cutoff(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'hp cutoff',
+		id = 'hp_cutoff',
+		type = 'control',
+		controlspec = controlspec.new(16, 12000, 'exp', 0, 16, 'Hz'),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.hp_cutoff(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'lp cutoff',
+		id = 'lp_cutoff',
+		type = 'control',
+		controlspec = controlspec.new(32, 23000, 'exp', 0, 23000, 'Hz'),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.lp_cutoff(v, value)
+			end
+		end
+	}
 
 	for v = 1, n_voices do
 
@@ -1157,6 +1192,16 @@ function init()
 		}
 
 		params:add {
+			name = 'fm cutoff',
+			id = 'fm_cutoff_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(32, 23000, 'exp', 0, 12000, 'Hz'),
+			action = function(value)
+				engine.fm_cutoff(v, value)
+			end
+		}
+
+		params:add {
 			name = 'out level',
 			id = 'out_level_' .. v,
 			type = 'taper',
@@ -1176,9 +1221,13 @@ function init()
 			params:add {
 				name = 'voice ' .. w .. ' -> voice ' .. v,
 				id = 'voice' .. w .. '_' .. v,
-				type = 'control',
-				controlspec = controlspec.new(0, 20, 'lin', 0, 0),
+				type = 'taper',
+				min = 0,
+				max = 7,
+				k = 6,
+				default = 0,
 				action = function(value)
+					print('fm voice ' .. w .. ' -> ' .. v .. ': ' .. value)
 					engine['voice' .. w ..'_fm'](v, value)
 				end
 			}

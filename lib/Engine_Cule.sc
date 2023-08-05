@@ -249,21 +249,24 @@ Engine_Cule : CroneEngine {
 		// TODO: come up with a good way to make param labels descriptive, because who wants 'timbre A' and 'timbre B'
 
 		SynthDef.new(\sine, {
-			arg fmBus, controlBus, outBus, outLevel = 0.2;
+			arg fmBus, controlBus, outBus, fmCutoff = 12000, lpCutoff = 23000, hpCutoff = 16, outLevel = 0.2;
 			// TODO: use 'fb' and new 4th parameter as ratio & index of a modulating sin oscillator
 			// TODO: scale modulation so that similar amounts of similar sources applied to FB and fold sound vaguely similar
 			var pitch, amp, fmIndex, fmRatio, fold, foldBias,
-				foldBiasAmpCompensation, hz, modulator, carrier, sine, folded;
+				foldBiasAmpCompensation, hz, modulator, fmMix, carrier, sine, folded, filtered;
 			# pitch, amp, fmIndex, fmRatio, fold, foldBias = In.kr(controlBus, 6);
 			foldBiasAmpCompensation = foldBias.abs + 1;
 			hz = 2.pow(pitch) * In.kr(baseFreqBus);
 			modulator = SinOsc.ar(hz * 2.pow(fmRatio.linlin(-1, 1, -4, 4)));
-			carrier = SinOsc.ar(hz, In.ar(fmBus).mod(2pi) + (modulator * fmIndex.linexp(0, 1, 0.01, 10pi)));
+			fmMix = In.ar(fmBus) + (modulator * fmIndex.linexp(0, 1, 0.01, 10pi));
+			carrier = SinOsc.ar(hz, LPF.ar(fmMix, fmCutoff).mod(2pi));
 			sine = LinXFade2.ar(modulator, carrier, fmIndex.linlin(-1, 0, -1, 1));
 			folded = SinOsc.ar(0, (fold.linexp(-1, 1, 0.1, 10pi) * sine + foldBias.linlin(-1, 1, -pi / 2, pi / 2))) * foldBiasAmpCompensation * amp;
 
 			Out.ar(outBus, folded);
-			Out.ar(context.out_b, folded ! 2 * Lag.kr(outLevel, 0.05));
+
+			filtered = LPF.ar(HPF.ar(folded, hpCutoff), lpCutoff);
+			Out.ar(context.out_b, filtered ! 2 * Lag.kr(outLevel, 0.05));
 		}).add;
 
 		SynthDef.new(\pulse, {
@@ -728,6 +731,20 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\voice5_fm, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\voice5_fm, msg[2]);
+		});
+
+		this.addCommand(\fm_cutoff, "if", {
+			arg msg;
+			audioSynths[msg[1] - 1].set(\fmCutoff, msg[2]);
+		});
+
+		this.addCommand(\lp_cutoff, "if", {
+			arg msg;
+			audioSynths[msg[1] - 1].set(\lpCutoff, msg[2]);
+		});
+		this.addCommand(\hp_cutoff, "if", {
+			arg msg;
+			audioSynths[msg[1] - 1].set(\hpCutoff, msg[2]);
 		});
 
 		this.addCommand(\out_level, "if", {
