@@ -522,7 +522,7 @@ function init()
 		name = 'echo drift',
 		id = 'echo_drift',
 		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.05)
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.01)
 	}
 
 	params:add_separator('ALL int voices')
