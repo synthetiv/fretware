@@ -322,25 +322,25 @@ function Keyboard:note(x, y, z)
 	-- TODO: if you HOLD an already sustained key and then press another,
 	-- MOVE that key instead of REmoving it
 	if z == 1 then
-		-- key pressed: add to sustained_keys
-		if not self.held_keys.shift then
-			-- TODO...
-			if sustained_key_index then
-				table.remove(self.sustained_keys, sustained_key_index)
-				if self.arp_index >= sustained_key_index then
-					self.arp_index = self.arp_index - 1
-				end
-				if self.arp_insert >= sustained_key_index then
-					self.arp_insert = self.arp_insert - 1
-				end
-				self.n_sustained_keys = self.n_sustained_keys - 1
-				if not self.arping and sustained_key_index > self.n_sustained_keys and self.n_sustained_keys > 0 then
-					self:set_active_key(self.sustained_keys[self.n_sustained_keys])
-				else
-					self:set_bend_targets()
-				end
-				return
+		-- already sustained key pressed: remove from sustained_keys
+		if not self.held_keys.shift and sustained_key_index then
+			table.remove(self.sustained_keys, sustained_key_index)
+			if self.arp_index >= sustained_key_index then
+				self.arp_index = self.arp_index - 1
 			end
+			if self.arp_insert >= sustained_key_index then
+				self.arp_insert = self.arp_insert - 1
+			end
+			self.n_sustained_keys = self.n_sustained_keys - 1
+			if not self.arping and sustained_key_index > self.n_sustained_keys and self.n_sustained_keys > 0 then
+				self:set_active_key(self.sustained_keys[self.n_sustained_keys])
+			else
+				self:set_bend_targets()
+			end
+			if self.n_sustained_keys == 0 then
+				self.on_gate(false)
+			end
+			return
 		end
 		if self.gliding or not self.arping or self.n_sustained_keys == 0 then
 			-- glide mode, no arp, or first note held: push new note to the stack
