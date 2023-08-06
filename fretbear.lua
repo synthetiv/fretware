@@ -73,13 +73,14 @@ function g.key(x, y, z)
 				local now = util.time()
 				if k.held_keys.shift then
 					local delay = now - voice.last_tap
-					-- if would-be tapped delay time fis out of range, don't modify the time
+					-- if would-be tapped delay time is out of range, don't modify the time
 					if delay < 8 then
 						params:set('delay_' .. v, delay)
 					end
 				else
 					voice.control = not voice.control
 					if voice.control then
+						-- TODO: since delay is likely already set to 0, this usually has no effect :(
 						params:set('delay_' .. v, 0)
 						send_pitch_volts()
 					else
@@ -1227,7 +1228,6 @@ function init()
 				k = 6,
 				default = 0,
 				action = function(value)
-					print('fm voice ' .. w .. ' -> ' .. v .. ': ' .. value)
 					engine['voice' .. w ..'_fm'](v, value)
 				end
 			}
