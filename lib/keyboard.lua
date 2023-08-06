@@ -483,6 +483,7 @@ function Keyboard:is_key_sustained(key_id)
 end
 
 function Keyboard:draw()
+	-- TODO: blink editing_sustained_key_index
 	g:led(self.x, self.y, self.mask_edit and 7 or (self.scale.mask_empty and 2 or 5))
 	g:led(self.x, self.y + 2, self.gliding and 7 or 2)
 	g:led(self.x, self.y2 - 3, self.arping and 7 or 2)

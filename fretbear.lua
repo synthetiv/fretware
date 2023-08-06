@@ -82,8 +82,11 @@ function g.key(x, y, z)
 				else
 					voice.control = not voice.control
 					if voice.control then
-						-- TODO: since delay is likely already set to 0, this usually has no effect :(
 						params:set('delay_' .. v, 0)
+						-- since delay param is likely already set to 0, the above may have no effect;
+						-- so force SuperCollider to set delay to 0, to work around the weird bug that
+						-- sometimes makes delay something other than 0
+						engine.delay(v, 0)
 						send_pitch_volts()
 					else
 						engine.tip(v, 0)
