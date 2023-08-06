@@ -41,6 +41,8 @@ do_pitch_detection = false
 detected_pitch = 0
 gate_in = false
 
+arp_clock = false
+
 -- poll_names = {
 -- 	'pitch',
 -- 	'amp',
@@ -171,6 +173,25 @@ function crow_init()
 		k:transpose(v)
 	end
 	crow.input[2].mode('stream', 0.01)
+end
+
+function reset_arp_clock()
+	if arp_clock then
+		clock.cancel(arp_clock)
+	end
+	arp_clock = clock.run(function()
+		while true do
+			-- TODO: find a way to allow modulation to nudge clock pulses back & forth without losing sync... somehow...
+			-- TODO: set clock divisions
+			local rate = math.pow(2, -params:get('system_clock_div'))
+			clock.sync(rate)
+			if params:get('arp_clock_source') == 1 and k.arping and k.n_sustained_keys > 0 then
+				k:arp(true)
+				clock.sleep(rate / 2)
+				k:arp(false)
+			end
+		end
+	end)
 end
 
 function control_engine_voices(method, value)
@@ -345,6 +366,26 @@ function init()
 		type = 'option',
 		options = { 'system', 'crow' },
 		default = 1
+	}
+
+	params:add {
+		name = 'system clock div',
+		id = 'system_clock_div',
+		type = 'number',
+		default = 2,
+		min = -3,
+		max = 5,
+		formatter = function(param)
+			local measures = -param:get() - 2
+			if measures >= 0 then
+				return string.format('%d', math.pow(2, measures))
+			else
+				return string.format('1/%d', math.pow(2, -measures))
+			end
+		end,
+		action = function(value)
+			reset_arp_clock()
+		end
 	}
 
 	params:add {
@@ -1508,18 +1549,8 @@ function init()
 
 	params:set('reverb', 1) -- off
 
-	clock.run(function()
-		local gate = false
-		while true do
-			-- TODO: find a way to allow modulation to nudge clock pulses back & forth without losing sync... somehow...
-			clock.sync(0.125)
-			if params:get('arp_clock_source') == 1 and k.arping and k.n_sustained_keys > 0 then
-				gate = not gate
-				k:arp(gate)
-			end
-		end
-	end)
-	
+	reset_arp_clock()
+
 	clock.run(function()
 		local rate = echo_rate
 		while true do

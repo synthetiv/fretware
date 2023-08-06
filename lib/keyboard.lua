@@ -156,6 +156,8 @@ function Keyboard:key(x, y, z)
 					self.gliding = false
 					self.bent_pitch = self.active_pitch -- TODO: this is useful when switching from glide mode, but is this ALWAYS a good idea?
 					self:set_bend_targets()
+				else
+					self.on_gate(false)
 				end
 			end
 		elseif y == self.y + 2 then
@@ -170,6 +172,7 @@ function Keyboard:key(x, y, z)
 		end
 	elseif y == self.y2 and x > self.x2 - 2 then
 		-- octave up/down
+		-- TODO: this has a side effect of releasing gate when pressed... why?
 		local d = 0
 		if x == self.x2 - 1 then -- down
 			self.held_keys.down = z == 1
