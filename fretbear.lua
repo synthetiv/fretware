@@ -343,8 +343,8 @@ function init()
 		name = 'arp clock source',
 		id = 'arp_clock_source',
 		type = 'option',
-		options = { 'int', 'crow' },
-		default = 2
+		options = { 'system', 'crow' },
+		default = 1
 	}
 
 	params:add {
@@ -355,20 +355,6 @@ function init()
 		action = function(value)
 			k.arp_forward_probability = value
 		end
-	}
-
-	params:add {
-		name = 'tip -> int clock rate',
-		id = 'tip_clock_rate',
-		type = 'control',
-		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
-	}
-	
-	params:add {
-		name = 'palm -> int clock rate',
-		id = 'palm_clock_rate',
-		type = 'control',
-		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
 	}
 
 	params:add_group('crow', 7)
@@ -1525,8 +1511,8 @@ function init()
 	clock.run(function()
 		local gate = false
 		while true do
-			local tick_mod = tip * params:get('tip_clock_rate') + palm * params:get('palm_clock_rate')
-			clock.sleep(clock.get_beat_sec() * 0.125 * math.pow(0.5, tick_mod))
+			-- TODO: find a way to allow modulation to nudge clock pulses back & forth without losing sync... somehow...
+			clock.sync(0.125)
 			if params:get('arp_clock_source') == 1 and k.arping and k.n_sustained_keys > 0 then
 				gate = not gate
 				k:arp(gate)
