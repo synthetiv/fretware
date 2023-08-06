@@ -35,6 +35,7 @@ function Keyboard.new(x, y, width, height)
 		held_keys = {}, -- map of key names/ids to boolean states
 		sustained_keys = {}, -- stack of sustained key IDs
 		n_sustained_keys = 0,
+		editing_sustained_key_index = false,
 		arp_index = 0,
 		arp_insert = 0,
 		arp_forward_probability = 1,
@@ -322,25 +323,17 @@ function Keyboard:note(x, y, z)
 	-- TODO: if you HOLD an already sustained key and then press another,
 	-- MOVE that key instead of REmoving it
 	if z == 1 then
-		-- already sustained key pressed: remove from sustained_keys
-		if not self.held_keys.shift and sustained_key_index then
-			table.remove(self.sustained_keys, sustained_key_index)
-			if self.arp_index >= sustained_key_index then
-				self.arp_index = self.arp_index - 1
+		-- key pressed
+		if self.held_keys.latch then
+			-- TODO: what's up with the long gate that happens sometimes?
+			if self.editing_sustained_key_index then
+				self.sustained_keys[self.editing_sustained_key_index] = key_id
+				self.editing_sustained_key_index = false
+				return
+			elseif not self.held_keys.shift and sustained_key_index then
+				self.editing_sustained_key_index = sustained_key_index
+				return
 			end
-			if self.arp_insert >= sustained_key_index then
-				self.arp_insert = self.arp_insert - 1
-			end
-			self.n_sustained_keys = self.n_sustained_keys - 1
-			if not self.arping and sustained_key_index > self.n_sustained_keys and self.n_sustained_keys > 0 then
-				self:set_active_key(self.sustained_keys[self.n_sustained_keys])
-			else
-				self:set_bend_targets()
-			end
-			if self.n_sustained_keys == 0 then
-				self.on_gate(false)
-			end
-			return
 		end
 		if self.gliding or not self.arping or self.n_sustained_keys == 0 then
 			-- glide mode, no arp, or first note held: push new note to the stack
@@ -359,37 +352,58 @@ function Keyboard:note(x, y, z)
 			table.insert(self.sustained_keys, self.arp_insert, key_id)
 			self.n_sustained_keys = self.n_sustained_keys + 1
 		end
-	else
-		-- key released: release or remove from sustained keys
-		if not self.held_keys.latch then
-			local i = 1
-			while i <= self.n_sustained_keys do
-				if self.sustained_keys[i] == key_id then
-					table.remove(self.sustained_keys, i)
-					self.n_sustained_keys = self.n_sustained_keys - 1
-					if self.arp_index >= i then
-						self.arp_index = self.arp_index - 1
-					end
-					if self.arp_insert >= i then
-						self.arp_insert = self.arp_insert - 1
-					end
-				else
-					i = i + 1
-				end
+	elseif self.held_keys.latch then
+		-- latch held, key released
+		if sustained_key_index and sustained_key_index == self.editing_sustained_key_index then
+			-- TODO: if this is the only HELD key, and its id matches that of the edited sustained key, remove it from sustained_keys
+			-- TODO: if this is NOT the only held key, do monophonic MRU voice stealing thing...??
+			table.remove(self.sustained_keys, sustained_key_index)
+			if self.arp_index >= sustained_key_index then
+				self.arp_index = self.arp_index - 1
 			end
-			if self.n_sustained_keys > 0 then
-				self.arp_index = (self.arp_index - 1) % self.n_sustained_keys + 1
-				self.arp_insert = (self.arp_insert - 1) % self.n_sustained_keys + 1
-				if not self.arping then
-					local released_active_key = key_id == self.active_key
-					self:set_active_key(self.sustained_keys[self.arp_index], true)
-					if released_active_key and self.gate_mode == 2 and not self.gliding then
-						self.on_gate(true)
-					end
-				end
+			if self.arp_insert >= sustained_key_index then
+				self.arp_insert = self.arp_insert - 1
+			end
+			self.n_sustained_keys = self.n_sustained_keys - 1
+			if not self.arping and sustained_key_index > self.n_sustained_keys and self.n_sustained_keys > 0 then
+				self:set_active_key(self.sustained_keys[self.n_sustained_keys])
 			else
+				self:set_bend_targets()
+			end
+			if self.n_sustained_keys == 0 then
 				self.on_gate(false)
 			end
+			self.editing_sustained_key_index = false
+		end
+	else
+		-- key released: release or remove from sustained keys
+		local i = 1
+		while i <= self.n_sustained_keys do
+			if self.sustained_keys[i] == key_id then
+				table.remove(self.sustained_keys, i)
+				self.n_sustained_keys = self.n_sustained_keys - 1
+				if self.arp_index >= i then
+					self.arp_index = self.arp_index - 1
+				end
+				if self.arp_insert >= i then
+					self.arp_insert = self.arp_insert - 1
+				end
+			else
+				i = i + 1
+			end
+		end
+		if self.n_sustained_keys > 0 then
+			self.arp_index = (self.arp_index - 1) % self.n_sustained_keys + 1
+			self.arp_insert = (self.arp_insert - 1) % self.n_sustained_keys + 1
+			if not self.arping then
+				local released_active_key = key_id == self.active_key
+				self:set_active_key(self.sustained_keys[self.arp_index], true)
+				if released_active_key and self.gate_mode == 2 and not self.gliding then
+					self.on_gate(true)
+				end
+			end
+		else
+			self.on_gate(false)
 		end
 	end
 end
