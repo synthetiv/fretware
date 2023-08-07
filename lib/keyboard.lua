@@ -173,7 +173,6 @@ function Keyboard:key(x, y, z)
 		end
 	elseif y == self.y2 and x > self.x2 - 2 then
 		-- octave up/down
-		-- TODO: this has a side effect of releasing gate when pressed... why?
 		local d = 0
 		if x == self.x2 - 1 then -- down
 			self.held_keys.down = z == 1
@@ -188,7 +187,7 @@ function Keyboard:key(x, y, z)
 			if not self.arping or self.n_sustained_keys == 0 then
 				self.on_pitch()
 				if self.n_sustained_keys > 0 and self.gate_mode == 2 and not self.gliding then
-					self.on_gate() -- TODO: true/false??
+					self.on_gate(true)
 				end
 			end
 		elseif z == 1 then
@@ -197,7 +196,7 @@ function Keyboard:key(x, y, z)
 			if not self.arping or self.n_sustained_keys == 0 then
 				self.on_pitch()
 				if self.n_sustained_keys > 0 and self.gate_mode == 2 and not self.gliding then
-					self.on_gate() -- TODO: true/false??
+					self.on_gate(true)
 				end
 			end
 		end
