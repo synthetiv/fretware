@@ -995,7 +995,7 @@ function init()
 		name = 'attack',
 		id = 'attack',
 		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.01, 's'),
+		controlspec = controlspec.new(0.001, 2, 'exp', 0, 0.01, 's'),
 		action = function(value)
 			for v = 1, n_voices do
 				engine.attack(v, value)
@@ -1007,7 +1007,7 @@ function init()
 		name = 'decay',
 		id = 'decay',
 		type = 'control',
-		controlspec = controlspec.new(0.001, 3, 'exp', 0, 0.1, 's'),
+		controlspec = controlspec.new(0.001, 6, 'exp', 0, 0.1, 's'),
 		action = function(value)
 			for v = 1, n_voices do
 				engine.decay(v, value)
@@ -1031,7 +1031,7 @@ function init()
 		name = 'release',
 		id = 'release',
 		type = 'control',
-		controlspec = controlspec.new(0.001, 3, 'exp', 0, 0.3, 's'),
+		controlspec = controlspec.new(0.001, 6, 'exp', 0, 0.3, 's'),
 		action = function(value)
 			for v = 1, n_voices do
 				engine.release(v, value)
