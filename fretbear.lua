@@ -218,7 +218,7 @@ function reset_arp_clock()
 					end
 				end
 				k:arp(true)
-				clock.sleep(rate / 4)
+				clock.sleep(clock.get_beat_sec() * rate / 2)
 				k:arp(false)
 			end
 		end
