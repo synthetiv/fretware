@@ -316,7 +316,7 @@ Engine_Cule : CroneEngine {
 			Synth.new(\sine, [
 				\fmBus, fmBuses[i],
 				\controlBus, controlBuses[i],
-				\outBus, synthOutBuses[i],
+				\outBus, synthOutBuses[i], // TODO: somehow it seems like voice #3 doesn't write to its own bus...?? it's not working as a source for self- or other-FM
 			], context.og, \addToTail); // "output" group
 		});
 		polls = Array.fill(nVoices, {

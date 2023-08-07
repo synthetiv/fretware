@@ -33,6 +33,9 @@ for v = 1, n_voices do
 		last_tap = util.time()
 	}
 end
+selected_voices = { 1 }
+n_selected_voices = 1
+lead_voice = 1
 
 tip = 0
 palm = 0
@@ -87,10 +90,25 @@ function g.key(x, y, z)
 						-- so force SuperCollider to set delay to 0, to work around the weird bug that
 						-- sometimes makes delay something other than 0
 						engine.delay(v, 0)
+						table.insert(selected_voices, v)
+						n_selected_voices = n_selected_voices + 1
+						lead_voice = n_selected_voices
 						send_pitch_volts()
 					else
+						local sv = 1
+						while sv <= n_selected_voices do
+							if selected_voices[sv] == v then
+								table.remove(selected_voices, sv)
+								n_selected_voices = n_selected_voices - 1
+								lead_voice = n_selected_voices
+								send_pitch_volts()
+							else
+								sv = sv + 1
+							end
+						end
 						engine.tip(v, 0)
 						engine.palm(v, 0)
+						engine.gate(v, 0)
 					end
 				end
 				voice.last_tap = now
@@ -108,7 +126,9 @@ end
 function send_pitch_volts()
 	-- TODO: this added offset for the quantizer really shouldn't be necessary; what's going on here?
 	crow.output[1].volts = k.bent_pitch + k.octave + (k.quantizing and 1/24 or 0)
-	control_engine_voices('pitch', k.bent_pitch + k.octave)
+	if n_selected_voices > 0 then
+		engine.pitch(selected_voices[lead_voice], k.bent_pitch + k.octave)
+	end
 end
 
 function touche.event(data)
@@ -139,6 +159,7 @@ function grid_redraw()
 	for v = 1, n_voices do
 		local voice = voice_states[v]
 		local level = voice.amp
+		local is_lead = n_selected_voices > 1 and selected_voices[lead_voice] == v
 		if voice.loop_armed then
 			level = level * 0.5 + 0.5
 		elseif voice.frozen then
@@ -146,7 +167,7 @@ function grid_redraw()
 		end
 		level = 2 + math.floor(level * 14)
 		g:led(v + 1, 1, level)
-		g:led(v + 1, 2, voice.control and 5 or 1)
+		g:led(v + 1, 2, voice.control and (is_lead and 8 or 5) or 1)
 	end
 	g:refresh()
 end
@@ -189,6 +210,11 @@ function reset_arp_clock()
 			local rate = math.pow(2, -params:get('system_clock_div'))
 			clock.sync(rate)
 			if params:get('arp_clock_source') == 1 and k.arping and k.n_sustained_keys > 0 then
+				if math.random() < params:get('voice_sel_direction') then
+					lead_voice = lead_voice % n_selected_voices + 1
+				else
+					lead_voice = (lead_voice - 2) % n_selected_voices + 1
+				end
 				k:arp(true)
 				clock.sleep(rate / 2)
 				k:arp(false)
@@ -239,19 +265,23 @@ function init()
 	end
 
 	k.on_gate = function(gate)
-		if k.gate_mode ~= 3 then
-			crow.output[4](gate)
-			control_engine_voices('gate', gate and 1 or 0)
-		elseif gate then
-
+		if gate and k.gate_mode == 3 then
+			-- pulse mode
 			crow.output[4]()
-			control_engine_voices('gate', 1)
+			if n_selected_voices > 0 then
+				engine.gate(selected_voices[lead_voice], 1)
+			end
 			-- TODO: finesse this: there should be control over gate time, and this should handle
 			-- overlapping gates
 			clock.run(function()
 				clock.sleep(0.1)
-				control_engine_voices('gate', 0)
+				control_engine_voices('gate', 0) -- TODO
 			end)
+		else
+			crow.output[4](gate)
+			if n_selected_voices > 0 then
+				engine.gate(selected_voices[lead_voice], gate and 1 or 0)
+			end
 		end
 		if gate and not do_pitch_detection then
 			-- TODO: I've lost track of what this is supposed to do...
@@ -389,6 +419,13 @@ function init()
 		action = function(value)
 			reset_arp_clock()
 		end
+	}
+
+	params:add {
+		name = 'voice sel direction (1=fwd)',
+		id = 'voice_sel_direction',
+		type = 'control',
+		controlspec = controlspec.new(0, 1, 'lin', 0, 1),
 	}
 
 	params:add {
@@ -968,7 +1005,7 @@ function init()
 		name = 'decay',
 		id = 'decay',
 		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.1, 's'),
+		controlspec = controlspec.new(0.001, 3, 'exp', 0, 0.1, 's'),
 		action = function(value)
 			for v = 1, n_voices do
 				engine.decay(v, value)
