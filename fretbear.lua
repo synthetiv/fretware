@@ -210,13 +210,15 @@ function reset_arp_clock()
 			local rate = math.pow(2, -params:get('system_clock_div'))
 			clock.sync(rate)
 			if params:get('arp_clock_source') == 1 and k.arping and k.n_sustained_keys > 0 then
-				if math.random() < params:get('voice_sel_direction') then
-					lead_voice = lead_voice % n_selected_voices + 1
-				else
-					lead_voice = (lead_voice - 2) % n_selected_voices + 1
+				if n_selected_voices > 0 then
+					if math.random() < params:get('voice_sel_direction') then
+						lead_voice = lead_voice % n_selected_voices + 1
+					else
+						lead_voice = (lead_voice - 2) % n_selected_voices + 1
+					end
 				end
 				k:arp(true)
-				clock.sleep(rate / 2)
+				clock.sleep(rate / 4)
 				k:arp(false)
 			end
 		end
