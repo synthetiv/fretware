@@ -55,7 +55,6 @@ Engine_Cule : CroneEngine {
 
 				detune = 0,
 				pitchSlew = 0.01,
-				octave = 0,
 				attack = 0.01,
 				decay = 0.1,
 				sustain = 0.8,
@@ -220,7 +219,7 @@ Engine_Cule : CroneEngine {
 
 			LocalOut.kr([pitch, tip, palm, eg, lfoA, lfoB]);
 
-			pitch = pitch + octave + detune + Mix([eg, lfoA, lfoB] * [eg_pitch, lfoA_pitch, lfoB_pitch]);
+			pitch = pitch + detune + Mix([eg, lfoA, lfoB] * [eg_pitch, lfoA_pitch, lfoB_pitch]);
 			amp = Mix(modulators * [0, tip_amp, palm_amp, eg_amp, lfoA_amp, lfoB_amp]).max(0);
 
 			// send control values to polls, both regularly (replyRate Hz) and immediately when gate goes high or when voice loops
@@ -249,14 +248,15 @@ Engine_Cule : CroneEngine {
 		// TODO: come up with a good way to make param labels descriptive, because who wants 'timbre A' and 'timbre B'
 
 		SynthDef.new(\sine, {
-			arg fmBus, controlBus, outBus, fmCutoff = 12000, lpCutoff = 23000, hpCutoff = 16, outLevel = 0.2;
+			arg fmBus, controlBus, outBus, octave = 0, fmCutoff = 12000, lpCutoff = 23000, hpCutoff = 16, outLevel = 0.2;
 			// TODO: use 'fb' and new 4th parameter as ratio & index of a modulating sin oscillator
 			// TODO: scale modulation so that similar amounts of similar sources applied to FB and fold sound vaguely similar
 			var pitch, amp, fmIndex, fmRatio, fold, foldBias,
-				foldBiasAmpCompensation, hz, modulator, fmMix, carrier, sine, folded, filtered;
+				foldBiasDCCompensation, foldBiasAmpCompensation,
+				hz, modulator, fmMix, carrier, sine, folded, filtered;
 			# pitch, amp, fmIndex, fmRatio, fold, foldBias = In.kr(controlBus, 6);
 			foldBiasAmpCompensation = foldBias.abs + 1;
-			hz = 2.pow(pitch) * In.kr(baseFreqBus);
+			hz = 2.pow(pitch + octave) * In.kr(baseFreqBus);
 			modulator = SinOsc.ar(hz * 2.pow(fmRatio.linlin(-1, 1, -4, 4)));
 			fmMix = In.ar(fmBus) + (modulator * fmIndex.linexp(0, 1, 0.01, 10pi));
 			carrier = SinOsc.ar(hz, LPF.ar(fmMix, fmCutoff).mod(2pi));
@@ -464,11 +464,6 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\p4, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\p4, msg[2]);
-		});
-
-		this.addCommand(\octave, "ii", {
-			arg msg;
-			controlSynths[msg[1] - 1].set(\octave, msg[2]);
 		});
 
 		this.addCommand(\lag, "if", {
@@ -731,6 +726,11 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\voice5_fm, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\voice5_fm, msg[2]);
+		});
+
+		this.addCommand(\octave, "ii", {
+			arg msg;
+			audioSynths[msg[1] - 1].set(\octave, msg[2]);
 		});
 
 		this.addCommand(\fm_cutoff, "if", {
