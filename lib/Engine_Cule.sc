@@ -252,21 +252,27 @@ Engine_Cule : CroneEngine {
 			// TODO: use 'fb' and new 4th parameter as ratio & index of a modulating sin oscillator
 			// TODO: scale modulation so that similar amounts of similar sources applied to FB and fold sound vaguely similar
 			var pitch, amp, fmIndex, fmRatio, fold, foldBias,
-				foldBiasDCCompensation, foldBiasAmpCompensation,
-				hz, modulator, fmMix, carrier, sine, folded, filtered;
+				hz, modulator, fmMix, carrier, sine;
 			# pitch, amp, fmIndex, fmRatio, fold, foldBias = In.kr(controlBus, 6);
-			foldBiasAmpCompensation = foldBias.abs + 1;
 			hz = 2.pow(pitch + octave) * In.kr(baseFreqBus);
 			modulator = SinOsc.ar(hz * 2.pow(fmRatio.linlin(-1, 1, -4, 4)));
 			fmMix = In.ar(fmBus) + (modulator * fmIndex.linexp(0, 1, 0.01, 10pi));
 			carrier = SinOsc.ar(hz, LPF.ar(fmMix, fmCutoff).mod(2pi));
 			sine = LinXFade2.ar(modulator, carrier, fmIndex.linlin(-1, 0, -1, 1));
-			folded = SinOsc.ar(0, (fold.linexp(-1, 1, 0.1, 10pi) * sine + foldBias.linlin(-1, 1, -pi / 2, pi / 2))) * foldBiasAmpCompensation * amp;
+			sine = SinOsc.ar(0, (fold.linexp(-1, 1, 0.1, 10pi) * sine + foldBias.linlin(-1, 1, -pi / 2, pi / 2)));
+			// compensate for DC offset introduced by fold bias
+			sine = LeakDC.ar(sine);
+			// compensate for lost amplitude due to bias (a fully rectified wave is half the amplitude of the original)
+			sine = sine * (foldBias.abs + 1);
+			// scale by amplitude control value
+			sine = sine * amp;
 
-			Out.ar(outBus, folded);
+			// write to bus for FM
+			Out.ar(outBus, sine);
 
-			filtered = LPF.ar(HPF.ar(folded, hpCutoff), lpCutoff);
-			Out.ar(context.out_b, filtered ! 2 * Lag.kr(outLevel, 0.05));
+			// filter and write to main outs
+			sine = LPF.ar(HPF.ar(sine, hpCutoff), lpCutoff);
+			Out.ar(context.out_b, sine ! 2 * Lag.kr(outLevel, 0.05));
 		}).add;
 
 		SynthDef.new(\pulse, {
