@@ -763,18 +763,6 @@ function init()
 	}
 
 	params:add {
-		name = 'tip -> delay',
-		id = 'tip_delay',
-		type = 'control',
-		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.tip_delay(v, value)
-			end
-		end
-	}
-
-	params:add {
 		name = 'tip -> p1',
 		id = 'tip_p1',
 		type = 'control',
@@ -892,18 +880,6 @@ function init()
 		action = function(value)
 			for v = 1, n_voices do
 				engine.palm_amp(v, value - 0.001)
-			end
-		end
-	}
-
-	params:add {
-		name = 'palm -> delay',
-		id = 'palm_delay',
-		type = 'control',
-		controlspec = controlspec.new(-2, 2, 'lin', 0, 0),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.palm_delay(v, value)
 			end
 		end
 	}
@@ -1102,18 +1078,6 @@ function init()
 		action = function(value)
 			for v = 1, n_voices do
 				-- engine.eg_amp(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'eg -> delay',
-		id = 'eg_delay',
-		type = 'control',
-		controlspec = controlspec.new(-2, 2, 'lin', 0, 0),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.eg_delay(v, value)
 			end
 		end
 	}
@@ -1376,16 +1340,6 @@ function init()
 		}
 
 		params:add {
-			name = 'lfo A -> delay',
-			id = 'lfo_a_delay_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
-			action = function(value)
-				engine.lfo_a_delay(v, value)
-			end
-		}
-
-		params:add {
 			name = 'lfo A -> p1',
 			id = 'lfo_a_p1_' .. v,
 			type = 'control',
@@ -1499,16 +1453,6 @@ function init()
 			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.lfo_b_amp(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo B -> delay',
-			id = 'lfo_b_delay_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-5, 5, 'lin', 0, 0.2),
-			action = function(value)
-				engine.lfo_b_delay(v, value)
 			end
 		}
 

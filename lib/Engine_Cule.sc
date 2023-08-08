@@ -74,7 +74,6 @@ Engine_Cule : CroneEngine {
 				lag = 0.1,
 
 				tip_amp = 1,
-				tip_delay = 0,
 				tip_p1 = 0,
 				tip_p2 = 0,
 				tip_p3 = 0,
@@ -87,7 +86,6 @@ Engine_Cule : CroneEngine {
 				tip_lfoBAmount = 0,
 
 				palm_amp = 0,
-				palm_delay = 0,
 				palm_p1 = 0,
 				palm_p2 = 0,
 				palm_p3 = 0,
@@ -100,7 +98,6 @@ Engine_Cule : CroneEngine {
 
 				eg_pitch = 0,
 				eg_amp = 0,
-				eg_delay = 0,
 				eg_p1 = 0,
 				eg_p2 = 0,
 				eg_p3 = 0,
@@ -112,7 +109,6 @@ Engine_Cule : CroneEngine {
 
 				lfoA_pitch = 0,
 				lfoA_amp = 0,
-				lfoA_delay = 0,
 				lfoA_p1 = 0,
 				lfoA_p2 = 0,
 				lfoA_p3 = 0,
@@ -123,7 +119,6 @@ Engine_Cule : CroneEngine {
 
 				lfoB_pitch = 0,
 				lfoB_amp = 0,
-				lfoB_delay = 0,
 				lfoB_p1 = 0,
 				lfoB_p2 = 0,
 				lfoB_p3 = 0,
@@ -170,8 +165,6 @@ Engine_Cule : CroneEngine {
 			loopOffset = Latch.kr(bufferLength - (loopLength * bufferRate), loopTrigger) * loopPosition;
 			loopPhase = loopPhase - loopOffset;
 			BufWr.kr([pitch, tip, palm, gate, t_trig], buffer, bufferPhase);
-			delay = delay * 2.pow(Mix(modulators * [0, tip_delay, palm_delay, eg_delay, lfoA_delay, lfoB_delay]));
-			delay = delay.clip(0, 8);
 			# pitch, tip, palm, gate, t_trig = BufRd.kr(5, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
 
 			// slew direct control
@@ -483,10 +476,6 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\tip_amp, msg[2]);
 		});
-		this.addCommand(\tip_delay, "if", {
-			arg msg;
-			controlSynths[msg[1] - 1].set(\tip_delay, msg[2]);
-		});
 		this.addCommand(\tip_p1, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\tip_p1, msg[2]);
@@ -527,10 +516,6 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\palm_amp, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\palm_amp, msg[2]);
-		});
-		this.addCommand(\palm_delay, "if", {
-			arg msg;
-			controlSynths[msg[1] - 1].set(\palm_delay, msg[2]);
 		});
 		this.addCommand(\palm_p1, "if", {
 			arg msg;
@@ -577,10 +562,6 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\eg_amp, msg[2]);
 		});
-		this.addCommand(\eg_delay, "if", {
-			arg msg;
-			controlSynths[msg[1] - 1].set(\eg_delay, msg[2]);
-		});
 		this.addCommand(\eg_p1, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\eg_p1, msg[2]);
@@ -622,10 +603,6 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\lfoA_amp, msg[2]);
 		});
-		this.addCommand(\lfo_a_delay, "if", {
-			arg msg;
-			controlSynths[msg[1] - 1].set(\lfoA_delay, msg[2]);
-		});
 		this.addCommand(\lfo_a_p1, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\lfoA_p1, msg[2]);
@@ -662,10 +639,6 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\lfo_b_amp, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\lfoB_amp, msg[2]);
-		});
-		this.addCommand(\lfo_b_delay, "if", {
-			arg msg;
-			controlSynths[msg[1] - 1].set(\lfoB_delay, msg[2]);
 		});
 		this.addCommand(\lfo_b_p1, "if", {
 			arg msg;
