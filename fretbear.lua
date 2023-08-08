@@ -13,9 +13,6 @@ echo_div_dirty = true
 
 -- tt_chord = 0
 
--- TODO: internal poly engine -- SinOscFB, VarSaw, SmoothFoldS / SmoothFoldQ
--- with envelope(s) + mod matrix (sources: EG1, EG2, touche tip, touche heel)
-
 redraw_metro = nil
 
 g = grid.connect()
@@ -206,7 +203,6 @@ function reset_arp_clock()
 	arp_clock = clock.run(function()
 		while true do
 			-- TODO: find a way to allow modulation to nudge clock pulses back & forth without losing sync... somehow...
-			-- TODO: set clock divisions
 			local rate = math.pow(2, -params:get('system_clock_div'))
 			clock.sync(rate)
 			if params:get('arp_clock_source') == 1 and k.arping and k.n_sustained_keys > 0 then

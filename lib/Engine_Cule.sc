@@ -238,13 +238,12 @@ Engine_Cule : CroneEngine {
 
 		// TODO: alt synths:
 		// - square with pwm, cutoff, reso
-		// - double saw with detune, cutoff, reso?
+		// - double (var?)saw with detune, cutoff, reso?
+		// - wavetables... samples...
 		// TODO: come up with a good way to make param labels descriptive, because who wants 'timbre A' and 'timbre B'
 
 		SynthDef.new(\sine, {
 			arg fmBus, controlBus, outBus, octave = 0, fmCutoff = 12000, lpCutoff = 23000, hpCutoff = 16, outLevel = 0.2;
-			// TODO: use 'fb' and new 4th parameter as ratio & index of a modulating sin oscillator
-			// TODO: scale modulation so that similar amounts of similar sources applied to FB and fold sound vaguely similar
 			var pitch, amp, fmIndex, fmRatio, fold, foldBias,
 				hz, modulator, fmMix, carrier, sine;
 			# pitch, amp, fmIndex, fmRatio, fold, foldBias = In.kr(controlBus, 6);
@@ -302,7 +301,6 @@ Engine_Cule : CroneEngine {
 		});
 		controlSynths = Array.fill(nVoices, {
 			arg i;
-			// TODO: add to tail?
 			Synth.new(\line, [
 				\voiceIndex, i,
 				\buffer, controlBuffers[i],
@@ -316,7 +314,7 @@ Engine_Cule : CroneEngine {
 			Synth.new(\sine, [
 				\fmBus, fmBuses[i],
 				\controlBus, controlBuses[i],
-				\outBus, synthOutBuses[i], // TODO: somehow it seems like voice #3 doesn't write to its own bus...?? it's not working as a source for self- or other-FM
+				\outBus, synthOutBuses[i],
 			], context.og, \addToTail); // "output" group
 		});
 		polls = Array.fill(nVoices, {

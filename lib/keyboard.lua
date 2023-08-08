@@ -155,7 +155,7 @@ function Keyboard:key(x, y, z)
 				self.arping = not self.arping
 				if self.arping then
 					self.gliding = false
-					self.bent_pitch = self.active_pitch -- TODO: this is useful when switching from glide mode, but is this ALWAYS a good idea?
+					self.bent_pitch = self.active_pitch
 					self:set_bend_targets()
 				else
 					self.on_gate(false)
@@ -235,8 +235,6 @@ function Keyboard:maybe_release_sustained_keys()
 	if self.n_sustained_keys > 0 then
 		self.arp_index = (self.arp_index - 1) % self.n_sustained_keys + 1
 		self.arp_insert = (self.arp_insert - 1) % self.n_sustained_keys + 1
-		-- TODO: should this be handled differently depending on arp state?
-		-- TODO: or gate mode == 4 ?
 		self:set_active_key(sustained_keys[self.arp_index], true)
 	else
 		-- even if no keys are held, bend targets may need to be reset
@@ -319,12 +317,9 @@ function Keyboard:note(x, y, z)
 	local key_id = self:get_key_id(x, y)
 	local sustained_key_index = self:find_sustained_key(key_id)
 	self.held_keys[key_id] = z == 1
-	-- TODO: if you HOLD an already sustained key and then press another,
-	-- MOVE that key instead of REmoving it
 	if z == 1 then
 		-- key pressed
 		if self.held_keys.latch then
-			-- TODO: what's up with the long gate that happens sometimes?
 			if self.editing_sustained_key_index then
 				self.sustained_keys[self.editing_sustained_key_index] = key_id
 				self.editing_sustained_key_index = false
@@ -354,8 +349,6 @@ function Keyboard:note(x, y, z)
 	elseif self.held_keys.latch then
 		-- latch held, key released
 		if sustained_key_index and sustained_key_index == self.editing_sustained_key_index then
-			-- TODO: if this is the only HELD key, and its id matches that of the edited sustained key, remove it from sustained_keys
-			-- TODO: if this is NOT the only held key, do monophonic MRU voice stealing thing...??
 			table.remove(self.sustained_keys, sustained_key_index)
 			if self.arp_index >= sustained_key_index then
 				self.arp_index = self.arp_index - 1
