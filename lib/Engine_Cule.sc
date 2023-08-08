@@ -148,9 +148,11 @@ Engine_Cule : CroneEngine {
 			var bufferLength, bufferPhase, delayPhase,
 				loopStart, loopPhase, loopTrigger, loopOffset,
 				eg, lfoA, lfoB,
-				hz, amp;
+				hz;
 
 			var modulators = LocalIn.kr(6);
+
+			var amp = Mix(modulators * [0, tip_amp, palm_amp, eg_amp, lfoA_amp, lfoB_amp]).max(0);
 
 			var bufferRateScale = 0.5,
 				bufferRate = ControlRate.ir * bufferRateScale;
@@ -164,8 +166,8 @@ Engine_Cule : CroneEngine {
 			loopTrigger = BinaryOpUGen.new('==', loopPhase, loopStart);
 			loopOffset = Latch.kr(bufferLength - (loopLength * bufferRate), loopTrigger) * loopPosition;
 			loopPhase = loopPhase - loopOffset;
-			BufWr.kr([pitch, tip, palm, gate, t_trig], buffer, bufferPhase);
-			# pitch, tip, palm, gate, t_trig = BufRd.kr(5, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
+			BufWr.kr([pitch, tip, palm, amp], buffer, bufferPhase);
+			# pitch, tip, palm, amp = BufRd.kr(4, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
 
 			// slew direct control
 			tip  = Lag.kr(tip,  lag);
@@ -213,7 +215,6 @@ Engine_Cule : CroneEngine {
 			LocalOut.kr([pitch, tip, palm, eg, lfoA, lfoB]);
 
 			pitch = pitch + detune + Mix([eg, lfoA, lfoB] * [eg_pitch, lfoA_pitch, lfoB_pitch]);
-			amp = Mix(modulators * [0, tip_amp, palm_amp, eg_amp, lfoA_amp, lfoB_amp]).max(0);
 
 			// send control values to polls, both regularly (replyRate Hz) and immediately when gate goes high or when voice loops
 			SendReply.kr(trig: Impulse.kr(replyRate) + t_trig + loopTrigger, cmdName: '/voicePitchAmp', values: [voiceIndex, pitch, amp]);
@@ -297,7 +298,7 @@ Engine_Cule : CroneEngine {
 		baseFreqBus.setSynchronous(60.midicps);
 
 		controlBuffers = Array.fill(nVoices, {
-			Buffer.alloc(context.server, context.server.sampleRate / context.server.options.blockSize * maxLoopTime, 5);
+			Buffer.alloc(context.server, context.server.sampleRate / context.server.options.blockSize * maxLoopTime, 4);
 		});
 		controlSynths = Array.fill(nVoices, {
 			arg i;
