@@ -295,6 +295,7 @@ function init()
 	crow_init()
 
 	-- set up softcut echo
+	-- TODO: make something like this in SC instead, so you can add saturation / compander, and maybe a freeze function
 	softcut.reset()
 	local echo_loop_length = 10
 	local echo_head_distance = 1
