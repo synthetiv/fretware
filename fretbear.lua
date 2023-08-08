@@ -297,7 +297,7 @@ function init()
 	-- set up softcut echo
 	softcut.reset()
 	local echo_loop_length = 10
-	local echo_head_distance = 0.1
+	local echo_head_distance = 1
 	for scv = 1, 2 do
 		softcut.enable(scv, 1)
 		softcut.buffer(scv, 1)
@@ -556,7 +556,7 @@ function init()
 		name = 'echo time',
 		id = 'echo_time',
 		type = 'control',
-		controlspec = controlspec.new(0.05, 1, 'lin', 0, 0.23, 's'),
+		controlspec = controlspec.new(0.05, 1, 'lin', 0, 0.11, 's'),
 		action = function(time)
 			-- softcut voice rates are set based on this, in a clock routine
 			echo_rate = echo_head_distance / time
@@ -579,6 +579,18 @@ function init()
 	}
 
 	params:add {
+		name = 'echo div fade',
+		id = 'echo_div_fade',
+		type = 'control',
+		controlspec = controlspec.new(0, 25, 'lin', 0, 10, 'ms'),
+		action = function(time)
+			for scv = 1, 2 do
+				softcut.fade_time(scv, time * 0.001)
+			end
+		end
+	}
+
+	params:add {
 		name = 'echo feedback',
 		id = 'echo_feedback',
 		type = 'control',
@@ -593,6 +605,21 @@ function init()
 		id = 'echo_drift',
 		type = 'control',
 		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.01)
+	}
+
+	params:add {
+		name = 'echo resolution',
+		id = 'echo_resolution',
+		type = 'number',
+		default = 0,
+		min = -5,
+		max = 1,
+		action = function(value)
+			echo_head_distance = math.pow(2, value)
+			-- reset other related params
+			echo_rate = echo_head_distance / params:get('echo_time')
+			echo_div_dirty = true
+		end
 	}
 
 	params:add_separator('ALL int voices')
@@ -1597,7 +1624,7 @@ function init()
 		local rate = echo_rate
 		while true do
 			rate = rate + (echo_rate - rate) * 0.2
-			rate = rate + math.random() * params:get('echo_drift') / 10
+			rate = rate * math.pow(1.1, math.random() * params:get('echo_drift'))
 			for scv = 1, 2 do
 				softcut.rate(scv, rate)
 			end
