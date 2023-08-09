@@ -744,7 +744,7 @@ function init()
 		end
 	}
 
-	params:add_group('tip', 11)
+	params:add_group('tip', 10)
 
 	params:add {
 		name = 'tip -> amp',
@@ -867,7 +867,7 @@ function init()
 		end
 	}
 
-	params:add_group('palm', 11)
+	params:add_group('palm', 10)
 
 	params:add {
 		name = 'palm -> amp',
@@ -1290,7 +1290,7 @@ function init()
 			}
 		end
 
-		params:add_group('v' .. v .. ' lfo A', 12)
+		params:add_group('v' .. v .. ' lfo A', 11)
 
 		params:add {
 			name = 'lfo A type',
@@ -1406,7 +1406,7 @@ function init()
 			end
 		}
 
-		params:add_group('v' .. v .. ' lfo B', 12)
+		params:add_group('v' .. v .. ' lfo B', 11)
 
 		params:add {
 			name = 'lfo B type',
