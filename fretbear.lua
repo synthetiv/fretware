@@ -229,11 +229,6 @@ function control_engine_voices(method, value)
 	end
 end
 
--- convenience function for exp-ifying a [-1, 1] linear range
-function square_with_sign(n)
-	return n * n * (n < 0 and -1 or 1)
-end
-
 function init()
 
 	-- for p = 1, #poll_names do
@@ -665,7 +660,7 @@ function init()
 		action = function(value)
 			for v = 1, n_voices do
 				-- p2 = tuning. square for finer control near 0 so close detuning is easier
-				engine.p2(v, square_with_sign(value) + square_with_sign(params:get('p2_' .. v)))
+				engine.p2(v, value + params:get('p2_' .. v))
 			end
 		end
 	}
@@ -1225,7 +1220,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.p2(v, square_with_sign(value) + square_with_sign(params:get('p2')))
+				engine.p2(v, value + params:get('p2'))
 			end
 		}
 

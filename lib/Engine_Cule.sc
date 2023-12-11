@@ -245,10 +245,11 @@ Engine_Cule : CroneEngine {
 		SynthDef.new(\sine, {
 			arg fmBus, controlBus, outBus, octave = 0, fmCutoff = 12000, lpCutoff = 23000, hpCutoff = 16, outLevel = 0.2;
 			var pitch, amp, fmIndex, fmRatio, fold, foldBias,
-				hz, modulator, fmMix, carrier, sine;
+				hz, modulator, fmMix, carrier, sine, ratios;
 			# pitch, amp, fmIndex, fmRatio, fold, foldBias = In.kr(controlBus, 6);
+			ratios = Array.fill(8, { |n| (n + 1) / (1..4) }).flatten.as(Set).as(Array).sort;
 			hz = 2.pow(pitch + octave) * In.kr(baseFreqBus);
-			modulator = SinOsc.ar(hz * 2.pow(fmRatio.linlin(-1, 1, -4, 4)));
+			modulator = SinOsc.ar(hz * LinSelectX.kr((fmRatio.lincurve(-1, 1, 0, 1, 1) * ratios.size).softRound(1, 0, 0.85), ratios));
 			fmMix = In.ar(fmBus) + (modulator * fmIndex.linexp(0, 1, 0.01, 10pi));
 			carrier = SinOsc.ar(hz, LPF.ar(fmMix, fmCutoff).mod(2pi));
 			sine = LinXFade2.ar(modulator, carrier, fmIndex.linlin(-1, 0, -1, 1));
