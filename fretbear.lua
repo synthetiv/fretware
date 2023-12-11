@@ -907,7 +907,7 @@ function init()
 
 	params:add {
 		name = 'palm -> p3',
-		id = 'palm_p2',
+		id = 'palm_p3',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, -0.25),
 		action = function(value)
@@ -919,7 +919,7 @@ function init()
 
 	params:add {
 		name = 'palm -> p4',
-		id = 'palm_p2',
+		id = 'palm_p4',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
@@ -1105,7 +1105,7 @@ function init()
 
 	params:add {
 		name = 'eg -> p3',
-		id = 'eg_p2',
+		id = 'eg_p3',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
@@ -1117,7 +1117,7 @@ function init()
 
 	params:add {
 		name = 'eg -> p4',
-		id = 'eg_p2',
+		id = 'eg_p4',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
@@ -1358,7 +1358,7 @@ function init()
 
 		params:add {
 			name = 'lfo A -> p3',
-			id = 'lfo_a_p2_' .. v,
+			id = 'lfo_a_p3_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
@@ -1368,7 +1368,7 @@ function init()
 
 		params:add {
 			name = 'lfo A -> p4',
-			id = 'lfo_a_p2_' .. v,
+			id = 'lfo_a_p4_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
@@ -1475,7 +1475,7 @@ function init()
 
 		params:add {
 			name = 'lfo B -> p3',
-			id = 'lfo_b_p2_' .. v,
+			id = 'lfo_b_p3' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
@@ -1485,7 +1485,7 @@ function init()
 
 		params:add {
 			name = 'lfo B -> p4',
-			id = 'lfo_b_p2_' .. v,
+			id = 'lfo_b_p4_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
