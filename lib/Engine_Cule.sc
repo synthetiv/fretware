@@ -1,6 +1,6 @@
 Engine_Cule : CroneEngine {
 
-	classvar nVoices = 5;
+	classvar nVoices = 7;
 	classvar maxLoopTime = 16;
 
 	var baseFreqBus;
@@ -140,6 +140,8 @@ Engine_Cule : CroneEngine {
 				voice3_fm = 0,
 				voice4_fm = 0,
 				voice5_fm = 0,
+				voice6_fm = 0,
+				voice7_fm = 0,
 
 				egGateTrig = 0,
 				trigLength = 0.01,
@@ -230,7 +232,7 @@ Engine_Cule : CroneEngine {
 			p4 = (p4 + Mix(modulators * [pitch_p4, tip_p4, palm_p4, eg_p4, lfoA_p4, lfoB_p4]));
 
 			// write FM mix to FM bus
-			Out.ar(fmBus, Mix(InFeedback.ar(synthOutBuses) * [voice1_fm, voice2_fm, voice3_fm, voice4_fm, voice5_fm]));
+			Out.ar(fmBus, Mix(InFeedback.ar(synthOutBuses) * [voice1_fm, voice2_fm, voice3_fm, voice4_fm, voice5_fm, voice6_fm, voice7_fm]));
 
 			// write control signals to control bus
 			Out.kr(controlBus, [pitch, amp, p1, p2, p3, p4]);
@@ -706,6 +708,14 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\voice5_fm, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\voice5_fm, msg[2]);
+		});
+		this.addCommand(\voice6_fm, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\voice6_fm, msg[2]);
+		});
+		this.addCommand(\voice7_fm, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\voice7_fm, msg[2]);
 		});
 
 		this.addCommand(\octave, "ii", {

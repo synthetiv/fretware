@@ -3,7 +3,7 @@
 engine.name = 'Cule'
 musicutil = require 'musicutil'
 
-n_voices = 5
+n_voices = 7
 
 Keyboard = include 'lib/keyboard'
 k = Keyboard.new(1, 1, 16, 8)
