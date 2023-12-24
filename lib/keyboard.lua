@@ -110,17 +110,17 @@ function Keyboard:get_pitch_id_value(p)
 end
 
 function Keyboard:key(x, y, z)
-	if x == self.x then
-		if y == self.y2 then
+	if y == self.y2 then
+		if x == self.x then
 			-- shift key
 			self.held_keys.shift = z == 1
-		elseif y == self.y2 - 2 then
+		elseif x == self.x + 2 then
 			-- latch key
 			if z == 1 then
 				self.held_keys.latch = not self.held_keys.latch
 				self:maybe_release_sustained_keys()
 			end
-		elseif y == self.y2 - 3 then
+		elseif x == self.x + 3 then
 			-- arp toggle
 			if z == 1 then
 				self.arping = not self.arping
@@ -132,7 +132,7 @@ function Keyboard:key(x, y, z)
 					self.on_gate(false)
 				end
 			end
-		elseif y == self.y + 2 then
+		elseif x == self.x + 5 then
 			-- glide toggle
 			if z == 1 then
 				self.gliding = not self.gliding
@@ -141,33 +141,33 @@ function Keyboard:key(x, y, z)
 					self.arping = false
 				end
 			end
-		end
-	elseif y == self.y2 and x > self.x2 - 2 then
-		-- octave up/down
-		local d = 0
-		if x == self.x2 - 1 then -- down
-			self.held_keys.down = z == 1
-			d = -1
-		elseif x == self.x2 then -- up
-			self.held_keys.up = z == 1
-			d = 1
-		end
-		if self.held_keys.up and self.held_keys.down then
-			-- if both keys are pressed together, reset octave
-			self.octave = 0
-			if not self.arping or self.n_sustained_keys == 0 then
-				self.on_pitch()
-				if self.n_sustained_keys > 0 and self.gate_mode == 2 and not self.gliding then
-					self.on_gate(true)
-				end
+		elseif x > self.x2 - 2 then
+			-- octave up/down
+			local d = 0
+			if x == self.x2 - 1 then -- down
+				self.held_keys.down = z == 1
+				d = -1
+			elseif x == self.x2 then -- up
+				self.held_keys.up = z == 1
+				d = 1
 			end
-		elseif z == 1 then
-			-- otherwise, jump up or down
-			self.octave = util.clamp(self.octave + d, -5, 5)
-			if not self.arping or self.n_sustained_keys == 0 then
-				self.on_pitch()
-				if self.n_sustained_keys > 0 and self.gate_mode == 2 and not self.gliding then
-					self.on_gate(true)
+			if self.held_keys.up and self.held_keys.down then
+				-- if both keys are pressed together, reset octave
+				self.octave = 0
+				if not self.arping or self.n_sustained_keys == 0 then
+					self.on_pitch()
+					if self.n_sustained_keys > 0 and self.gate_mode == 2 and not self.gliding then
+						self.on_gate(true)
+					end
+				end
+			elseif z == 1 then
+				-- otherwise, jump up or down
+				self.octave = util.clamp(self.octave + d, -5, 5)
+				if not self.arping or self.n_sustained_keys == 0 then
+					self.on_pitch()
+					if self.n_sustained_keys > 0 and self.gate_mode == 2 and not self.gliding then
+						self.on_gate(true)
+					end
 				end
 			end
 		end
@@ -441,10 +441,10 @@ end
 
 function Keyboard:draw()
 	-- TODO: blink editing_sustained_key_index
-	g:led(self.x, self.y + 2, self.gliding and 7 or 2)
-	g:led(self.x, self.y2 - 3, self.arping and 7 or 2)
-	g:led(self.x, self.y2 - 2, self.held_keys.latch and 7 or 2)
 	g:led(self.x, self.y2, self.held_keys.shift and 15 or 6)
+	g:led(self.x + 2, self.y2, self.held_keys.latch and 7 or 2)
+	g:led(self.x + 3, self.y2, self.arping and 7 or 2)
+	g:led(self.x + 5, self.y2, self.gliding and 7 or 2)
 
 	local hand_pitch_low, hand_pitch_high, hand_pitch_weight = self.scale:get_nearest_pitch_id(self.bent_pitch + self.octave, true)
 	local transposed_pitch_low, transposed_pitch_high, transposed_pitch_weight = self.scale:get_nearest_pitch_id(self.bent_pitch + self.transposition + self.octave, true)
@@ -464,9 +464,9 @@ function Keyboard:draw()
 		self.voice_data[v].amp = voice_states[v].amp
 	end
 
-	for x = self.x + 1, self.x2 do
+	for x = self.x, self.x2 do
 		for y = self.y, self.y2 do
-			if y == self.y2 and x > self.x2 - 2 then
+			if y == self.y2 then
 				if x == self.x2 - 1 then
 					local down_level = self.held_keys.down and 7 or 2
 					g:led(x, y, math.min(15, math.max(0, down_level - math.min(self.octave, 0))))

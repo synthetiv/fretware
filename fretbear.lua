@@ -52,11 +52,11 @@ arp_clock = false
 -- poll_values = {}
 
 function g.key(x, y, z)
-	if y >= 1 and y <= 2 and x > 1 and x <= 1 + n_voices then
+	if y < 8 and x <= 2 then
 		if z == 1 then
-			local v = x - 1
+			local v = 8 - y
 			local voice = voice_states[v]
-			if y == 1 then
+			if x == 1 then
 				if voice.frozen then
 					-- stop looping
 					engine.clear_loop(v)
@@ -71,7 +71,7 @@ function g.key(x, y, z)
 					voice.frozen = true
 					voice.loop_armed = false
 				end
-			elseif y == 2 then
+			elseif x == 2 then
 				local now = util.time()
 				if k.held_keys.shift then
 					local delay = now - voice.last_tap
@@ -163,8 +163,8 @@ function grid_redraw()
 			level = level * 0.75 + 0.25
 		end
 		level = 2 + math.floor(level * 14)
-		g:led(v + 1, 1, level)
-		g:led(v + 1, 2, voice.control and (is_lead and 8 or 5) or 1)
+		g:led(1, 8 - v, level)
+		g:led(2, 8 - v, voice.control and (is_lead and 8 or 5) or 1)
 	end
 	g:refresh()
 end
