@@ -251,12 +251,6 @@ function init()
 		grid_redraw()
 	end
 
-	k.on_mask = function()
-		-- local temperament = (k.mask_notes == 'none' or k.ratios == nil) and 12 or 'ji'
-		crow.output[1].scale(k.mask_notes, temperament)
-		-- TODO: send to TT as well, as a bit mask
-	end
-
 	k.on_gate = function(gate)
 		if gate and k.gate_mode == 3 then
 			-- pulse mode

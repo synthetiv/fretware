@@ -9,10 +9,8 @@ end
 
 -- TODO: paraphony with note stack
 -- TODO: quantizer: send inputs to TT and/or crow
--- TODO: send scale mask to TT for use with QT.B <value> <root=0?> <mask>
 -- TODO: quantizer presets (left col, y = [2, 6])
 -- TODO: alt control scheme: use leftmost 2 cols only:
---       edit mask at 1,1
 --       quant presets from 1,2 to 2,6
 --       up/down at 1,7 and 2,7
 --       shift at 1,8; latch at 2,8
@@ -29,7 +27,6 @@ function Keyboard.new(x, y, width, height)
 		y2 = y + height - 1,
 		x_center = 8,
 		y_center = 6,
-		mask_edit = false,
 		arping = false,
 		gliding = false,
 		held_keys = {}, -- map of key names/ids to boolean states
@@ -56,15 +53,10 @@ function Keyboard.new(x, y, width, height)
 		glide_min_target = 0,
 		glide_max_target = 0,
 		scale = Scale.new(et12, 12),
-		mask = { false, false, false, false, false, false, false, false, false, false, false, false },
-		-- TODO: mask presets!
-		mask_notes = 'none', -- for use with Crow output modes
-		mask_edit = false,
 		voice_data = {},
 		-- overridable callbacks
 		on_pitch = function() end,
 		on_gate = function() end,
-		on_mask = function() end,
 		on_arp = function() end
 	}
 	setmetatable(keyboard, Keyboard)
@@ -119,28 +111,7 @@ end
 
 function Keyboard:key(x, y, z)
 	if x == self.x then
-		if y == self.y then
-			-- mask edit key
-			if z == 1 then
-				if self.held_keys.shift then
-					self.scale:set_mask {}
-					self.mask_edit = false
-				else
-					self.mask_edit = not self.mask_edit
-					-- if no mask is active but notes are sustained, build a mask from those notes
-					-- TODO: this ain't working right
-					-- if self.mask_edit and not self.scale.mask_empty and self.n_sustained_keys > 0 then
-					-- 	local mask = {}
-					-- 	for k = 1, self.n_sustained_keys do
-					-- 		local key_id = self.sustained_keys[k]
-					-- 		local pitch_class = self:get_key_id_pitch_id(key_id) % self.scale.length + 1
-					-- 		mask[pitch_class] = true
-					-- 	end
-					-- 	self.scale:set_mask(mask)
-					-- end
-				end
-			end
-		elseif y == self.y2 then
+		if y == self.y2 then
 			-- shift key
 			self.held_keys.shift = z == 1
 		elseif y == self.y2 - 2 then
@@ -199,12 +170,6 @@ function Keyboard:key(x, y, z)
 					self.on_gate(true)
 				end
 			end
-		end
-	elseif self.mask_edit then
-		if z == 1 then
-			pitch_class = self:get_key_pitch_id(x, y) % self.scale.length + 1
-			self.scale.next_mask[pitch_class] = not self.scale.next_mask[pitch_class]
-			self.scale:apply_edits()
 		end
 	else
 		self:note(x, y, z)
@@ -476,16 +441,13 @@ end
 
 function Keyboard:draw()
 	-- TODO: blink editing_sustained_key_index
-	g:led(self.x, self.y, self.mask_edit and 7 or (self.scale.mask_empty and 2 or 5))
 	g:led(self.x, self.y + 2, self.gliding and 7 or 2)
 	g:led(self.x, self.y2 - 3, self.arping and 7 or 2)
 	g:led(self.x, self.y2 - 2, self.held_keys.latch and 7 or 2)
 	g:led(self.x, self.y2, self.held_keys.shift and 15 or 6)
 
-	local hand_pitch_low, hand_pitch_high, hand_pitch_weight = self.scale:get_nearest_mask_pitch_id(self.bent_pitch + self.octave, true)
-	local transposed_pitch_low, transposed_pitch_high, transposed_pitch_weight = self.scale:get_nearest_mask_pitch_id(self.bent_pitch + self.transposition + self.octave, true)
-	-- local sampled_pitch_low, sampled_pitch_high, sampled_pitch_weight = self.scale:get_nearest_mask_pitch_id(detected_pitch + self.transposition + self.bend_value, true)
-	-- local detected_pitch_low, detected_pitch_high, detected_pitch_weight = self.scale:get_nearest_pitch_id(poll_values.pitch - 1, true)
+	local hand_pitch_low, hand_pitch_high, hand_pitch_weight = self.scale:get_nearest_pitch_id(self.bent_pitch + self.octave, true)
+	local transposed_pitch_low, transposed_pitch_high, transposed_pitch_weight = self.scale:get_nearest_pitch_id(self.bent_pitch + self.transposition + self.octave, true)
 
 	-- TODO: remind me why this exists again...
 	local offset = -self.scale.center_pitch_id - self.scale.length * self.octave
@@ -493,13 +455,9 @@ function Keyboard:draw()
 	hand_pitch_high = hand_pitch_high + offset
 	transposed_pitch_low = transposed_pitch_low + offset
 	transposed_pitch_high = transposed_pitch_high + offset
-	-- sampled_pitch_low = sampled_pitch_low + offset
-	-- sampled_pitch_high = sampled_pitch_high + offset
-	-- detected_pitch_low = detected_pitch_low + offset
-	-- detected_pitch_high = detected_pitch_high + offset
 
 	for v = 1, n_voices do
-		local low, high, weight = self.scale:get_nearest_mask_pitch_id(voice_states[v].pitch, true)
+		local low, high, weight = self.scale:get_nearest_pitch_id(voice_states[v].pitch, true)
 		self.voice_data[v].low = low + offset
 		self.voice_data[v].high = high + offset
 		self.voice_data[v].weight = weight
@@ -520,20 +478,9 @@ function Keyboard:draw()
 				local key_id = self:get_key_id(x, y)
 				local p = self:get_key_pitch_id(x, y)
 				local level = 0
-				if self.mask_edit then
-					-- show mask
-					level = self:is_mask_pitch(p) and 4 or 0
-					-- when shift is held, highlight Cs as reference points
-					if self.held_keys.shift and p % self.scale.length == 0 then
-						level = led_blend(level, 2)
-					end
-				else
-					-- highlight mask keys
-					level = self:is_mask_pitch(p) and 3 or 0
-					-- highlight sustained keys
-					if self:is_key_sustained(key_id) then
-						level = led_blend(level, 6)
-					end
+				-- highlight sustained keys
+				if self:is_key_sustained(key_id) then
+					level = led_blend(level, 6)
 				end
 
 				local pitch = self:get_key_id_pitch_value(key_id)
@@ -544,13 +491,6 @@ function Keyboard:draw()
 					elseif p == hand_pitch_high then
 						level = led_blend(level, hand_pitch_weight * 5)
 					end
-					--[[
-					if p == transposed_pitch_low then
-						level = led_blend(level, (1 - transposed_pitch_weight) * 5)
-					elseif p == transposed_pitch_high then
-						level = led_blend(level, transposed_pitch_weight * 5)
-					end
-					--]]
 					for v = 1, n_voices do
 						local voice = self.voice_data[v]
 						-- TODO: why is this so dang dark? oh, there's some kind of interaction between weight and amp, I think?
@@ -560,39 +500,12 @@ function Keyboard:draw()
 							level = led_blend(level, voice.weight * 20 * math.sqrt(voice.amp))
 						end
 					end
-				-- elseif gate_in and do_pitch_detection then
-				-- 	if p == sampled_pitch_low then
-				-- 		level = led_blend(level, (1 - sampled_pitch_weight) * 7)
-				-- 	elseif p == sampled_pitch_high then
-				-- 		level = led_blend(level, sampled_pitch_weight * 7)
-				-- 	end
 				end
-
-				-- if do_pitch_detection then
-				-- 	if p == detected_pitch_low then
-				-- 		level = led_blend(level, (1 - detected_pitch_weight) * 7 * poll_values.clarity)
-				-- 	elseif p == detected_pitch_high then
-				-- 		level = led_blend(level, detected_pitch_weight * 7 * poll_values.clarity)
-				-- 	end
-				-- end
 
 				g:led(x, y, math.min(15, math.ceil(level)))
 			end
 		end
 	end
-end
-
-function Keyboard:is_mask_pitch(p)
-	p = p % self.scale.length
-	return self.scale.mask[p + 1]
-end
-
-function Keyboard:is_white_pitch(p)
-	p = p % 12
-	if p == 0 or p == 2 or p == 4 or p == 5 or p == 7 or p == 9 or p == 11 then
-		return true
-	end
-	return false
 end
 
 function led_blend(a, b)
