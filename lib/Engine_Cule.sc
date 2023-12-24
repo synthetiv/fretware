@@ -247,9 +247,10 @@ Engine_Cule : CroneEngine {
 			var pitch, amp, fmIndex, fmRatio, fold, foldBias,
 				hz, modulator, fmMix, carrier, sine, ratios;
 			# pitch, amp, fmIndex, fmRatio, fold, foldBias = In.kr(controlBus, 6);
-			ratios = Array.fill(8, { |n| (n + 1) / (1..4) }).flatten.as(Set).as(Array).sort;
+			// ratios = Array.fill(8, { |n| (n + 1) / (1..4) }).flatten.asSet.asArray.sort;
+			ratios = [ 1, 2, 3, 6, 8 ].collect({ |n| n / (1..4) }).flatten.asSet.asArray.sort;
 			hz = 2.pow(pitch + octave) * In.kr(baseFreqBus);
-			modulator = SinOsc.ar(hz * LinSelectX.kr((fmRatio.lincurve(-1, 1, 0, 1, 1) * ratios.size).softRound(1, 0, 0.85), ratios));
+			modulator = SinOsc.ar(hz * LinSelectX.kr((fmRatio.linlin(-1, 1, 0, 1) /* .lincurve(-1, 1, 0, 1, 1) */ * ratios.size).softRound(1, 0, 0.93), ratios));
 			fmMix = In.ar(fmBus) + (modulator * fmIndex.linexp(0, 1, 0.01, 10pi));
 			carrier = SinOsc.ar(hz, LPF.ar(fmMix, fmCutoff).mod(2pi));
 			sine = LinXFade2.ar(modulator, carrier, fmIndex.linlin(-1, 0, -1, 1));
