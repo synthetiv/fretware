@@ -242,23 +242,9 @@ function init()
 	end
 
 	k.on_gate = function(gate)
-		if gate and k.gate_mode == 3 then
-			-- pulse mode
-			crow.output[4]()
-			if n_selected_voices > 0 then
-				engine.gate(selected_voices[lead_voice], 1)
-			end
-			-- TODO: finesse this: there should be control over gate time, and this should handle
-			-- overlapping gates
-			clock.run(function()
-				clock.sleep(0.1)
-				control_engine_voices('gate', 0) -- TODO
-			end)
-		else
-			crow.output[4](gate)
-			if n_selected_voices > 0 then
-				engine.gate(selected_voices[lead_voice], gate and 1 or 0)
-			end
+		crow.output[4](gate)
+		if n_selected_voices > 0 then
+			engine.gate(selected_voices[lead_voice], gate and 1 or 0)
 		end
 		if gate and not do_pitch_detection then
 			-- TODO: I've lost track of what this is supposed to do...
@@ -459,18 +445,18 @@ function init()
 		name = 'gate mode',
 		id = 'gate_mode',
 		type = 'option',
-		options = { 'legato', 'retrig', 'pulse' },
+		options = { 'legato', 'retrig' },
 		default = 2,
 		action = function(value)
-			k.gate_mode = value
-			if value == 1 then
+			k.retrig = value == 2
+			if not k.retrig then
 				crow.output[4].action = [[{
 					held { to(8, dyn { delay = 0 }, 'wait') },
 					to(0, 0)
 				}]]
 				crow.output[4].dyn.delay = params:get('gate_delay')
 				crow.output[4](false)
-			elseif value == 2 then
+			else
 				crow.output[4].action = [[{
 					to(0, dyn { delay = 0 }, 'now'),
 					held { to(8, 0) },
@@ -478,14 +464,6 @@ function init()
 				}]]
 				crow.output[4].dyn.delay = params:get('gate_delay')
 				crow.output[4](false)
-			elseif value == 3 then
-				crow.output[4].action = [[{
-					to(0, dyn { delay = 0 }, 'now'),
-					to(8, dyn { length = 0.01 }, 'now'),
-					to(0, 0)
-				}]]
-				crow.output[4].dyn.delay = params:get('gate_delay')
-				crow.output[4].dyn.length = params:get('pulse_length')
 			end
 		end
 	}
@@ -497,18 +475,6 @@ function init()
 		controlspec = controlspec.new(0.001, 0.05, 'lin', 0, 0.001, 's'),
 		action = function(value)
 			crow.output[4].dyn.delay = value
-		end
-	}
-
-	params:add {
-		name = 'pulse length',
-		id = 'pulse_length',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.01, 's'),
-		action = function(value)
-			if params:get('gate_mode') == 3 then
-				crow.output[4].dyn.length = value
-			end
 		end
 	}
 

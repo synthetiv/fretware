@@ -44,7 +44,7 @@ function Keyboard.new(x, y, width, height)
 		active_pitch_id = 0,
 		active_pitch = 0,
 		bent_pitch = 0,
-		gate_mode = 2,
+		retrig = true,
 		bend_range = 0.5,
 		bend_amount = 0,
 		glide_rate = 0.2,
@@ -156,7 +156,7 @@ function Keyboard:key(x, y, z)
 				self.octave = 0
 				if not self.arping or self.n_sustained_keys == 0 then
 					self.on_pitch()
-					if self.n_sustained_keys > 0 and self.gate_mode == 2 and not self.gliding then
+					if self.n_sustained_keys > 0 and self.retrig and not self.gliding then
 						self.on_gate(true)
 					end
 				end
@@ -165,7 +165,7 @@ function Keyboard:key(x, y, z)
 				self.octave = util.clamp(self.octave + d, -5, 5)
 				if not self.arping or self.n_sustained_keys == 0 then
 					self.on_pitch()
-					if self.n_sustained_keys > 0 and self.gate_mode == 2 and not self.gliding then
+					if self.n_sustained_keys > 0 and self.retrig and not self.gliding then
 						self.on_gate(true)
 					end
 				end
@@ -301,8 +301,8 @@ function Keyboard:note(x, y, z)
 			self.arp_insert = self.n_sustained_keys
 			table.insert(self.sustained_keys, key_id)
 			self:set_active_key(key_id)
-			-- set gate high if we're in retrig or pulse mode, or if this is the first note held
-			if (self.gate_mode ~= 1 and not self.gliding) or self.n_sustained_keys == 1 then
+			-- set gate high if we're in retrig mode, or if this is the first note held
+			if (self.retrig and not self.gliding) or self.n_sustained_keys == 1 then
 				self.on_gate(true)
 			end
 		else
@@ -355,7 +355,7 @@ function Keyboard:note(x, y, z)
 			if not self.arping then
 				local released_active_key = key_id == self.active_key
 				self:set_active_key(self.sustained_keys[self.arp_index], true)
-				if released_active_key and self.gate_mode == 2 and not self.gliding then
+				if released_active_key and self.retrig and not self.gliding then
 					self.on_gate(true)
 				end
 			end
