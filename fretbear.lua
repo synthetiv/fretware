@@ -25,9 +25,8 @@ for v = 1, n_voices do
 		control = v == 1,
 		pitch = 0,
 		amp = 0,
-		frozen = false,
-		loop_armed = false,
-		last_tap = util.time()
+		looping = false,
+		loop_armed = false
 	}
 end
 selected_voices = { 1 }
@@ -57,10 +56,10 @@ function g.key(x, y, z)
 			local v = 8 - y
 			local voice = voice_states[v]
 			if x == 1 then
-				if voice.frozen then
+				if voice.looping then
 					-- stop looping
 					engine.clear_loop(v)
-					voice.frozen = false
+					voice.looping = false
 					voice.loop_armed = false
 				elseif not voice.loop_armed then
 					-- get ready to loop (set loop start time here)
@@ -68,11 +67,10 @@ function g.key(x, y, z)
 				else
 					-- start looping
 					engine.set_loop(v, util.time() - voice.loop_armed)
-					voice.frozen = true
+					voice.looping = true
 					voice.loop_armed = false
 				end
 			elseif x == 2 then
-				local now = util.time()
 				voice.control = not voice.control
 				if voice.control then
 					-- force SuperCollider to set delay to 0, to work around the
@@ -98,7 +96,6 @@ function g.key(x, y, z)
 					engine.palm(v, 0)
 					engine.gate(v, 0)
 				end
-				voice.last_tap = now
 			end
 		end
 	else
@@ -149,7 +146,7 @@ function grid_redraw()
 		local is_lead = n_selected_voices > 1 and selected_voices[lead_voice] == v
 		if voice.loop_armed then
 			level = level * 0.5 + 0.5
-		elseif voice.frozen then
+		elseif voice.looping then
 			level = level * 0.75 + 0.25
 		end
 		level = 2 + math.floor(level * 14)
