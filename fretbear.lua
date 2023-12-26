@@ -73,40 +73,30 @@ function g.key(x, y, z)
 				end
 			elseif x == 2 then
 				local now = util.time()
-				if k.held_keys.shift then
-					local delay = now - voice.last_tap
-					-- if would-be tapped delay time is out of range, don't modify the time
-					if delay < 8 then
-						params:set('delay_' .. v, delay)
-					end
+				voice.control = not voice.control
+				if voice.control then
+					-- force SuperCollider to set delay to 0, to work around the
+					-- weird bug that sometimes makes delay something else
+					engine.delay(v, 0)
+					table.insert(selected_voices, v)
+					n_selected_voices = n_selected_voices + 1
+					lead_voice = n_selected_voices
+					send_pitch_volts()
 				else
-					voice.control = not voice.control
-					if voice.control then
-						params:set('delay_' .. v, 0)
-						-- since delay param is likely already set to 0, the above may have no effect;
-						-- so force SuperCollider to set delay to 0, to work around the weird bug that
-						-- sometimes makes delay something other than 0
-						engine.delay(v, 0)
-						table.insert(selected_voices, v)
-						n_selected_voices = n_selected_voices + 1
-						lead_voice = n_selected_voices
-						send_pitch_volts()
-					else
-						local sv = 1
-						while sv <= n_selected_voices do
-							if selected_voices[sv] == v then
-								table.remove(selected_voices, sv)
-								n_selected_voices = n_selected_voices - 1
-								lead_voice = n_selected_voices
-								send_pitch_volts()
-							else
-								sv = sv + 1
-							end
+					local sv = 1
+					while sv <= n_selected_voices do
+						if selected_voices[sv] == v then
+							table.remove(selected_voices, sv)
+							n_selected_voices = n_selected_voices - 1
+							lead_voice = n_selected_voices
+							send_pitch_volts()
+						else
+							sv = sv + 1
 						end
-						engine.tip(v, 0)
-						engine.palm(v, 0)
-						engine.gate(v, 0)
 					end
+					engine.tip(v, 0)
+					engine.palm(v, 0)
+					engine.gate(v, 0)
 				end
 				voice.last_tap = now
 			end
@@ -1155,16 +1145,6 @@ function init()
 	for v = 1, n_voices do
 
 		params:add_separator('int voice ' .. v)
-
-		params:add {
-			name = 'delay',
-			id = 'delay_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 8, 'lin', 0, 0, 's'),
-			action = function(value)
-				engine.delay(v, value)
-			end
-		}
 
 		params:add {
 			name = 'loop position',
