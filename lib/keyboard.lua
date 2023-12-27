@@ -481,7 +481,6 @@ function Keyboard:draw()
 
 				for v = 1, n_voices do
 					local voice = self.voice_data[v]
-					-- TODO: why is this so dang dark? oh, there's some kind of interaction between weight and amp, I think?
 					if p == voice.low then
 						level = led_blend(level, (1 - voice.weight) * ((voice.control and 5 or 0) + 20 * math.sqrt(voice.amp)))
 					elseif p == voice.high then
