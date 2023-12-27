@@ -165,7 +165,9 @@ Engine_Cule : CroneEngine {
 			delayPhase = bufferPhase - (delay * bufferRate).max(1);
 			loopStart = bufferPhase - (loopLength * bufferRate).min(bufferLength);
 			loopPhase = Phasor.kr(freeze, bufferRateScale, loopStart, bufferPhase, loopStart);
-			loopTrigger = BinaryOpUGen.new('==', loopPhase, loopStart);
+			// TODO: confirm that this is really firing when it's supposed to (i.e. when loopPhase
+			// resets)! if not, either fix it, or do away with it
+			loopTrigger = Trig.kr(BinaryOpUGen.new('==', loopPhase, loopStart));
 			loopOffset = Latch.kr(bufferLength - (loopLength * bufferRate), loopTrigger) * loopPosition;
 			loopPhase = loopPhase - loopOffset;
 			BufWr.kr([pitch, tip, palm, amp], buffer, bufferPhase);
