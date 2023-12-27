@@ -258,8 +258,14 @@ function init()
 	softcut.level(2, 0.8)
 
 	-- set up polls
+	-- TODO: why does it take so long to receive the first poll data from SC??
+	local voice_polls_ready = false
 	for v = 1, n_voices do
 		local pitch_poll = poll.set('pitch_' .. v, function(value)
+			if not voice_polls_ready then
+				print('voice polls ready!')
+				voice_polls_ready = true
+			end
 			voice_states[v].pitch = value
 			grid_redraw()
 		end)
