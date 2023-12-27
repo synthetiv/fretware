@@ -481,10 +481,11 @@ function Keyboard:draw()
 
 				for v = 1, n_voices do
 					local voice = self.voice_data[v]
+					local is_control = voice.control and 1 or 0
 					if p == voice.low then
-						level = led_blend(level, (1 - voice.weight) * ((voice.control and 5 or 0) + 20 * math.sqrt(voice.amp)))
+						level = led_blend(level, (1 - voice.weight) * ((is_control * 4) + (is_control * 3 + 16) * math.sqrt(voice.amp)))
 					elseif p == voice.high then
-						level = led_blend(level, voice.weight * ((voice.control and 5 or 0) + 20 * math.sqrt(voice.amp)))
+						level = led_blend(level, voice.weight * ((is_control * 4) + (is_control * 3 + 16) * math.sqrt(voice.amp)))
 					end
 				end
 
