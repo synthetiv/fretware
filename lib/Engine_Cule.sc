@@ -221,7 +221,7 @@ Engine_Cule : CroneEngine {
 			pitch = pitch + detune + Mix([eg, lfoA, lfoB] * [eg_pitch, lfoA_pitch, lfoB_pitch]);
 
 			// send control values to polls, both regularly (replyRate Hz) and immediately when gate goes high or when voice loops
-			SendReply.kr(trig: Impulse.kr(replyRate) + t_trig + loopTrigger, cmdName: '/voicePitchAmp', values: [voiceIndex, pitch, amp]);
+			SendReply.kr(trig: Impulse.kr(replyRate) + Changed.kr(pitch, 0.04), cmdName: '/voicePitchAmp', values: [voiceIndex, pitch, amp]);
 
 			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
 			// if I try that, SC seems to just hang forever, no error message
