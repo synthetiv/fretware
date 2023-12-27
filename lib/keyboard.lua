@@ -446,15 +446,8 @@ function Keyboard:draw()
 	g:led(self.x + 3, self.y2, self.arping and 7 or 2)
 	g:led(self.x + 5, self.y2, self.gliding and 7 or 2)
 
-	local hand_pitch_low, hand_pitch_high, hand_pitch_weight = self.scale:get_nearest_pitch_id(self.bent_pitch + self.octave, true)
-	local transposed_pitch_low, transposed_pitch_high, transposed_pitch_weight = self.scale:get_nearest_pitch_id(self.bent_pitch + self.transposition + self.octave, true)
-
 	-- TODO: remind me why this exists again...
 	local offset = -self.scale.center_pitch_id - self.scale.length * self.octave
-	hand_pitch_low = hand_pitch_low + offset
-	hand_pitch_high = hand_pitch_high + offset
-	transposed_pitch_low = transposed_pitch_low + offset
-	transposed_pitch_high = transposed_pitch_high + offset
 
 	for v = 1, n_voices do
 		local low, high, weight = self.scale:get_nearest_pitch_id(voice_states[v].pitch, true)
@@ -462,6 +455,7 @@ function Keyboard:draw()
 		self.voice_data[v].high = high + offset
 		self.voice_data[v].weight = weight
 		self.voice_data[v].amp = voice_states[v].amp
+		self.voice_data[v].control = voice_states[v].control
 	end
 
 	for x = self.x, self.x2 do
@@ -485,20 +479,13 @@ function Keyboard:draw()
 
 				local pitch = self:get_key_id_pitch_value(key_id)
 
-				if not do_pitch_detection or self.n_sustained_keys > 0 then
-					if p == hand_pitch_low then
-						level = led_blend(level, (1 - hand_pitch_weight) * 5)
-					elseif p == hand_pitch_high then
-						level = led_blend(level, hand_pitch_weight * 5)
-					end
-					for v = 1, n_voices do
-						local voice = self.voice_data[v]
-						-- TODO: why is this so dang dark? oh, there's some kind of interaction between weight and amp, I think?
-						if p == voice.low then
-							level = led_blend(level, (1 - voice.weight) * 20 * math.sqrt(voice.amp))
-						elseif p == voice.high then
-							level = led_blend(level, voice.weight * 20 * math.sqrt(voice.amp))
-						end
+				for v = 1, n_voices do
+					local voice = self.voice_data[v]
+					-- TODO: why is this so dang dark? oh, there's some kind of interaction between weight and amp, I think?
+					if p == voice.low then
+						level = led_blend(level, (1 - voice.weight) * ((voice.control and 5 or 0) + 20 * math.sqrt(voice.amp)))
+					elseif p == voice.high then
+						level = led_blend(level, voice.weight * ((voice.control and 5 or 0) + 20 * math.sqrt(voice.amp)))
 					end
 				end
 

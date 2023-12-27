@@ -11,8 +11,6 @@ k = Keyboard.new(1, 1, 16, 8)
 echo_rate = 1
 echo_div_dirty = true
 
--- tt_chord = 0
-
 redraw_metro = nil
 
 g = grid.connect()
@@ -35,20 +33,9 @@ lead_voice = 1
 
 tip = 0
 palm = 0
-do_pitch_detection = false
--- pitch_poll = nil
-detected_pitch = 0
 gate_in = false
 
 arp_clock = false
-
--- poll_names = {
--- 	'pitch',
--- 	'amp',
--- 	'clarity',
--- }
--- polls = {}
--- poll_values = {}
 
 function g.key(x, y, z)
 	if y < 8 and x <= 2 then
@@ -165,14 +152,6 @@ function crow_init()
 		gate_in = gate
 		if params:get('arp_clock_source') == 2 and k.arping and k.n_sustained_keys > 0 then
 			k:arp(gate)
-		else
-			-- if gate then
-			-- 	detected_pitch = poll_values.pitch - 1
-			-- 	if do_pitch_detection then
-			-- 		crow.ii.tt.script_v(2, util.clamp(k.scale:snap(detected_pitch + k.transposition), -5, 5))
-			-- 	end
-			-- 	k.on_pitch()
-			-- end
 		end
 	end
 	crow.input[1].mode('change', 1, 0.01, 'both')
@@ -218,22 +197,8 @@ end
 
 function init()
 
-	-- for p = 1, #poll_names do
-	-- 	local name = poll_names[p]
-	-- 	poll_values[name] = 0
-	-- 	local new_poll = poll.set(name, function(value)
-	-- 		poll_values[name] = value
-	-- 	end)
-	-- 	new_poll.time = 1 / 10
-	-- 	new_poll:start()
-	-- 	polls[name] = new_poll
-	-- end
-
 	k.on_pitch = function()
 		local pitch = k.active_pitch + k.octave
-		if do_pitch_detection and k.n_sustained_keys < 1 then
-			pitch = util.clamp(detected_pitch + k.transposition, -5, 5)
-		end
 		send_pitch_volts()
 		grid_redraw()
 	end
@@ -242,10 +207,6 @@ function init()
 		crow.output[4](gate)
 		if n_selected_voices > 0 then
 			engine.gate(selected_voices[lead_voice], gate and 1 or 0)
-		end
-		if gate and not do_pitch_detection then
-			-- TODO: I've lost track of what this is supposed to do...
-			crow.ii.tt.script_v(2, k.scale:snap(k.active_pitch + k.transposition))
 		end
 	end
 
@@ -1463,17 +1424,6 @@ function init()
 	-- ...and yeah, control from keyboard. you'll want that again
 
 	params:add {
-		name = 'pitch detection',
-		id = 'pitch_detection',
-		type = 'option',
-		options = { 'off', 'on' },
-		default = 1,
-		action = function(value)
-			do_pitch_detection = value == 2
-		end
-	}
-
-	params:add {
 		type = 'file',
 		id = 'tuning_file',
 		name = 'tuning_file',
@@ -1543,10 +1493,4 @@ function cleanup()
 	if redraw_metro ~= nil then
 		redraw_metro:stop()
 	end
-	-- for p = 1, #poll_names do
-	-- 	local name = poll_names[p]
-	-- 	if polls[name] ~= nil then
-	-- 		polls[name]:stop()
-	-- 	end
-	-- end
 end
