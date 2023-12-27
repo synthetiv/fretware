@@ -351,12 +351,12 @@ function init()
 	}
 
 	params:add {
-		name = 'arp direction (1=fwd)',
-		id = 'arp_direction',
+		name = 'arp randomness',
+		id = 'arp_randomness',
 		type = 'control',
-		controlspec = controlspec.new(0, 1, 'lin', 0, 1),
+		controlspec = controlspec.new(0, 100, 'lin', 1, 0, '%'),
 		action = function(value)
-			k.arp_forward_probability = value
+			k.arp_randomness = value / 100
 		end
 	}
 

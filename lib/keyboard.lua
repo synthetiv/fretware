@@ -35,7 +35,7 @@ function Keyboard.new(x, y, width, height)
 		editing_sustained_key_index = false,
 		arp_index = 0,
 		arp_insert = 0,
-		arp_forward_probability = 1,
+		arp_randomness = 0,
 		octave = 0,
 		transposition = 0,
 		active_key = 0,
@@ -368,15 +368,13 @@ end
 function Keyboard:arp(gate)
 	if self.arping and self.n_sustained_keys > 0 then
 		if gate then
-			-- < works well with Lua's random range of [0,1):
-			-- 0 prob really will be 0%, and 1.0 prob really will be 100%
-			if math.random() < self.arp_forward_probability then
-				-- advance
-				self.arp_index = self.arp_index % self.n_sustained_keys + 1
-			else
-				-- retreat
-				self.arp_index = (self.arp_index - 2) % self.n_sustained_keys + 1
+			-- at randomness = 0, step size is always 1; at randomness = 1, step size varies from
+			-- (-n/2 + 1) to (n/2), but is never zero
+			local step_size = math.ceil((math.random() - 0.5) * self.arp_randomness * self.n_sustained_keys + 0.5)
+			if step_size < 1 then
+				step_size = step_size - 1
 			end
+			self.arp_index = (self.arp_index + step_size - 1) % self.n_sustained_keys + 1
 			self.arp_insert = self.arp_index
 			self:set_active_key(self.sustained_keys[self.arp_index])
 			self.on_arp()
