@@ -41,19 +41,19 @@ editor = {
 
 dest_dials = {
 	-- x, y, size, value, min_value, max_value, rounding, start_value, markers, units, title
-	p1 = ui.Dial.new( 88,  2, 18, 0, -1, 1, 0.01, 0, { 0 }),
-	p2 = ui.Dial.new(110,  2, 18, 0, -1, 1, 0.01, 0, { 0 }),
-	p3 = ui.Dial.new( 88, 32, 18, 0, -1, 1, 0.01, 0, { 0 }),
-	p4 = ui.Dial.new(110, 32, 18, 0, -1, 1, 0.01, 0, { 0 })
+	p1 = ui.Dial.new( 87,  2, 18, 0, -1, 1, 0.01, 0, { 0 }),
+	p2 = ui.Dial.new(109,  2, 18, 0, -1, 1, 0.01, 0, { 0 }),
+	p3 = ui.Dial.new( 87, 32, 18, 0, -1, 1, 0.01, 0, { 0 }),
+	p4 = ui.Dial.new(109, 32, 18, 0, -1, 1, 0.01, 0, { 0 })
 }
 
 source_dials = {}
 for s = 1, #editor.dest_names do
 	source_dials[editor.dest_names[s]] = {
-		palm   = ui.Dial.new( 1,  2, 12, 0, -1, 1, 0.01, 0),
-		tip  = ui.Dial.new(18,  2, 12, 0, -1, 1, 0.01, 0),
-		pitch = ui.Dial.new( 1, 22, 12, 0, -1, 1, 0.01, 0),
-		eg    = ui.Dial.new(18, 22, 12, 0, -1, 1, 0.01, 0)
+		palm  = ui.Dial.new( 2,  2, 12, 0, -1, 1, 0.01, 0),
+		tip   = ui.Dial.new(19,  2, 12, 0, -1, 1, 0.01, 0),
+		pitch = ui.Dial.new( 2, 22, 12, 0, -1, 1, 0.01, 0),
+		eg    = ui.Dial.new(19, 22, 12, 0, -1, 1, 0.01, 0)
 		-- ui.Dial.new( 10, 42, 12, 0, -1, 1, 0.01, 0),
 	}
 end
