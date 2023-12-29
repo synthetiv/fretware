@@ -2,6 +2,7 @@
 
 engine.name = 'Cule'
 musicutil = require 'musicutil'
+ui = require 'ui'
 
 n_voices = 7
 
@@ -16,6 +17,46 @@ redraw_metro = nil
 g = grid.connect()
 
 touche = midi.connect(1)
+
+-- TODO: I think I want palm & tip to be squared when used as mod sources for things other than amp
+
+editor = {
+	shift = false,
+	source_names = {
+		'palm',
+		'tip',
+		'pitch',
+		'eg'
+		-- TODO: LFO
+	},
+	dest_names = {
+		'p1',
+		'p2',
+		'p3',
+		'p4'
+	},
+	source = 1, -- tip, palm, pitch, EG (, LFO, LFO2...)
+	dest = 1, -- p1, p2, p3, p4 (, rates...)
+}
+
+dest_dials = {
+	-- x, y, size, value, min_value, max_value, rounding, start_value, markers, units, title
+	p1 = ui.Dial.new( 88,  2, 18, 0, -1, 1, 0.01, 0, { 0 }),
+	p2 = ui.Dial.new(110,  2, 18, 0, -1, 1, 0.01, 0, { 0 }),
+	p3 = ui.Dial.new( 88, 32, 18, 0, -1, 1, 0.01, 0, { 0 }),
+	p4 = ui.Dial.new(110, 32, 18, 0, -1, 1, 0.01, 0, { 0 })
+}
+
+source_dials = {}
+for s = 1, #editor.dest_names do
+	source_dials[editor.dest_names[s]] = {
+		palm   = ui.Dial.new( 1,  2, 12, 0, -1, 1, 0.01, 0),
+		tip  = ui.Dial.new(18,  2, 12, 0, -1, 1, 0.01, 0),
+		pitch = ui.Dial.new( 1, 22, 12, 0, -1, 1, 0.01, 0),
+		eg    = ui.Dial.new(18, 22, 12, 0, -1, 1, 0.01, 0)
+		-- ui.Dial.new( 10, 42, 12, 0, -1, 1, 0.01, 0),
+	}
+end
 
 voice_states = {}
 for v = 1, n_voices do
@@ -58,6 +99,7 @@ function g.key(x, y, z)
 					voice.loop_armed = false
 				end
 			elseif x == 2 then
+				-- TODO: is this stuff useful now?
 				voice.control = not voice.control
 				if voice.control then
 					-- force SuperCollider to set delay to 0, to work around the
@@ -554,6 +596,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
+			dest_dials.p1:set_value(value)
 			for v = 1, n_voices do
 				engine.p1(v, value + params:get('p1_' .. v))
 			end
@@ -566,6 +609,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
+			dest_dials.p2:set_value(value)
 			for v = 1, n_voices do
 				-- p2 = tuning. square for finer control near 0 so close detuning is easier
 				engine.p2(v, value + params:get('p2_' .. v))
@@ -579,6 +623,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
+			dest_dials.p3:set_value(value)
 			for v = 1, n_voices do
 				engine.p3(v, value + params:get('p3_' .. v))
 			end
@@ -591,6 +636,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
+			dest_dials.p4:set_value(value)
 			for v = 1, n_voices do
 				engine.p4(v, value + params:get('p4_' .. v))
 			end
@@ -605,6 +651,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
+			source_dials.p1.pitch:set_value(value)
 			for v = 1, n_voices do
 				engine.pitch_p1(v, value)
 			end
@@ -617,6 +664,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
+			source_dials.p2.pitch:set_value(value)
 			for v = 1, n_voices do
 				engine.pitch_p2(v, value)
 			end
@@ -629,6 +677,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
+			source_dials.p3.pitch:set_value(value)
 			for v = 1, n_voices do
 				engine.pitch_p3(v, value)
 			end
@@ -641,6 +690,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
+			source_dials.p4.pitch:set_value(value)
 			for v = 1, n_voices do
 				engine.pitch_p4(v, value)
 			end
@@ -649,6 +699,10 @@ function init()
 
 	params:add_group('tip', 10)
 
+	-- TODO: this doesn't need to be a parameter anymore, I don't think.
+	-- same for palm -> amp, etc.
+	-- you can even rework the engine with that in mind. make other modulators scale a base value
+	-- derived from tip or EG or constant 1.0.
 	params:add {
 		name = 'tip -> amp',
 		id = 'tip_amp',
@@ -668,6 +722,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
+			source_dials.p1.tip:set_value(value)
 			for v = 1, n_voices do
 				engine.tip_p1(v, value)
 			end
@@ -680,6 +735,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
+			source_dials.p2.tip:set_value(value)
 			for v = 1, n_voices do
 				engine.tip_p2(v, value)
 			end
@@ -692,6 +748,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
+			source_dials.p3.tip:set_value(value)
 			for v = 1, n_voices do
 				engine.tip_p3(v, value)
 			end
@@ -704,6 +761,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
+			source_dials.p4.tip:set_value(value)
 			for v = 1, n_voices do
 				engine.tip_p4(v, value)
 			end
@@ -790,6 +848,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, -0.25),
 		action = function(value)
+			source_dials.p1.palm:set_value(value)
 			for v = 1, n_voices do
 				engine.palm_p1(v, value)
 			end
@@ -802,6 +861,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
+			source_dials.p2.palm:set_value(value)
 			for v = 1, n_voices do
 				engine.palm_p2(v, value)
 			end
@@ -814,6 +874,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, -0.25),
 		action = function(value)
+			source_dials.p3.palm:set_value(value)
 			for v = 1, n_voices do
 				engine.palm_p3(v, value)
 			end
@@ -826,6 +887,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
+			source_dials.p4.palm:set_value(value)
 			for v = 1, n_voices do
 				engine.palm_p4(v, value)
 			end
@@ -942,6 +1004,9 @@ function init()
 		end
 	}
 
+	-- TODO: what is 'eg amount' again...? nothing, right?
+	-- same for LFO... it doesn't make sense as a param on its own but it does make sense as a
+	-- modulation destination for other stuff
 	params:add {
 		name = 'amount',
 		id = 'eg_amount',
@@ -988,6 +1053,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
+			source_dials.p1.eg:set_value(value)
 			for v = 1, n_voices do
 				engine.eg_p1(v, value)
 			end
@@ -1000,6 +1066,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
+			source_dials.p2.eg:set_value(value)
 			for v = 1, n_voices do
 				engine.eg_p2(v, value)
 			end
@@ -1012,6 +1079,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
+			source_dials.p3.eg:set_value(value)
 			for v = 1, n_voices do
 				engine.eg_p3(v, value)
 			end
@@ -1024,6 +1092,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
+			source_dials.p4.eg:set_value(value)
 			for v = 1, n_voices do
 				engine.eg_p4(v, value)
 			end
@@ -1416,6 +1485,9 @@ function init()
 			end
 		}
 
+		norns.enc.accel(1, false)
+		norns.enc.sens(1, 8)
+
 	end
 
 	params:add_separator('etc')
@@ -1475,17 +1547,44 @@ function ampdb(amp)
 end
 
 function redraw()
-	-- TODO: show held pitch(es), bend, amp/damp
+	-- TODO: show held pitch(es) based on how they're specified in scala file!!; indicate bend/glide
 	screen.clear()
+	screen.fill() -- prevent a flash of stroke when leaving system UI
+	for s = 1, #editor.source_names do
+		local dial = source_dials[editor.dest_names[editor.dest]][editor.source_names[s]]
+		dial:set_active(editor.source == s)
+		dial:redraw()
+	end
+	for d = 1, #editor.dest_names do
+		local dial = dest_dials[editor.dest_names[d]]
+		dial:set_active(editor.dest == d)
+		dial:redraw()
+	end
 	screen.update()
 end
 
 function enc(n, d)
-	-- TODO: adjust slew, bend range
+	if n == 1 then
+		editor.source = (editor.source + d - 1) % #editor.source_names + 1
+	elseif n == 2 then
+		params:delta(editor.source_names[editor.source] .. '_' .. editor.dest_names[editor.dest], d)
+	elseif n == 3 then
+		params:delta(editor.dest_names[editor.dest], d)
+	end
+	-- TODO: if editor.shift, edit mod source properties:
+	-- A/R, LFO shape/rate...
+	-- OR... allow mod-modding
 end
 
 function key(n, z)
-	if z == 1 then
+	if n == 1 then
+		editor.shift = z == 1
+	elseif z == 1 then
+		if n == 2 then
+			editor.dest = (editor.dest - 2) % #editor.dest_names + 1
+		elseif n == 3 then
+			editor.dest = editor.dest % #editor.dest_names + 1
+		end
 	end
 end
 

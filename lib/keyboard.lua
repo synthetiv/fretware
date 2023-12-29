@@ -7,15 +7,32 @@ for p = 1, 12 do
 	et12[p] = p / 12
 end
 
--- TODO: paraphony with note stack
--- TODO: quantizer: send inputs to TT and/or crow
--- TODO: quantizer presets (left col, y = [2, 6])
--- TODO: alt control scheme: use leftmost 2 cols only:
---       quant presets from 1,2 to 2,6
---       up/down at 1,7 and 2,7
---       shift at 1,8; latch at 2,8
 -- TODO: panic function, for when a note gets stuck due to momentary grid connection loss
 --       or whatever it is that causes that
+
+-- TODO: VOICE CONTROL MODES:
+--
+-- 1. MONO, select voice manually
+-- volume envelope is ADSR or touche tip
+-- glide from any note to any other
+-- 1 arp controls selected voice only
+-- ...eventually: 7 arps control each voice independently :O
+-- left grid column selects voice
+-- each voice may be looped (using double taps, maybe?)
+--
+-- 2. PARALLEL VOICES, each row of keys controls 1 voice
+-- volume envelope is either ADSR or (tip * AR)
+-- glide from any note to any other IN THAT ROW
+-- -- and if >1 key is held in one voice and 1 key in another,
+--    the voice with 1 key should have NO glide (not even vibrato)
+-- 1 arp scrolls/strums thru selected voices
+-- left grid column enables arp for voices
+--
+-- 3. POLYPHONIC, with LRU voice stealing
+-- volume envelope is either ADSR or (tip * AR)
+-- no glide... for now
+-- 1 arp plays a sequence distributed across a selection of voices
+-- left grid column enables arp for voices
 
 function Keyboard.new(x, y, width, height)
 	local keyboard = {
