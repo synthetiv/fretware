@@ -698,7 +698,7 @@ function init()
 		end
 	}
 
-	params:add_group('tip', 9)
+	params:add_group('tip', 8)
 
 	params:add {
 		name = 'tip -> p1',
@@ -753,18 +753,6 @@ function init()
 	}
 
 	params:add {
-		name = 'tip -> eg amt',
-		id = 'tip_eg_amount',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 1),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.tip_eg_amount(v, value)
-			end
-		end
-	}
-
-	params:add {
 		name = 'tip -> lfo A freq',
 		id = 'tip_lfo_a_freq',
 		type = 'control',
@@ -812,7 +800,7 @@ function init()
 		end
 	}
 
-	params:add_group('palm', 9)
+	params:add_group('palm', 8)
 
 	params:add {
 		name = 'palm -> p1',
@@ -862,18 +850,6 @@ function init()
 			source_dials.p4.palm:set_value(value)
 			for v = 1, n_voices do
 				engine.palm_p4(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'palm -> eg amt',
-		id = 'palm_eg_amount',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.palm_eg_amount(v, value)
 			end
 		end
 	}
@@ -972,21 +948,6 @@ function init()
 		action = function(value)
 			for v = 1, n_voices do
 				engine.release(v, value)
-			end
-		end
-	}
-
-	-- TODO: what is 'eg amount' again...? nothing, right?
-	-- same for LFO... it doesn't make sense as a param on its own but it does make sense as a
-	-- modulation destination for other stuff
-	params:add {
-		name = 'amount',
-		id = 'eg_amount',
-		type = 'control',
-		controlspec = controlspec.new(0, 1, 'lin', 0, 1),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.eg_amount(v, value)
 			end
 		end
 	}
@@ -1212,7 +1173,7 @@ function init()
 			}
 		end
 
-		params:add_group('v' .. v .. ' lfo A', 11)
+		params:add_group('v' .. v .. ' lfo A', 10)
 
 		params:add {
 			name = 'lfo A type',
@@ -1299,16 +1260,6 @@ function init()
 		}
 
 		params:add {
-			name = 'lfo A -> eg amt',
-			id = 'lfo_a_eg_amount_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfo_a_eg_amount(v, value)
-			end
-		}
-
-		params:add {
 			name = 'lfo A -> lfo B freq',
 			id = 'lfo_a_lfo_b_freq_' .. v,
 			type = 'control',
@@ -1328,7 +1279,7 @@ function init()
 			end
 		}
 
-		params:add_group('v' .. v .. ' lfo B', 11)
+		params:add_group('v' .. v .. ' lfo B', 10)
 
 		params:add {
 			name = 'lfo B type',
@@ -1412,16 +1363,6 @@ function init()
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.lfo_b_p4(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo B -> eg amt',
-			id = 'lfo_b_eg_amount_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfo_b_eg_amount(v, value)
 			end
 		}
 

@@ -60,7 +60,6 @@ Engine_Cule : CroneEngine {
 				decay = 0.1,
 				sustain = 0.8,
 				release = 0.3,
-				egAmount = 1,
 				lfoAType = 0,
 				lfoAFreq = 0.9,
 				lfoAAmount = 1,
@@ -79,7 +78,6 @@ Engine_Cule : CroneEngine {
 				tip_p3 = 0,
 				tip_p4 = 0,
 				// TODO: include EG times as mod destinations
-				tip_egAmount = 0,
 				tip_lfoAFreq = 0,
 				tip_lfoAAmount = 0,
 				tip_lfoBFreq = 0,
@@ -89,7 +87,6 @@ Engine_Cule : CroneEngine {
 				palm_p2 = 0,
 				palm_p3 = 0,
 				palm_p4 = 0,
-				palm_egAmount = 0,
 				palm_lfoAFreq = 0,
 				palm_lfoAAmount = 0,
 				palm_lfoBFreq = 0,
@@ -111,7 +108,6 @@ Engine_Cule : CroneEngine {
 				lfoA_p2 = 0,
 				lfoA_p3 = 0,
 				lfoA_p4 = 0,
-				lfoA_egAmount = 0,
 				lfoA_lfoBFreq = 0,
 				lfoA_lfoBAmount = 0,
 
@@ -121,7 +117,6 @@ Engine_Cule : CroneEngine {
 				lfoB_p2 = 0,
 				lfoB_p3 = 0,
 				lfoB_p4 = 0,
-				lfoB_egAmount = 0,
 				lfoB_lfoAFreq = 0,
 				lfoB_lfoAAmount = 0,
 
@@ -196,12 +191,7 @@ Engine_Cule : CroneEngine {
 			eg = EnvGen.kr(
 				Env.adsr(attack, decay, sustain, release),
 				gateOrTrig,
-				// TODO: "amounts" are a poor replacement for multiplication within
-				// a given modulation routing, e.g. (env * (0.5 + tip)) -> p1.
-				// that ^ could be described as multiplying at the input, while
-				// amounts multiply at the output (EG will be scaled like this no
-				// matter where it's used).
-				egAmount + Mix(modulators * [0, tip_egAmount, palm_egAmount, 0, lfoA_egAmount, lfoB_egAmount])
+				-6.dbamp
 			);
 
 			// TODO: if you cool it with some of these LFOs, can you bring back SinOscFB?
@@ -459,11 +449,6 @@ Engine_Cule : CroneEngine {
 			controlSynths[msg[1] - 1].set(\release, msg[2]);
 		});
 
-		this.addCommand(\eg_amount, "if", {
-			arg msg;
-			controlSynths[msg[1] - 1].set(\egAmount, msg[2]);
-		});
-
 		this.addCommand(\p1, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\p1, msg[2]);
@@ -507,10 +492,6 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\tip_p4, msg[2]);
 		});
-		this.addCommand(\tip_eg_amount, "if", {
-			arg msg;
-			controlSynths[msg[1] - 1].set(\tip_egAmount, msg[2]);
-		});
 		this.addCommand(\tip_lfo_a_freq, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\tip_lfoAFreq, msg[2]);
@@ -543,10 +524,6 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\palm_p4, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\palm_p4, msg[2]);
-		});
-		this.addCommand(\palm_eg_amount, "if", {
-			arg msg;
-			controlSynths[msg[1] - 1].set(\palm_egAmount, msg[2]);
 		});
 		this.addCommand(\palm_lfo_a_freq, "if", {
 			arg msg;
@@ -626,10 +603,6 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\lfoA_p4, msg[2]);
 		});
-		this.addCommand(\lfo_a_eg_amount, "if", {
-			arg msg;
-			controlSynths[msg[1] - 1].set(\lfoA_egAmount, msg[2]);
-		});
 		this.addCommand(\lfo_a_lfo_b_freq, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\lfoA_lfoBFreq, msg[2]);
@@ -662,10 +635,6 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\lfo_b_p4, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\lfoB_p4, msg[2]);
-		});
-		this.addCommand(\lfo_b_eg_amount, "if", {
-			arg msg;
-			controlSynths[msg[1] - 1].set(\lfoB_egAmount, msg[2]);
 		});
 		this.addCommand(\lfo_b_lfo_a_freq, "if", {
 			arg msg;
