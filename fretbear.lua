@@ -567,6 +567,19 @@ function init()
 	params:add_separator('ALL int voices')
 
 	params:add {
+		name = 'amp mode',
+		id = 'amp_mode',
+		type = 'option',
+		options = { 'tip', 'tip*ar', 'adsr' },
+		default = 1,
+		action = function(value)
+			for v = 1, n_voices do
+				engine.amp_mode(v, value)
+			end
+		end
+	}
+
+	params:add {
 		name = 'pitch lag',
 		id = 'pitch_lag',
 		type = 'control',
@@ -574,18 +587,6 @@ function init()
 		action = function(value)
 			for v = 1, n_voices do
 				engine.pitch_slew(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'other lag',
-		id = 'other_lag',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.1, 's'),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.lag(v, value)
 			end
 		end
 	}
@@ -697,24 +698,7 @@ function init()
 		end
 	}
 
-	params:add_group('tip', 10)
-
-	-- TODO: this doesn't need to be a parameter anymore, I don't think.
-	-- same for palm -> amp, etc.
-	-- you can even rework the engine with that in mind. make other modulators scale a base value
-	-- derived from tip or EG or constant 1.0.
-	params:add {
-		name = 'tip -> amp',
-		id = 'tip_amp',
-		type = 'control',
-		controlspec = controlspec.new(0, 1, 'lin', 0, 1),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.tip_amp(v, value - 0.001)
-				engine.eg_amp(v, 1 - value + 0.001)
-			end
-		end
-	}
+	params:add_group('tip', 9)
 
 	params:add {
 		name = 'tip -> p1',
@@ -828,19 +812,7 @@ function init()
 		end
 	}
 
-	params:add_group('palm', 10)
-
-	params:add {
-		name = 'palm -> amp',
-		id = 'palm_amp',
-		type = 'control',
-		controlspec = controlspec.new(0, 1, 'lin', 0, 0),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.palm_amp(v, value - 0.001)
-			end
-		end
-	}
+	params:add_group('palm', 9)
 
 	params:add {
 		name = 'palm -> p1',
@@ -954,7 +926,7 @@ function init()
 		end
 	}
 
-	params:add_group('eg', 12)
+	params:add_group('eg', 11)
 
 	params:add {
 		name = 'attack',
@@ -1031,18 +1003,6 @@ function init()
 		action = function(value)
 			for v = 1, n_voices do
 				engine.eg_pitch(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'eg -> amp',
-		id = 'eg_amp',
-		type = 'control',
-		controlspec = controlspec.new(0, 1, 'lin', 0, 0),
-		action = function(value)
-			for v = 1, n_voices do
-				-- engine.eg_amp(v, value)
 			end
 		end
 	}

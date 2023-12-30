@@ -48,6 +48,7 @@ Engine_Cule : CroneEngine {
 				t_trig = 0,
 				tip = 0,
 				palm = 0,
+				ampMode = 0, // 0 = tip only; 1 = tip * AR; 2 = ADSR
 				delay = 0,
 				freeze = 0,
 				loopLength = 0.3,
@@ -73,7 +74,6 @@ Engine_Cule : CroneEngine {
 				p4 = 0,
 				lag = 0.1,
 
-				tip_amp = 1,
 				tip_p1 = 0,
 				tip_p2 = 0,
 				tip_p3 = 0,
@@ -85,7 +85,6 @@ Engine_Cule : CroneEngine {
 				tip_lfoBFreq = 0,
 				tip_lfoBAmount = 0,
 
-				palm_amp = 0,
 				palm_p1 = 0,
 				palm_p2 = 0,
 				palm_p3 = 0,
@@ -97,7 +96,6 @@ Engine_Cule : CroneEngine {
 				palm_lfoBAmount = 0,
 
 				eg_pitch = 0,
-				eg_amp = 0,
 				eg_p1 = 0,
 				eg_p2 = 0,
 				eg_p3 = 0,
@@ -154,7 +152,21 @@ Engine_Cule : CroneEngine {
 
 			var modulators = LocalIn.kr(6);
 
-			var amp = Mix(modulators * [0, tip_amp, palm_amp, eg_amp, lfoA_amp, lfoB_amp]).max(0);
+			var gateOrTrig = Select.kr(egGateTrig, [
+				gate,
+				Trig.kr(t_trig, trigLength),
+			]);
+
+			var ar = EnvGen.kr(
+				Env.asr(attack, 1, release),
+				gateOrTrig
+			);
+
+			var amp = (Select.kr(ampMode, [
+				modulators[1],
+				modulators[1] * ar,
+				modulators[3]
+			]) * (1 + Mix(modulators[4..5] * [lfoA_amp, lfoB_amp]))).max(0);
 
 			var bufferRateScale = 0.5,
 				bufferRate = ControlRate.ir * bufferRateScale;
@@ -183,10 +195,7 @@ Engine_Cule : CroneEngine {
 
 			eg = EnvGen.kr(
 				Env.adsr(attack, decay, sustain, release),
-				Select.kr(egGateTrig, [
-					gate,
-					Trig.kr(t_trig, trigLength),
-				]),
+				gateOrTrig,
 				// TODO: "amounts" are a poor replacement for multiplication within
 				// a given modulation routing, e.g. (env * (0.5 + tip)) -> p1.
 				// that ^ could be described as multiplying at the input, while
@@ -379,6 +388,11 @@ Engine_Cule : CroneEngine {
 			if(value == 1, { synth.set(\t_trig, 1); });
 		});
 
+		this.addCommand(\amp_mode, "ii", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\ampMode, msg[2] - 1);
+		});
+
 		this.addCommand(\pitch_slew, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\pitchSlew, msg[2]);
@@ -477,10 +491,6 @@ Engine_Cule : CroneEngine {
 
 		// TODO: use loops for this, this is ugly
 
-		this.addCommand(\tip_amp, "if", {
-			arg msg;
-			controlSynths[msg[1] - 1].set(\tip_amp, msg[2]);
-		});
 		this.addCommand(\tip_p1, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\tip_p1, msg[2]);
@@ -518,10 +528,6 @@ Engine_Cule : CroneEngine {
 			controlSynths[msg[1] - 1].set(\tip_lfoBAmount, msg[2]);
 		});
 
-		this.addCommand(\palm_amp, "if", {
-			arg msg;
-			controlSynths[msg[1] - 1].set(\palm_amp, msg[2]);
-		});
 		this.addCommand(\palm_p1, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\palm_p1, msg[2]);
@@ -562,10 +568,6 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\eg_pitch, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\eg_pitch, msg[2]);
-		});
-		this.addCommand(\eg_amp, "if", {
-			arg msg;
-			controlSynths[msg[1] - 1].set(\eg_amp, msg[2]);
 		});
 		this.addCommand(\eg_p1, "if", {
 			arg msg;
