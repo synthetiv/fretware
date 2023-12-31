@@ -23,8 +23,7 @@ touche = midi.connect(1)
 editor = {
 	shift = false,
 	source_names = {
-		'palm',
-		'tip',
+		'hand',
 		'pitch',
 		'eg'
 		-- TODO: LFO
@@ -50,10 +49,9 @@ dest_dials = {
 source_dials = {}
 for s = 1, #editor.dest_names do
 	source_dials[editor.dest_names[s]] = {
-		palm  = ui.Dial.new( 2,  2, 12, 0, -1, 1, 0.01, 0),
-		tip   = ui.Dial.new(19,  2, 12, 0, -1, 1, 0.01, 0),
+		hand  = ui.Dial.new(11,  2, 12, 0, -1, 1, 0.01, 0),
 		pitch = ui.Dial.new( 2, 22, 12, 0, -1, 1, 0.01, 0),
-		eg    = ui.Dial.new(19, 22, 12, 0, -1, 1, 0.01, 0)
+		eg    = ui.Dial.new(20, 22, 12, 0, -1, 1, 0.01, 0)
 		-- ui.Dial.new( 10, 42, 12, 0, -1, 1, 0.01, 0),
 	}
 end
@@ -698,206 +696,112 @@ function init()
 		end
 	}
 
-	params:add_group('tip', 8)
+	params:add_group('hand', 8)
 
 	params:add {
-		name = 'tip -> p1',
-		id = 'tip_p1',
+		name = 'hand -> p1',
+		id = 'hand_p1',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p1.tip:set_value(value)
+			source_dials.p1.hand:set_value(value)
 			for v = 1, n_voices do
 				engine.tip_p1(v, value)
+				engine.palm_p1(v, -value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'tip -> p2',
-		id = 'tip_p2',
+		name = 'hand -> p2',
+		id = 'hand_p2',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p2.tip:set_value(value)
+			source_dials.p2.hand:set_value(value)
 			for v = 1, n_voices do
 				engine.tip_p2(v, value)
+				engine.palm_p2(v, -value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'tip -> p3',
-		id = 'tip_p3',
+		name = 'hand -> p3',
+		id = 'hand_p3',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p3.tip:set_value(value)
+			source_dials.p3.hand:set_value(value)
 			for v = 1, n_voices do
 				engine.tip_p3(v, value)
+				engine.palm_p3(v, -value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'tip -> p4',
-		id = 'tip_p4',
+		name = 'hand -> p4',
+		id = 'hand_p4',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p4.tip:set_value(value)
+			source_dials.p4.hand:set_value(value)
 			for v = 1, n_voices do
 				engine.tip_p4(v, value)
+				engine.palm_p4(v, -value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'tip -> lfo A freq',
-		id = 'tip_lfo_a_freq',
+		name = 'hand -> lfo A freq',
+		id = 'hand_lfo_a_freq',
 		type = 'control',
 		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
 		action = function(value)
 			for v = 1, n_voices do
 				engine.tip_lfo_a_freq(v, value)
+				engine.palm_lfo_a_freq(v, -value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'tip -> lfo A amt',
-		id = 'tip_lfo_a_amount',
+		name = 'hand -> lfo A amt',
+		id = 'hand_lfo_a_amount',
 		type = 'control',
 		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
 		action = function(value)
 			for v = 1, n_voices do
 				engine.tip_lfo_a_amount(v, value)
+				engine.palm_lfo_a_amount(v, -value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'tip -> lfo B freq',
-		id = 'tip_lfo_b_freq',
+		name = 'hand -> lfo B freq',
+		id = 'hand_lfo_b_freq',
 		type = 'control',
 		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
 		action = function(value)
 			for v = 1, n_voices do
 				engine.tip_lfo_b_freq(v, value)
+				engine.palm_lfo_b_freq(v, -value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'tip -> lfo B amt',
-		id = 'tip_lfo_b_amount',
+		name = 'hand -> lfo B amt',
+		id = 'hand_lfo_b_amount',
 		type = 'control',
 		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
 		action = function(value)
 			for v = 1, n_voices do
 				engine.tip_lfo_b_amount(v, value)
-			end
-		end
-	}
-
-	params:add_group('palm', 8)
-
-	params:add {
-		name = 'palm -> p1',
-		id = 'palm_p1',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, -0.25),
-		action = function(value)
-			source_dials.p1.palm:set_value(value)
-			for v = 1, n_voices do
-				engine.palm_p1(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'palm -> p2',
-		id = 'palm_p2',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.p2.palm:set_value(value)
-			for v = 1, n_voices do
-				engine.palm_p2(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'palm -> p3',
-		id = 'palm_p3',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, -0.25),
-		action = function(value)
-			source_dials.p3.palm:set_value(value)
-			for v = 1, n_voices do
-				engine.palm_p3(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'palm -> p4',
-		id = 'palm_p4',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.p4.palm:set_value(value)
-			for v = 1, n_voices do
-				engine.palm_p4(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'palm -> lfo A freq',
-		id = 'palm_lfo_a_freq',
-		type = 'control',
-		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.palm_lfo_a_freq(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'palm -> lfo A amt',
-		id = 'palm_lfo_a_amount',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.palm_lfo_a_amount(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'palm -> lfo B freq',
-		id = 'palm_lfo_b_freq',
-		type = 'control',
-		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.palm_lfo_b_freq(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'palm -> lfo B amt',
-		id = 'palm_lfo_b_amount',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.palm_lfo_b_amount(v, value)
+				engine.palm_lfo_b_amount(v, -value)
 			end
 		end
 	}
