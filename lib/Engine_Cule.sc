@@ -1,6 +1,8 @@
 Engine_Cule : CroneEngine {
 
 	classvar nVoices = 7;
+	classvar nModulators = 7;
+	classvar nRecordedModulators = 5;
 	classvar maxLoopTime = 16;
 
 	var baseFreqBus;
@@ -34,7 +36,7 @@ Engine_Cule : CroneEngine {
 		// buses for sending data from control synths to hot-swappable audio synths:
 		// frequency, amp, and four timbre parameters
 		controlBuses = Array.fill(nVoices, {
-			Bus.control(context.server, 6);
+			Bus.control(context.server, nModulators);
 		});
 
 		SynthDef.new(\line, {
@@ -48,6 +50,7 @@ Engine_Cule : CroneEngine {
 				t_trig = 0,
 				tip = 0,
 				palm = 0,
+				foot = 0,
 				ampMode = 0, // 0 = tip only; 1 = tip * AR; 2 = ADSR
 				delay = 0,
 				freeze = 0,
@@ -91,6 +94,15 @@ Engine_Cule : CroneEngine {
 				palm_lfoAAmount = 0,
 				palm_lfoBFreq = 0,
 				palm_lfoBAmount = 0,
+
+				foot_p1 = 0,
+				foot_p2 = 0,
+				foot_p3 = 0,
+				foot_p4 = 0,
+				foot_lfoAFreq = 0,
+				foot_lfoAAmount = 0,
+				foot_lfoBFreq = 0,
+				foot_lfoBAmount = 0,
 
 				eg_pitch = 0,
 				eg_p1 = 0,
@@ -145,7 +157,7 @@ Engine_Cule : CroneEngine {
 				eg, lfoA, lfoB,
 				hz;
 
-			var modulators = LocalIn.kr(6);
+			var modulators = LocalIn.kr(nModulators);
 
 			var gateOrTrig = Select.kr(egGateTrig, [
 				gate,
@@ -177,12 +189,13 @@ Engine_Cule : CroneEngine {
 			loopTrigger = Trig.kr(BinaryOpUGen.new('==', loopPhase, loopStart));
 			loopOffset = Latch.kr(bufferLength - (loopLength * bufferRate), loopTrigger) * loopPosition;
 			loopPhase = loopPhase - loopOffset;
-			BufWr.kr([pitch, tip, palm, amp], buffer, bufferPhase);
-			# pitch, tip, palm, amp = BufRd.kr(4, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
+			BufWr.kr([pitch, tip, palm, foot, amp], buffer, bufferPhase);
+			# pitch, tip, palm, foot, amp = BufRd.kr(nRecordedModulators, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
 
 			// slew direct control
 			tip  = Lag.kr(tip,  lag);
 			palm = Lag.kr(palm, lag);
+			foot = Lag.kr(foot, lag);
 			p1   = Lag.kr(p1,   lag);
 			p2   = Lag.kr(p2,   lag);
 			p3   = Lag.kr(p3,   lag);
@@ -195,8 +208,8 @@ Engine_Cule : CroneEngine {
 			);
 
 			// TODO: if you cool it with some of these LFOs, can you bring back SinOscFB?
-			lfoAFreq = lfoAFreq * 2.pow(Mix(modulators * [0, tip_lfoAFreq, palm_lfoAFreq, eg_lfoAFreq, 0, lfoB_lfoAFreq]));
-			lfoAAmount = lfoAAmount + Mix(modulators * [0, tip_lfoAAmount, palm_lfoAAmount, eg_lfoAAmount, 0, lfoB_lfoAAmount]);
+			lfoAFreq = lfoAFreq * 2.pow(Mix(modulators * [0, tip_lfoAFreq, palm_lfoAFreq, foot_lfoAFreq, eg_lfoAFreq, 0, lfoB_lfoAFreq]));
+			lfoAAmount = lfoAAmount + Mix(modulators * [0, tip_lfoAAmount, palm_lfoAAmount, foot_lfoAAmount, eg_lfoAAmount, 0, lfoB_lfoAAmount]);
 			lfoA = lfoAAmount * Select.kr(lfoAType, [
 				SinOsc.kr(lfoAFreq),
 				LFTri.kr(lfoAFreq),
@@ -205,8 +218,8 @@ Engine_Cule : CroneEngine {
 				LFNoise0.kr(lfoAFreq)
 			]);
 
-			lfoBFreq = lfoBFreq * 2.pow(Mix(modulators * [0, tip_lfoBFreq, palm_lfoBFreq, eg_lfoBFreq, lfoA_lfoBFreq, 0]));
-			lfoBAmount = lfoBAmount + Mix(modulators * [0, tip_lfoBAmount, palm_lfoBAmount, eg_lfoBAmount, lfoA_lfoBAmount, 0]);
+			lfoBFreq = lfoBFreq * 2.pow(Mix(modulators * [0, tip_lfoBFreq, palm_lfoBFreq, foot_lfoBFreq, eg_lfoBFreq, lfoA_lfoBFreq, 0]));
+			lfoBAmount = lfoBAmount + Mix(modulators * [0, tip_lfoBAmount, palm_lfoBAmount, foot_lfoBAmount, eg_lfoBAmount, lfoA_lfoBAmount, 0]);
 			lfoB = lfoBAmount * Select.kr(lfoBType, [
 				SinOsc.kr(lfoBFreq),
 				LFTri.kr(lfoBFreq),
@@ -215,7 +228,7 @@ Engine_Cule : CroneEngine {
 				LFNoise0.kr(lfoBFreq)
 			]);
 
-			LocalOut.kr([pitch, tip, palm, eg, lfoA, lfoB]);
+			LocalOut.kr([pitch, tip, palm, foot, eg, lfoA, lfoB]);
 
 			pitch = pitch + detune + Mix([eg, lfoA, lfoB] * [eg_pitch, lfoA_pitch, lfoB_pitch]);
 
@@ -227,10 +240,10 @@ Engine_Cule : CroneEngine {
 			pitch = Lag.kr(pitch, pitchSlew);
 
 			// TODO: clip these values in the audio synth, not here
-			p1 = (p1 + Mix(modulators * [pitch_p1, tip_p1, palm_p1, eg_p1, lfoA_p1, lfoB_p1]));
-			p2 = (p2 + Mix(modulators * [pitch_p2, tip_p2, palm_p2, eg_p2, lfoA_p2, lfoB_p2]));
-			p3 = (p3 + Mix(modulators * [pitch_p3, tip_p3, palm_p3, eg_p3, lfoA_p3, lfoB_p3]));
-			p4 = (p4 + Mix(modulators * [pitch_p4, tip_p4, palm_p4, eg_p4, lfoA_p4, lfoB_p4]));
+			p1 = (p1 + Mix(modulators * [pitch_p1, tip_p1, palm_p1, foot_p1, eg_p1, lfoA_p1, lfoB_p1]));
+			p2 = (p2 + Mix(modulators * [pitch_p2, tip_p2, palm_p2, foot_p2, eg_p2, lfoA_p2, lfoB_p2]));
+			p3 = (p3 + Mix(modulators * [pitch_p3, tip_p3, palm_p3, foot_p3, eg_p3, lfoA_p3, lfoB_p3]));
+			p4 = (p4 + Mix(modulators * [pitch_p4, tip_p4, palm_p4, foot_p4, eg_p4, lfoA_p4, lfoB_p4]));
 
 			// write FM mix to FM bus
 			Out.ar(fmBus, Mix(InFeedback.ar(synthOutBuses) * [voice1_fm, voice2_fm, voice3_fm, voice4_fm, voice5_fm, voice6_fm, voice7_fm]));
@@ -302,7 +315,7 @@ Engine_Cule : CroneEngine {
 		baseFreqBus.setSynchronous(60.midicps);
 
 		controlBuffers = Array.fill(nVoices, {
-			Buffer.alloc(context.server, context.server.sampleRate / context.server.options.blockSize * maxLoopTime, 4);
+			Buffer.alloc(context.server, context.server.sampleRate / context.server.options.blockSize * maxLoopTime, nRecordedModulators);
 		});
 		controlSynths = Array.fill(nVoices, {
 			arg i;
@@ -401,6 +414,11 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\palm, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\palm, msg[2]);
+		});
+
+		this.addCommand(\foot, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\foot, msg[2]);
 		});
 
 		this.addCommand(\lfo_a_type, "ii", {
@@ -540,6 +558,39 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\palm_lfo_b_amount, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\palm_lfoBAmount, msg[2]);
+		});
+
+		this.addCommand(\foot_p1, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\foot_p1, msg[2]);
+		});
+		this.addCommand(\foot_p2, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\foot_p2, msg[2]);
+		});
+		this.addCommand(\foot_p3, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\foot_p3, msg[2]);
+		});
+		this.addCommand(\foot_p4, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\foot_p4, msg[2]);
+		});
+		this.addCommand(\foot_lfo_a_freq, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\foot_lfoAFreq, msg[2]);
+		});
+		this.addCommand(\foot_lfo_a_amount, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\foot_lfoAAmount, msg[2]);
+		});
+		this.addCommand(\foot_lfo_b_freq, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\foot_lfoBFreq, msg[2]);
+		});
+		this.addCommand(\foot_lfo_b_amount, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\foot_lfoBAmount, msg[2]);
 		});
 
 		this.addCommand(\eg_pitch, "if", {

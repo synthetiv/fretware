@@ -17,6 +17,7 @@ redraw_metro = nil
 g = grid.connect()
 
 touche = midi.connect(1)
+fbv = midi.connect(4)
 
 -- TODO: I think I want palm & tip to be squared when used as mod sources for things other than amp
 
@@ -24,6 +25,7 @@ editor = {
 	shift = false,
 	source_names = {
 		'hand',
+		'foot',
 		'pitch',
 		'eg'
 		-- TODO: LFO
@@ -49,9 +51,10 @@ dest_dials = {
 source_dials = {}
 for s = 1, #editor.dest_names do
 	source_dials[editor.dest_names[s]] = {
-		hand  = ui.Dial.new(11,  2, 12, 0, -1, 1, 0.01, 0),
+		hand  = ui.Dial.new( 2,  2, 12, 0, -1, 1, 0.01, 0),
+		foot  = ui.Dial.new(19,  2, 12, 0, -1, 1, 0.01, 0),
 		pitch = ui.Dial.new( 2, 22, 12, 0, -1, 1, 0.01, 0),
-		eg    = ui.Dial.new(20, 22, 12, 0, -1, 1, 0.01, 0)
+		eg    = ui.Dial.new(19, 22, 12, 0, -1, 1, 0.01, 0)
 		-- ui.Dial.new( 10, 42, 12, 0, -1, 1, 0.01, 0),
 	}
 end
@@ -72,6 +75,7 @@ lead_voice = 1
 
 tip = 0
 palm = 0
+foot = 0
 gate_in = false
 
 arp_clock = false
@@ -161,6 +165,14 @@ function touche.event(data)
 			k:bend(math.min(1, message.val / 126))
 			send_pitch_volts()
 		end
+	end
+end
+
+function fbv.event(data)
+	local message = midi.to_msg(data)
+	if message.ch == 1 and message.type == 'cc' then
+		foot = message.val / 127
+		control_engine_voices('foot', foot)
 	end
 end
 
@@ -802,6 +814,108 @@ function init()
 			for v = 1, n_voices do
 				engine.tip_lfo_b_amount(v, value)
 				engine.palm_lfo_b_amount(v, -value)
+			end
+		end
+	}
+
+	params:add_group('foot', 8)
+
+	params:add {
+		name = 'foot -> p1',
+		id = 'foot_p1',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			source_dials.p1.foot:set_value(value)
+			for v = 1, n_voices do
+				engine.foot_p1(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'foot -> p2',
+		id = 'foot_p2',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			source_dials.p2.foot:set_value(value)
+			for v = 1, n_voices do
+				engine.foot_p2(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'foot -> p3',
+		id = 'foot_p3',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			source_dials.p3.foot:set_value(value)
+			for v = 1, n_voices do
+				engine.foot_p3(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'foot -> p4',
+		id = 'foot_p4',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			source_dials.p4.foot:set_value(value)
+			for v = 1, n_voices do
+				engine.foot_p4(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'foot -> lfo A freq',
+		id = 'foot_lfo_a_freq',
+		type = 'control',
+		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.foot_lfo_a_freq(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'foot -> lfo A amt',
+		id = 'foot_lfo_a_amount',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.foot_lfo_a_amount(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'foot -> lfo B freq',
+		id = 'foot_lfo_b_freq',
+		type = 'control',
+		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.foot_lfo_b_freq(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'foot -> lfo B amt',
+		id = 'foot_lfo_b_amount',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.foot_lfo_b_amount(v, value)
 			end
 		end
 	}
