@@ -64,7 +64,10 @@ for v = 1, n_voices do
 		pitch = 0,
 		amp = 0,
 		looping = false,
-		loop_armed = false
+		looping_next = false,
+		loop_armed = false,
+		loop_armed_next = false,
+		loop_beat_sec = 0.25
 	}
 end
 selected_voices = { 1 }
@@ -77,28 +80,46 @@ foot = 0
 gate_in = false
 
 arp_clock = false
+loop_clock = false
+loop_free = false
+
+-- handle grid key or footswitch press for looping
+function voice_loop_button(v)
+	local voice = voice_states[v]
+	if voice.looping then
+		-- stop looping
+		engine.clear_loop(v)
+		voice.looping = false
+		if voice.loop_clock then
+			clock.cancel(voice.loop_clock)
+		end
+	elseif not voice.loop_armed then
+		-- get ready to loop (set loop start time here)
+		if loop_free then
+			voice.loop_armed = util.time()
+		else
+			voice.loop_armed_next = true
+		end
+	else
+		-- start looping
+		if loop_free then
+			engine.set_loop(v, util.time() - voice.loop_armed)
+			voice.looping = true
+			voice.loop_armed = false
+		else
+			voice.looping_next = true
+		end
+	end
+end
 
 function g.key(x, y, z)
 	if y < 8 and x <= 2 then
 		if z == 1 then
 			local v = 8 - y
-			local voice = voice_states[v]
 			if x == 1 then
-				if voice.looping then
-					-- stop looping
-					engine.clear_loop(v)
-					voice.looping = false
-					voice.loop_armed = false
-				elseif not voice.loop_armed then
-					-- get ready to loop (set loop start time here)
-					voice.loop_armed = util.time()
-				else
-					-- start looping
-					engine.set_loop(v, util.time() - voice.loop_armed)
-					voice.looping = true
-					voice.loop_armed = false
-				end
+				voice_loop_button(v)
 			elseif x == 2 then
+				local voice = voice_states[v]
 				-- TODO: is this stuff useful now?
 				voice.control = not voice.control
 				if voice.control then
@@ -169,8 +190,12 @@ end
 function fbv.event(data)
 	local message = midi.to_msg(data)
 	if message.ch == 1 and message.type == 'cc' then
-		foot = message.val / 127
-		control_engine_voices('foot', foot)
+		if message.cc == 13 then
+			foot = message.val / 127
+			control_engine_voices('foot', foot)
+		elseif message.cc == 17 and message.val == 127 then
+			voice_loop_button(selected_voices[lead_voice])
+		end
 	end
 end
 
@@ -219,7 +244,7 @@ function reset_arp_clock()
 	arp_clock = clock.run(function()
 		while true do
 			-- TODO: find a way to allow modulation to nudge clock pulses back & forth without losing sync... somehow...
-			local rate = math.pow(2, -params:get('system_clock_div'))
+			local rate = math.pow(2, -params:get('arp_clock_div'))
 			clock.sync(rate)
 			if params:get('arp_clock_source') == 1 and k.arping and k.n_sustained_keys > 0 then
 				if n_selected_voices > 0 then
@@ -235,6 +260,60 @@ function reset_arp_clock()
 			end
 		end
 	end)
+end
+
+function reset_loop_clock()
+	if loop_clock then
+		clock.cancel(loop_clock)
+	end
+	for v = 1, n_voices do
+		local voice = voice_states[v]
+		voice.loop_armed_next = false
+		voice.looping_next = false
+	end
+	local div = params:get('loop_clock_div')
+	loop_free = div == 3 -- 3 = free, unquantized looping
+	if not loop_free then
+		loop_clock = clock.run(function()
+			while true do
+				local rate = math.pow(2, -params:get('loop_clock_div'))
+				clock.sync(rate)
+				for v = 1, n_voices do
+					local voice = voice_states[v]
+					if voice.loop_armed_next then
+						-- get ready to loop (set loop start time here). when looping is synced, we set loop
+						-- lengths in beats, not seconds, in case tempo changes
+						voice.loop_armed = clock.get_beats()
+						voice.loop_armed_next = false
+					elseif voice.looping_next then
+						-- start looping
+						local beat_sec = clock.get_beat_sec()
+						local loop_length_beats = (clock.get_beats() - voice.loop_armed)
+						-- TODO: is rounding really appropriate here?
+						local loop_length_ticks = math.floor(loop_length_beats / rate + 0.5)
+						local loop_tick = 1
+						engine.set_loop(v, beat_sec * loop_length_beats)
+						voice.looping = true
+						voice.looping_next = false
+						voice.loop_armed = false
+						voice.loop_beat_sec = beat_sec
+						voice.loop_clock = clock.run(function()
+							while true do
+								clock.sync(rate)
+								loop_tick = loop_tick % loop_length_ticks + 1
+								if loop_tick == 1 then
+									engine.reset_loop_phase(v)
+								end
+							end
+						end)
+					elseif voice.looping then
+						-- adjust rate to match tempo as needed
+						engine.loop_rate_scale(v, clock.get_beat_sec() / voice.loop_beat_sec)
+					end
+				end
+			end
+		end)
+	end
 end
 
 function control_engine_voices(method, value)
@@ -374,8 +453,8 @@ function init()
 	}
 
 	params:add {
-		name = 'system clock div',
-		id = 'system_clock_div',
+		name = 'arp clock div',
+		id = 'arp_clock_div',
 		type = 'number',
 		default = 2,
 		min = -3,
@@ -390,6 +469,28 @@ function init()
 		end,
 		action = function(value)
 			reset_arp_clock()
+		end
+	}
+
+	params:add {
+		name = 'loop clock div',
+		id = 'loop_clock_div',
+		type = 'number',
+		default = 3,
+		min = -3,
+		max = 3,
+		formatter = function(param)
+			local measures = -param:get() - 2
+			if measures == -5 then -- 3 = 1/32 = no quantization of loop lengths
+				return 'free'
+			elseif measures >= 0 then
+				return string.format('%d', math.pow(2, measures))
+			else
+				return string.format('1/%d', math.pow(2, -measures))
+			end
+		end,
+		action = function(value)
+			reset_loop_clock()
 		end
 	}
 
@@ -1431,6 +1532,7 @@ function init()
 	params:set('reverb', 1) -- off
 
 	reset_arp_clock()
+	reset_loop_clock()
 
 	clock.run(function()
 		local rate = echo_rate

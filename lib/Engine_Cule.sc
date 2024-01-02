@@ -54,8 +54,10 @@ Engine_Cule : CroneEngine {
 				ampMode = 0, // 0 = tip only; 1 = tip * AR; 2 = ADSR
 				delay = 0,
 				freeze = 0,
+				t_loopReset = 0,
 				loopLength = 0.3,
 				loopPosition = 0,
+				loopRateScale = 1,
 
 				detune = 0,
 				pitchSlew = 0.01,
@@ -183,7 +185,7 @@ Engine_Cule : CroneEngine {
 			// delay must be at least 1 frame, or we'll be writing to + reading from the same point
 			delayPhase = bufferPhase - (delay * bufferRate).max(1);
 			loopStart = bufferPhase - (loopLength * bufferRate).min(bufferLength);
-			loopPhase = Phasor.kr(freeze, bufferRateScale, loopStart, bufferPhase, loopStart);
+			loopPhase = Phasor.kr(Trig.kr(freeze) + t_loopReset, bufferRateScale * loopRateScale, loopStart, bufferPhase, loopStart);
 			// TODO: confirm that this is really firing when it's supposed to (i.e. when loopPhase
 			// resets)! if not, either fix it, or do away with it
 			loopTrigger = Trig.kr(BinaryOpUGen.new('==', loopPhase, loopStart));
@@ -376,8 +378,14 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			controlSynths[msg[1] - 1].set(
 				\loopLength, msg[2],
+				\loopRateScale, 1,
 				\freeze, 1
 			);
+		});
+
+		this.addCommand(\reset_loop_phase, "i", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\t_loopReset, 1);
 		});
 
 		this.addCommand(\clear_loop, "i", {
@@ -388,6 +396,11 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\loop_position, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\loopPosition, msg[2]);
+		});
+
+		this.addCommand(\loop_rate_scale, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\loopRateScale, msg[2]);
 		});
 
 		this.addCommand(\pitch, "if", {
