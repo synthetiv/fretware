@@ -19,8 +19,6 @@ g = grid.connect()
 touche = midi.connect(1)
 fbv = midi.connect(4)
 
--- TODO: I think I want palm & tip to be squared when used as mod sources for things other than amp
-
 editor = {
 	shift = false,
 	source_names = {
