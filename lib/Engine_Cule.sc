@@ -258,15 +258,27 @@ Engine_Cule : CroneEngine {
 		// - wavetables... samples...
 		// TODO: come up with a good way to make param labels descriptive, because who wants 'timbre A' and 'timbre B'
 
+		// TODO: split "p1" into two parameters: FM (harmonic->fundamental) and blend (fundamendal<->harmonic)
+		// would it be useful for FM param to be reversible so you could, if you wanted, modulate the
+		// harmonic with the fundamental...? doubt it
+		//
+		// so -- new params:
+		// FM index
+		// 2-sine blend
+		// ratio (sent as float from Lua, so Lua has more direct control over these; slew with pitch slew)
+		// fold gain
+		// fold bias
+
 		SynthDef.new(\sine, {
 			arg fmBus, controlBus, outBus, octave = 0, fmCutoff = 12000, lpCutoff = 23000, hpCutoff = 16, outLevel = 0.2;
 			var pitch, amp, fmIndex, fmRatio, fold, foldBias,
 				hz, modulator, fmMix, carrier, sine, ratios;
 			# pitch, amp, fmIndex, fmRatio, fold, foldBias = In.kr(controlBus, 6);
-			// ratios = Array.fill(8, { |n| (n + 1) / (1..4) }).flatten.asSet.asArray.sort;
-			ratios = [ 1, 2, 3, 6, 8 ].collect({ |n| n / (1..4) }).flatten.asSet.asArray.sort;
+			ratios = [ 1/4, 1/2, 3/4,
+			           1,
+			           2,     3,   4,   6,   8 ];
 			hz = 2.pow(pitch + octave) * In.kr(baseFreqBus);
-			modulator = SinOsc.ar(hz * LinSelectX.kr((fmRatio.linlin(-1, 1, 0, 1) /* .lincurve(-1, 1, 0, 1, 1) */ * ratios.size).softRound(1, 0, 0.93), ratios));
+			modulator = SinOsc.ar(hz * LinSelectX.kr((fmRatio.linlin(-1, 1, 0, 1) * (ratios.size - 1)).softRound(1, 0, 0.93), ratios));
 			fmMix = In.ar(fmBus) + (modulator * fmIndex.linexp(0, 1, 0.01, 10pi));
 			carrier = SinOsc.ar(hz, LPF.ar(fmMix, fmCutoff).mod(2pi));
 			sine = LinXFade2.ar(modulator, carrier, fmIndex.linlin(-1, 0, -1, 1));
