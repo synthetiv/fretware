@@ -1019,7 +1019,7 @@ function init()
 		end
 	}
 
-	params:add_group('eg', 11)
+	params:add_group('eg', 9)
 
 	params:add {
 		name = 'attack',
