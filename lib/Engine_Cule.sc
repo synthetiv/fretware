@@ -273,16 +273,27 @@ Engine_Cule : CroneEngine {
 
 		SynthDef.new(\sine, {
 			arg fmBus, controlBus, outBus, octave = 0, fmCutoff = 12000, lpCutoff = 23000, hpCutoff = 16, outLevel = 0.2;
-			var pitch, amp, fmIndex, fmRatio, fold, foldBias,
-				hz, modulator, fmMix, carrier, sine, ratios;
-			# pitch, amp, fmIndex, fmRatio, fold, foldBias = In.kr(controlBus, 6);
-			ratios = [ 1/4, 1/2, 3/4,
-			           1,
-			           2,     3,   4,   6,   8 ];
+			var pitch, amp, fold, fmIndex, carrierRatio, modulatorRatio,
+				hz, modulator, fmMix, carrier, sine;
+			var foldBias = 0;
+			var ratiosA = [ 1/4,      1/2,      1,    3,    6    ];
+			var ratiosB = [      1/3,      2/3,    2,    4,    8 ];
+			# pitch, amp, fold, fmIndex, carrierRatio, modulatorRatio = In.kr(controlBus, 6);
 			hz = 2.pow(pitch + octave) * In.kr(baseFreqBus);
-			modulator = SinOsc.ar(hz * LinSelectX.kr((fmRatio.linlin(-1, 1, 0, 1) * (ratios.size - 1)).softRound(1, 0, 0.93), ratios));
+			modulatorRatio = modulatorRatio.linlin(-1, 1, 0, ratiosA.size + ratiosB.size - 1);
+			modulator = LinXFade2.ar(
+				SinOsc.ar(hz * Select.kr(modulatorRatio + 1 / 2, ratiosA)),
+				SinOsc.ar(hz * Select.kr(modulatorRatio / 2, ratiosB)),
+				(Fold.kr(modulatorRatio) * 2 - 1 * 4).clip2
+			);
 			fmMix = In.ar(fmBus) + (modulator * fmIndex.linexp(0, 1, 0.01, 10pi));
-			carrier = SinOsc.ar(hz, LPF.ar(fmMix, fmCutoff).mod(2pi));
+			fmMix = LPF.ar(fmMix, fmCutoff).mod(2pi);
+			carrierRatio = carrierRatio.linlin(-1, 1, 0, ratiosA.size + ratiosB.size - 1);
+			carrier = LinXFade2.ar(
+				SinOsc.ar(hz * Select.kr(carrierRatio + 1 / 2, ratiosA), fmMix),
+				SinOsc.ar(hz * Select.kr(carrierRatio / 2, ratiosB), fmMix),
+				(Fold.kr(carrierRatio) * 2 - 1 * 4).clip2
+			);
 			sine = LinXFade2.ar(modulator, carrier, fmIndex.linlin(-1, 0, -1, 1));
 			sine = SinOsc.ar(0, (fold.linexp(-1, 1, 0.1, 10pi) * sine + foldBias.linlin(-1, 1, -pi / 2, pi / 2)));
 			// compensate for DC offset introduced by fold bias
