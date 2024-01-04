@@ -5,6 +5,9 @@ Engine_Cule : CroneEngine {
 	classvar nRecordedModulators = 5;
 	classvar maxLoopTime = 16;
 
+	var fmRatios;
+	var nRatios;
+
 	var baseFreqBus;
 	var controlBuffers;
 	var controlSynths;
@@ -19,7 +22,22 @@ Engine_Cule : CroneEngine {
 		^super.new(context, doneCallback);
 	}
 
+	harmonicOsc {
+		arg uGen, hz, harmonic, fadeSize, uGenArg;
+		var whichRatio = harmonic.linlin(-1, 1, 0, nRatios - 1);
+		var whichOsc = (Fold.kr(whichRatio).linlin(0, 1, -1, 1) / fadeSize).clip2;
+		^LinXFade2.ar(
+			uGen.ar(hz * Select.kr(whichRatio + 1 / 2, fmRatios[0]), uGenArg),
+			uGen.ar(hz * Select.kr(whichRatio / 2, fmRatios[1]), uGenArg),
+			whichOsc
+		);
+	}
+
+
 	alloc {
+
+		fmRatios = [1/4, 1/3, 1/2, 1, 2, 4, 7, 8].clump(2).flop;
+		nRatios = fmRatios.flatten.size;
 
 		baseFreqBus = Bus.control(context.server);
 
@@ -209,7 +227,6 @@ Engine_Cule : CroneEngine {
 				-6.dbamp
 			);
 
-			// TODO: if you cool it with some of these LFOs, can you bring back SinOscFB?
 			lfoAFreq = lfoAFreq * 2.pow(Mix(modulators * [0, tip_lfoAFreq, palm_lfoAFreq, foot_lfoAFreq, eg_lfoAFreq, 0, lfoB_lfoAFreq]));
 			lfoAAmount = lfoAAmount + Mix(modulators * [0, tip_lfoAAmount, palm_lfoAAmount, foot_lfoAAmount, eg_lfoAAmount, 0, lfoB_lfoAAmount]);
 			lfoA = lfoAAmount * Select.kr(lfoAType, [
@@ -280,19 +297,21 @@ Engine_Cule : CroneEngine {
 			var ratiosB = [      1/3,      2/3,    2,    4,    8 ];
 			# pitch, amp, fold, fmIndex, carrierRatio, modulatorRatio = In.kr(controlBus, 6);
 			hz = 2.pow(pitch + octave) * In.kr(baseFreqBus);
-			modulatorRatio = modulatorRatio.linlin(-1, 1, 0, ratiosA.size + ratiosB.size - 1);
-			modulator = LinXFade2.ar(
-				SinOsc.ar(hz * Select.kr(modulatorRatio + 1 / 2, ratiosA)),
-				SinOsc.ar(hz * Select.kr(modulatorRatio / 2, ratiosB)),
-				(Fold.kr(modulatorRatio) * 2 - 1 * 4).clip2
+			modulator = this.harmonicOsc(
+				SinOscFB,
+				hz /* TODO: +/x detune */,
+				modulatorRatio,
+				0.5 /* TODO: fade size */,
+				0.3 /* TODO: modulator feedback */
 			);
 			fmMix = In.ar(fmBus) + (modulator * fmIndex.linexp(0, 1, 0.01, 10pi));
 			fmMix = LPF.ar(fmMix, fmCutoff).mod(2pi);
-			carrierRatio = carrierRatio.linlin(-1, 1, 0, ratiosA.size + ratiosB.size - 1);
-			carrier = LinXFade2.ar(
-				SinOsc.ar(hz * Select.kr(carrierRatio + 1 / 2, ratiosA), fmMix),
-				SinOsc.ar(hz * Select.kr(carrierRatio / 2, ratiosB), fmMix),
-				(Fold.kr(carrierRatio) * 2 - 1 * 4).clip2
+			carrier = this.harmonicOsc(
+				SinOsc,
+				hz,
+				carrierRatio,
+				0.5 /* TODO: fade size */,
+				fmMix
 			);
 			sine = LinXFade2.ar(modulator, carrier, fmIndex.linlin(-1, 0, -1, 1));
 			sine = SinOsc.ar(0, (fold.linexp(-1, 1, 0.1, 10pi) * sine + foldBias.linlin(-1, 1, -pi / 2, pi / 2)));
