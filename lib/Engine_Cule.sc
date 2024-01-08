@@ -2,6 +2,7 @@ Engine_Cule : CroneEngine {
 
 	classvar nVoices = 7;
 	classvar nModulators = 7;
+	classvar nParams = 7;
 	classvar nRecordedModulators = 5;
 	classvar maxLoopTime = 16;
 
@@ -54,7 +55,7 @@ Engine_Cule : CroneEngine {
 		// buses for sending data from control synths to hot-swappable audio synths:
 		// frequency, amp, and four timbre parameters
 		controlBuses = Array.fill(nVoices, {
-			Bus.control(context.server, nModulators);
+			Bus.control(context.server, nParams + 2);
 		});
 
 		SynthDef.new(\line, {
@@ -94,12 +95,20 @@ Engine_Cule : CroneEngine {
 				p2 = 0.3,
 				p3 = 0,
 				p4 = 0,
+				p5 = 0,
+				p6 = 0,
+				p7 = 0,
+				p8 = 0,
 				lag = 0.1,
 
 				tip_p1 = 0,
 				tip_p2 = 0,
 				tip_p3 = 0,
 				tip_p4 = 0,
+				tip_p5 = 0,
+				tip_p6 = 0,
+				tip_p7 = 0,
+				tip_p8 = 0,
 				// TODO: include EG times as mod destinations
 				tip_lfoAFreq = 0,
 				tip_lfoAAmount = 0,
@@ -110,6 +119,10 @@ Engine_Cule : CroneEngine {
 				palm_p2 = 0,
 				palm_p3 = 0,
 				palm_p4 = 0,
+				palm_p5 = 0,
+				palm_p6 = 0,
+				palm_p7 = 0,
+				palm_p8 = 0,
 				palm_lfoAFreq = 0,
 				palm_lfoAAmount = 0,
 				palm_lfoBFreq = 0,
@@ -119,6 +132,10 @@ Engine_Cule : CroneEngine {
 				foot_p2 = 0,
 				foot_p3 = 0,
 				foot_p4 = 0,
+				foot_p5 = 0,
+				foot_p6 = 0,
+				foot_p7 = 0,
+				foot_p8 = 0,
 				foot_lfoAFreq = 0,
 				foot_lfoAAmount = 0,
 				foot_lfoBFreq = 0,
@@ -129,6 +146,10 @@ Engine_Cule : CroneEngine {
 				eg_p2 = 0,
 				eg_p3 = 0,
 				eg_p4 = 0,
+				eg_p5 = 0,
+				eg_p6 = 0,
+				eg_p7 = 0,
+				eg_p8 = 0,
 				eg_lfoAFreq = 0,
 				eg_lfoAAmount = 0,
 				eg_lfoBFreq = 0,
@@ -140,6 +161,10 @@ Engine_Cule : CroneEngine {
 				lfoA_p2 = 0,
 				lfoA_p3 = 0,
 				lfoA_p4 = 0,
+				lfoA_p5 = 0,
+				lfoA_p6 = 0,
+				lfoA_p7 = 0,
+				lfoA_p8 = 0,
 				lfoA_lfoBFreq = 0,
 				lfoA_lfoBAmount = 0,
 
@@ -149,6 +174,10 @@ Engine_Cule : CroneEngine {
 				lfoB_p2 = 0,
 				lfoB_p3 = 0,
 				lfoB_p4 = 0,
+				lfoB_p5 = 0,
+				lfoB_p6 = 0,
+				lfoB_p7 = 0,
+				lfoB_p8 = 0,
 				lfoB_lfoAFreq = 0,
 				lfoB_lfoAAmount = 0,
 
@@ -156,6 +185,10 @@ Engine_Cule : CroneEngine {
 				pitch_p2 = -0.1,
 				pitch_p3 = 0,
 				pitch_p4 = 0,
+				pitch_p5 = 0,
+				pitch_p6 = 0,
+				pitch_p7 = 0,
+				pitch_p8 = 0,
 				// TODO: pitch -> LFO freqs and amounts
 				// TODO: pitch -> FM amounts from other voices
 				// TODO: EG -> LFO freqs and amounts, and vice versa
@@ -192,7 +225,7 @@ Engine_Cule : CroneEngine {
 			var amp = (Select.kr(ampMode, [
 				modulators[1],
 				modulators[1] * ar,
-				modulators[3]
+				modulators[4]
 			]) * (1 + Mix(modulators[4..5] * [lfoA_amp, lfoB_amp]))).max(0);
 
 			var bufferRateScale = 0.5,
@@ -220,6 +253,10 @@ Engine_Cule : CroneEngine {
 			p2   = Lag.kr(p2,   lag);
 			p3   = Lag.kr(p3,   lag);
 			p4   = Lag.kr(p4,   lag);
+			p5   = Lag.kr(p5,   lag);
+			p6   = Lag.kr(p6,   lag);
+			p7   = Lag.kr(p7,   lag);
+			p8   = Lag.kr(p8,   lag);
 
 			eg = EnvGen.kr(
 				Env.adsr(attack, decay, sustain, release),
@@ -263,12 +300,16 @@ Engine_Cule : CroneEngine {
 			p2 = (p2 + Mix(modulators * [pitch_p2, tip_p2, palm_p2, foot_p2, eg_p2, lfoA_p2, lfoB_p2]));
 			p3 = (p3 + Mix(modulators * [pitch_p3, tip_p3, palm_p3, foot_p3, eg_p3, lfoA_p3, lfoB_p3]));
 			p4 = (p4 + Mix(modulators * [pitch_p4, tip_p4, palm_p4, foot_p4, eg_p4, lfoA_p4, lfoB_p4]));
+			p5 = (p5 + Mix(modulators * [pitch_p5, tip_p5, palm_p5, foot_p5, eg_p5, lfoA_p5, lfoB_p5]));
+			p6 = (p6 + Mix(modulators * [pitch_p6, tip_p6, palm_p6, foot_p6, eg_p6, lfoA_p6, lfoB_p6]));
+			p7 = (p7 + Mix(modulators * [pitch_p7, tip_p7, palm_p7, foot_p7, eg_p7, lfoA_p7, lfoB_p7]));
+			p8 = (p8 + Mix(modulators * [pitch_p8, tip_p8, palm_p8, foot_p8, eg_p8, lfoA_p8, lfoB_p8]));
 
 			// write FM mix to FM bus
 			Out.ar(fmBus, Mix(InFeedback.ar(synthOutBuses) * [voice1_fm, voice2_fm, voice3_fm, voice4_fm, voice5_fm, voice6_fm, voice7_fm]));
 
 			// write control signals to control bus
-			Out.kr(controlBus, [pitch, amp, p1, p2, p3, p4]);
+			Out.kr(controlBus, [pitch, amp, p1, p2, p3, p4, p5, p6, p7, p8]);
 		}).add;
 
 		// TODO: alt synths:
@@ -290,35 +331,32 @@ Engine_Cule : CroneEngine {
 
 		SynthDef.new(\sine, {
 			arg fmBus, controlBus, outBus, octave = 0, fmCutoff = 12000, lpCutoff = 23000, hpCutoff = 16, outLevel = 0.2;
-			var pitch, amp, fold, fmIndex, carrierRatio, modulatorRatio,
+			var pitch, amp, tuneA, tuneB, fmIndex, feedback, mix, foldGain, foldBias,
 				hz, modulator, fmMix, carrier, sine;
-			var foldBias = 0;
-			var ratiosA = [ 1/4,      1/2,      1,    3,    6    ];
-			var ratiosB = [      1/3,      2/3,    2,    4,    8 ];
-			# pitch, amp, fold, fmIndex, carrierRatio, modulatorRatio = In.kr(controlBus, 6);
+			# pitch, amp, tuneA, tuneB, fmIndex, feedback, mix, foldGain, foldBias = In.kr(controlBus, nParams + 2);
 			hz = 2.pow(pitch + octave) * In.kr(baseFreqBus);
 			modulator = this.harmonicOsc(
 				SinOscFB,
 				hz /* TODO: +/x detune */,
-				modulatorRatio,
+				tuneB,
 				0.5 /* TODO: fade size */,
-				0.3 /* TODO: modulator feedback */
+				feedback.linexp(-1, 1, 0.01, 3)
 			);
-			fmMix = In.ar(fmBus) + (modulator * fmIndex.linexp(0, 1, 0.01, 10pi));
+			fmMix = In.ar(fmBus) + (modulator * fmIndex.linexp(-1, 1, 0.01, 10pi));
 			fmMix = LPF.ar(fmMix, fmCutoff).mod(2pi);
 			carrier = this.harmonicOsc(
 				SinOsc,
 				hz,
-				carrierRatio,
+				tuneA,
 				0.5 /* TODO: fade size */,
 				fmMix
 			);
-			sine = LinXFade2.ar(modulator, carrier, fmIndex.linlin(-1, 0, -1, 1));
-			sine = SinOsc.ar(0, (fold.linexp(-1, 1, 0.1, 10pi) * sine + foldBias.linlin(-1, 1, -pi / 2, pi / 2)));
+			sine = LinXFade2.ar(carrier, modulator, mix);
+			sine = SinOsc.ar(0, (foldGain.linexp(-1, 1, 0.1, 10pi) * sine + foldBias.linlin(-1, 1, 0, pi / 2)).clip2(2pi));
 			// compensate for DC offset introduced by fold bias
 			sine = LeakDC.ar(sine);
 			// compensate for lost amplitude due to bias (a fully rectified wave is half the amplitude of the original)
-			sine = sine * (foldBias.abs + 1);
+			sine = sine * foldBias.linlin(-1, 1, 1, 2);
 			// scale by amplitude control value
 			sine = sine * amp;
 
@@ -542,6 +580,26 @@ Engine_Cule : CroneEngine {
 			controlSynths[msg[1] - 1].set(\p4, msg[2]);
 		});
 
+		this.addCommand(\p5, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\p5, msg[2]);
+		});
+
+		this.addCommand(\p6, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\p6, msg[2]);
+		});
+
+		this.addCommand(\p7, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\p7, msg[2]);
+		});
+
+		this.addCommand(\p8, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\p8, msg[2]);
+		});
+
 		this.addCommand(\lag, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\lag, msg[2]);
@@ -564,6 +622,22 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\tip_p4, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\tip_p4, msg[2]);
+		});
+		this.addCommand(\tip_p5, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\tip_p5, msg[2]);
+		});
+		this.addCommand(\tip_p6, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\tip_p6, msg[2]);
+		});
+		this.addCommand(\tip_p7, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\tip_p7, msg[2]);
+		});
+		this.addCommand(\tip_p8, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\tip_p8, msg[2]);
 		});
 		this.addCommand(\tip_lfo_a_freq, "if", {
 			arg msg;
@@ -598,6 +672,22 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\palm_p4, msg[2]);
 		});
+		this.addCommand(\palm_p5, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\palm_p5, msg[2]);
+		});
+		this.addCommand(\palm_p6, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\palm_p6, msg[2]);
+		});
+		this.addCommand(\palm_p7, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\palm_p7, msg[2]);
+		});
+		this.addCommand(\palm_p8, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\palm_p8, msg[2]);
+		});
 		this.addCommand(\palm_lfo_a_freq, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\palm_lfoAFreq, msg[2]);
@@ -630,6 +720,22 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\foot_p4, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\foot_p4, msg[2]);
+		});
+		this.addCommand(\foot_p5, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\foot_p5, msg[2]);
+		});
+		this.addCommand(\foot_p6, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\foot_p6, msg[2]);
+		});
+		this.addCommand(\foot_p7, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\foot_p7, msg[2]);
+		});
+		this.addCommand(\foot_p8, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\foot_p8, msg[2]);
 		});
 		this.addCommand(\foot_lfo_a_freq, "if", {
 			arg msg;
@@ -667,6 +773,22 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\eg_p4, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\eg_p4, msg[2]);
+		});
+		this.addCommand(\eg_p5, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\eg_p5, msg[2]);
+		});
+		this.addCommand(\eg_p6, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\eg_p6, msg[2]);
+		});
+		this.addCommand(\eg_p7, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\eg_p7, msg[2]);
+		});
+		this.addCommand(\eg_p8, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\eg_p8, msg[2]);
 		});
 		this.addCommand(\eg_lfo_a_freq, "if", {
 			arg msg;
@@ -709,6 +831,22 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\lfoA_p4, msg[2]);
 		});
+		this.addCommand(\lfo_a_p5, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\lfoA_p5, msg[2]);
+		});
+		this.addCommand(\lfo_a_p6, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\lfoA_p6, msg[2]);
+		});
+		this.addCommand(\lfo_a_p7, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\lfoA_p7, msg[2]);
+		});
+		this.addCommand(\lfo_a_p8, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\lfoA_p8, msg[2]);
+		});
 		this.addCommand(\lfo_a_lfo_b_freq, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\lfoA_lfoBFreq, msg[2]);
@@ -742,6 +880,22 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\lfoB_p4, msg[2]);
 		});
+		this.addCommand(\lfo_b_p5, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\lfoB_p5, msg[2]);
+		});
+		this.addCommand(\lfo_b_p6, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\lfoB_p6, msg[2]);
+		});
+		this.addCommand(\lfo_b_p7, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\lfoB_p7, msg[2]);
+		});
+		this.addCommand(\lfo_b_p8, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\lfoB_p8, msg[2]);
+		});
 		this.addCommand(\lfo_b_lfo_a_freq, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\lfoB_lfoAFreq, msg[2]);
@@ -766,6 +920,22 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\pitch_p4, "if", {
 			arg msg;
 			controlSynths[msg[1] - 1].set(\pitch_p4, msg[2]);
+		});
+		this.addCommand(\pitch_p5, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\pitch_p5, msg[2]);
+		});
+		this.addCommand(\pitch_p6, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\pitch_p6, msg[2]);
+		});
+		this.addCommand(\pitch_p7, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\pitch_p7, msg[2]);
+		});
+		this.addCommand(\pitch_p8, "if", {
+			arg msg;
+			controlSynths[msg[1] - 1].set(\pitch_p8, msg[2]);
 		});
 
 		this.addCommand(\voice1_fm, "if", {

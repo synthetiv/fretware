@@ -29,21 +29,36 @@ editor = {
 		-- TODO: LFO
 	},
 	dest_names = {
-		'p1',
-		'p2',
-		'p3',
-		'p4'
+		'p1', -- tune A
+		'p2', -- tune B
+		'p3', -- fm index
+		'p4', -- B feedback
+		'p5', -- mix
+		'p6', -- fold gain
+		'p7'  -- fold bias
 	},
-	source = 1, -- tip, palm, pitch, EG (, LFO, LFO2...)
-	dest = 1, -- p1, p2, p3, p4 (, rates...)
+	dest_labels = {
+		'tune A',
+		'tune B',
+		'fm index',
+		'B feedback',
+		'mix',
+		'fold gain',
+		'fold bias'
+	},
+	source = 1,
+	dest = 1,
 }
 
 dest_dials = {
 	-- x, y, size, value, min_value, max_value, rounding, start_value, markers, units, title
-	p1 = ui.Dial.new( 87,  2, 18, 0, -1, 1, 0.01, 0, { 0 }),
-	p2 = ui.Dial.new(109,  2, 18, 0, -1, 1, 0.01, 0, { 0 }),
-	p3 = ui.Dial.new( 87, 32, 18, 0, -1, 1, 0.01, 0, { 0 }),
-	p4 = ui.Dial.new(109, 32, 18, 0, -1, 1, 0.01, 0, { 0 })
+	p1 = ui.Dial.new(109,  20, 15, 0, -1, 1, 0.01, 0),
+	p2 = ui.Dial.new(109,  46, 15, 0, -1, 1, 0.01, 0),
+	p3 = ui.Dial.new(109,  72, 15, 0, -1, 1, 0.01, 0),
+	p4 = ui.Dial.new(109,  98, 15, 0, -1, 1, 0.01, 0),
+	p5 = ui.Dial.new(109, 124, 15, 0, -1, 1, 0.01, 0),
+	p6 = ui.Dial.new(109, 150, 15, 0, -1, 1, 0.01, 0),
+	p7 = ui.Dial.new(109, 176, 15, 0, -1, 1, 0.01, 0)
 }
 
 source_dials = {}
@@ -721,7 +736,6 @@ function init()
 		action = function(value)
 			dest_dials.p2:set_value(value)
 			for v = 1, n_voices do
-				-- p2 = tuning. square for finer control near 0 so close detuning is easier
 				engine.p2(v, value + params:get('p2_' .. v))
 			end
 		end
@@ -753,7 +767,46 @@ function init()
 		end
 	}
 
-	params:add_group('pitch', 4)
+	params:add {
+		name = 'param 5',
+		id = 'p5',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, -1),
+		action = function(value)
+			dest_dials.p5:set_value(value)
+			for v = 1, n_voices do
+				engine.p5(v, value + params:get('p5_' .. v))
+			end
+		end
+	}
+
+	params:add {
+		name = 'param 6',
+		id = 'p6',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, -0.15),
+		action = function(value)
+			dest_dials.p6:set_value(value)
+			for v = 1, n_voices do
+				engine.p6(v, value + params:get('p6_' .. v))
+			end
+		end
+	}
+
+	params:add {
+		name = 'param 7',
+		id = 'p7',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, -1),
+		action = function(value)
+			dest_dials.p7:set_value(value)
+			for v = 1, n_voices do
+				engine.p7(v, value + params:get('p7_' .. v))
+			end
+		end
+	}
+
+	params:add_group('pitch', 7)
 
 	params:add {
 		name = 'pitch -> p1',
@@ -807,7 +860,46 @@ function init()
 		end
 	}
 
-	params:add_group('hand', 8)
+	params:add {
+		name = 'pitch -> p5',
+		id = 'pitch_p5',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			source_dials.p5.pitch:set_value(value)
+			for v = 1, n_voices do
+				engine.pitch_p5(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'pitch -> p6',
+		id = 'pitch_p6',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			source_dials.p6.pitch:set_value(value)
+			for v = 1, n_voices do
+				engine.pitch_p6(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'pitch -> p7',
+		id = 'pitch_p7',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			source_dials.p7.pitch:set_value(value)
+			for v = 1, n_voices do
+				engine.pitch_p7(v, value)
+			end
+		end
+	}
+
+	params:add_group('hand', 11)
 
 	params:add {
 		name = 'hand -> p1',
@@ -866,6 +958,48 @@ function init()
 	}
 
 	params:add {
+		name = 'hand -> p5',
+		id = 'hand_p5',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			source_dials.p5.hand:set_value(value)
+			for v = 1, n_voices do
+				engine.tip_p5(v, value)
+				engine.palm_p5(v, -value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'hand -> p6',
+		id = 'hand_p6',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0.4),
+		action = function(value)
+			source_dials.p6.hand:set_value(value)
+			for v = 1, n_voices do
+				engine.tip_p6(v, value)
+				engine.palm_p6(v, -value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'hand -> p7',
+		id = 'hand_p7',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			source_dials.p7.hand:set_value(value)
+			for v = 1, n_voices do
+				engine.tip_p7(v, value)
+				engine.palm_p7(v, -value)
+			end
+		end
+	}
+
+	params:add {
 		name = 'hand -> lfo A freq',
 		id = 'hand_lfo_a_freq',
 		type = 'control',
@@ -917,7 +1051,7 @@ function init()
 		end
 	}
 
-	params:add_group('foot', 8)
+	params:add_group('foot', 11)
 
 	params:add {
 		name = 'foot -> p1',
@@ -972,6 +1106,45 @@ function init()
 	}
 
 	params:add {
+		name = 'foot -> p5',
+		id = 'foot_p5',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			source_dials.p5.foot:set_value(value)
+			for v = 1, n_voices do
+				engine.foot_p5(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'foot -> p6',
+		id = 'foot_p6',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			source_dials.p6.foot:set_value(value)
+			for v = 1, n_voices do
+				engine.foot_p6(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'foot -> p7',
+		id = 'foot_p7',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			source_dials.p7.foot:set_value(value)
+			for v = 1, n_voices do
+				engine.foot_p7(v, value)
+			end
+		end
+	}
+
+	params:add {
 		name = 'foot -> lfo A freq',
 		id = 'foot_lfo_a_freq',
 		type = 'control',
@@ -1019,7 +1192,7 @@ function init()
 		end
 	}
 
-	params:add_group('eg', 9)
+	params:add_group('eg', 12)
 
 	params:add {
 		name = 'attack',
@@ -1138,6 +1311,45 @@ function init()
 	}
 
 	params:add {
+		name = 'eg -> p5',
+		id = 'eg_p5',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			source_dials.p5.eg:set_value(value)
+			for v = 1, n_voices do
+				engine.eg_p5(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'eg -> p6',
+		id = 'eg_p6',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			source_dials.p6.eg:set_value(value)
+			for v = 1, n_voices do
+				engine.eg_p6(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'eg -> p7',
+		id = 'eg_p7',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			source_dials.p7.eg:set_value(value)
+			for v = 1, n_voices do
+				engine.eg_p7(v, value)
+			end
+		end
+	}
+
+	params:add {
 		name = 'fm cutoff',
 		id = 'fm_cutoff',
 		type = 'control',
@@ -1250,6 +1462,36 @@ function init()
 		}
 
 		params:add {
+			name = 'param 5',
+			id = 'p5_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+			action = function(value)
+				engine.p5(v, value + params:get('p5'))
+			end
+		}
+
+		params:add {
+			name = 'param 6',
+			id = 'p6_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+			action = function(value)
+				engine.p6(v, value + params:get('p6'))
+			end
+		}
+
+		params:add {
+			name = 'param 7',
+			id = 'p7_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+			action = function(value)
+				engine.p7(v, value + params:get('p7'))
+			end
+		}
+
+		params:add {
 			name = 'fm cutoff',
 			id = 'fm_cutoff_' .. v,
 			type = 'control',
@@ -1290,7 +1532,7 @@ function init()
 			}
 		end
 
-		params:add_group('v' .. v .. ' lfo A', 10)
+		params:add_group('v' .. v .. ' lfo A', 13)
 
 		params:add {
 			name = 'lfo A type',
@@ -1377,6 +1619,36 @@ function init()
 		}
 
 		params:add {
+			name = 'lfo A -> p5',
+			id = 'lfo_a_p5_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+			action = function(value)
+				engine.lfo_a_p5(v, value)
+			end
+		}
+
+		params:add {
+			name = 'lfo A -> p6',
+			id = 'lfo_a_p6_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+			action = function(value)
+				engine.lfo_a_p6(v, value)
+			end
+		}
+
+		params:add {
+			name = 'lfo A -> p7',
+			id = 'lfo_a_p7_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+			action = function(value)
+				engine.lfo_a_p7(v, value)
+			end
+		}
+
+		params:add {
 			name = 'lfo A -> lfo B freq',
 			id = 'lfo_a_lfo_b_freq_' .. v,
 			type = 'control',
@@ -1396,7 +1668,7 @@ function init()
 			end
 		}
 
-		params:add_group('v' .. v .. ' lfo B', 10)
+		params:add_group('v' .. v .. ' lfo B', 13)
 
 		params:add {
 			name = 'lfo B type',
@@ -1484,6 +1756,36 @@ function init()
 		}
 
 		params:add {
+			name = 'lfo B -> p5',
+			id = 'lfo_b_p5_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+			action = function(value)
+				engine.lfo_b_p5(v, value)
+			end
+		}
+
+		params:add {
+			name = 'lfo B -> p6',
+			id = 'lfo_b_p6' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+			action = function(value)
+				engine.lfo_b_p6(v, value)
+			end
+		}
+
+		params:add {
+			name = 'lfo B -> p7',
+			id = 'lfo_b_p7_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+			action = function(value)
+				engine.lfo_b_p7(v, value)
+			end
+		}
+
+		params:add {
 			name = 'lfo B -> lfo A freq',
 			id = 'lfo_b_lfo_a_freq_' .. v,
 			type = 'control',
@@ -1547,8 +1849,12 @@ function init()
 	end)
 
 	redraw_metro = metro.init {
-		time = 1 / 12,
+		time = 1 / 30,
 		event = function()
+			for p = 1, #editor.dest_names do
+				local dial = dest_dials[editor.dest_names[p]]
+				dial.y = dial.y + (((p - editor.dest) * 25 + 20) - dial.y) * 0.5
+			end
 			redraw()
 			grid_redraw()
 		end
@@ -1578,6 +1884,9 @@ function redraw()
 		local dial = dest_dials[editor.dest_names[d]]
 		dial:set_active(editor.dest == d)
 		dial:redraw()
+		screen.move(dial.x - 4, dial.y + 11)
+		screen.text_right(editor.dest_labels[d])
+		screen.stroke()
 	end
 	screen.update()
 end
