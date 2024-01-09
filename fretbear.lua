@@ -1493,12 +1493,12 @@ function init()
 		}
 
 		params:add {
-			name = 'detune',
-			id = 'detune_' .. v,
+			name = 'tune',
+			id = 'tune_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-12, 12, 'lin', 0, 0, 'st'),
 			action = function(value)
-				engine.detune(v, value / 12)
+				engine.tune(v, value / 12)
 			end
 		}
 

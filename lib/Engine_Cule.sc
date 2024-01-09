@@ -78,7 +78,7 @@ Engine_Cule : CroneEngine {
 				loopPosition = 0,
 				loopRateScale = 1,
 
-				detune = 0,
+				tune = 0,
 				pitchSlew = 0.01,
 				attack = 0.01,
 				decay = 0.1,
@@ -286,7 +286,7 @@ Engine_Cule : CroneEngine {
 
 			LocalOut.kr([pitch, tip, palm, foot, eg, lfoA, lfoB]);
 
-			pitch = pitch + detune + Mix([eg, lfoA, lfoB] * [eg_pitch, lfoA_pitch, lfoB_pitch]);
+			pitch = pitch + tune + Mix([eg, lfoA, lfoB] * [eg_pitch, lfoA_pitch, lfoB_pitch]);
 
 			// send control values to polls, both regularly (replyRate Hz) and immediately when gate goes high or when voice loops
 			SendReply.kr(trig: Impulse.kr(replyRate) + Changed.kr(pitch, 0.04), cmdName: '/voicePitchAmp', values: [voiceIndex, pitch, amp]);
@@ -496,9 +496,9 @@ Engine_Cule : CroneEngine {
 			controlSynths[msg[1] - 1].set(\pitchSlew, msg[2]);
 		});
 
-		this.addCommand(\detune, "if", {
+		this.addCommand(\tune, "if", {
 			arg msg;
-			controlSynths[msg[1] - 1].set(\detune, msg[2]);
+			controlSynths[msg[1] - 1].set(\tune, msg[2]);
 		});
 
 		this.addCommand(\tip, "if", {
