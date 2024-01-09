@@ -2,7 +2,7 @@ Engine_Cule : CroneEngine {
 
 	classvar nVoices = 7;
 	classvar nModulators = 7;
-	classvar nParams = 7;
+	classvar nParams = 8;
 	classvar nRecordedModulators = 5;
 	classvar maxLoopTime = 16;
 
@@ -330,14 +330,16 @@ Engine_Cule : CroneEngine {
 		// fold bias
 
 		SynthDef.new(\sine, {
-			arg fmBus, controlBus, outBus, octave = 0, fmCutoff = 12000, lpCutoff = 23000, hpCutoff = 16, outLevel = 0.2;
-			var pitch, amp, tuneA, tuneB, fmIndex, feedback, mix, foldGain, foldBias,
-				hz, modulator, fmMix, carrier, sine;
-			# pitch, amp, tuneA, tuneB, fmIndex, feedback, mix, foldGain, foldBias = In.kr(controlBus, nParams + 2);
+			arg fmBus, controlBus, outBus, octave = 0, detuneType = 0.2, fmCutoff = 12000, lpCutoff = 23000, hpCutoff = 16, outLevel = 0.2;
+			var pitch, amp, tuneA, tuneB, fmIndex, feedback, detune, mix, foldGain, foldBias,
+				hz, detuneLin, detuneExp, modulator, fmMix, carrier, sine;
+			# pitch, amp, tuneA, tuneB, fmIndex, feedback, detune, mix, foldGain, foldBias = In.kr(controlBus, nParams + 2);
 			hz = 2.pow(pitch + octave) * In.kr(baseFreqBus);
+			detuneLin = detune * 10 * detuneType;
+			detuneExp = (detune / 10 * (1 - detuneType)).midiratio;
 			modulator = this.harmonicOsc(
 				SinOscFB,
-				hz /* TODO: +/x detune */,
+				hz * detuneExp + detuneLin,
 				tuneB,
 				0.5 /* TODO: fade size */,
 				feedback.linexp(-1, 1, 0.01, 3)
@@ -346,7 +348,7 @@ Engine_Cule : CroneEngine {
 			fmMix = LPF.ar(fmMix, fmCutoff).mod(2pi);
 			carrier = this.harmonicOsc(
 				SinOsc,
-				hz,
+				hz / detuneExp - detuneLin,
 				tuneA,
 				0.5 /* TODO: fade size */,
 				fmMix
@@ -970,6 +972,11 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\octave, "ii", {
 			arg msg;
 			audioSynths[msg[1] - 1].set(\octave, msg[2]);
+		});
+
+		this.addCommand(\detune_type, "if", {
+			arg msg;
+			audioSynths[msg[1] - 1].set(\detuneType, msg[2]);
 		});
 
 		this.addCommand(\fm_cutoff, "if", {

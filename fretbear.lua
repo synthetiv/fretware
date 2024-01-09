@@ -33,15 +33,17 @@ editor = {
 		'p2', -- tune B
 		'p3', -- fm index
 		'p4', -- B feedback
-		'p5', -- mix
-		'p6', -- fold gain
-		'p7'  -- fold bias
+		'p5', -- detune
+		'p6', -- mix
+		'p7', -- fold gain
+		'p8'  -- fold bias
 	},
 	dest_labels = {
 		'tune A',
 		'tune B',
 		'fm index',
 		'B feedback',
+		'detune',
 		'mix',
 		'fold gain',
 		'fold bias'
@@ -58,7 +60,8 @@ dest_dials = {
 	p4 = ui.Dial.new(109,  98, 15, 0, -1, 1, 0.01, 0),
 	p5 = ui.Dial.new(109, 124, 15, 0, -1, 1, 0.01, 0),
 	p6 = ui.Dial.new(109, 150, 15, 0, -1, 1, 0.01, 0),
-	p7 = ui.Dial.new(109, 176, 15, 0, -1, 1, 0.01, 0)
+	p7 = ui.Dial.new(109, 176, 15, 0, -1, 1, 0.01, 0),
+	p8 = ui.Dial.new(109, 202, 15, 0, -1, 1, 0.01, 0)
 }
 
 source_dials = {}
@@ -716,7 +719,7 @@ function init()
 	}
 
 	params:add {
-		name = 'param 1',
+		name = 'tune A',
 		id = 'p1',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
@@ -729,7 +732,7 @@ function init()
 	}
 
 	params:add {
-		name = 'param 2',
+		name = 'tune B',
 		id = 'p2',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
@@ -742,7 +745,7 @@ function init()
 	}
 
 	params:add {
-		name = 'param 3',
+		name = 'fm index',
 		id = 'p3',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
@@ -755,7 +758,7 @@ function init()
 	}
 
 	params:add {
-		name = 'param 4',
+		name = 'B feedback',
 		id = 'p4',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
@@ -768,10 +771,10 @@ function init()
 	}
 
 	params:add {
-		name = 'param 5',
+		name = 'detune',
 		id = 'p5',
 		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, -1),
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
 			dest_dials.p5:set_value(value)
 			for v = 1, n_voices do
@@ -781,10 +784,10 @@ function init()
 	}
 
 	params:add {
-		name = 'param 6',
+		name = 'mix',
 		id = 'p6',
 		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, -0.15),
+		controlspec = controlspec.new(-1, 1, 'lin', 0, -1),
 		action = function(value)
 			dest_dials.p6:set_value(value)
 			for v = 1, n_voices do
@@ -794,10 +797,10 @@ function init()
 	}
 
 	params:add {
-		name = 'param 7',
+		name = 'fold gain',
 		id = 'p7',
 		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, -1),
+		controlspec = controlspec.new(-1, 1, 'lin', 0, -0.15),
 		action = function(value)
 			dest_dials.p7:set_value(value)
 			for v = 1, n_voices do
@@ -806,7 +809,20 @@ function init()
 		end
 	}
 
-	params:add_group('pitch', 7)
+	params:add {
+		name = 'fold bias',
+		id = 'p8',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, -1),
+		action = function(value)
+			dest_dials.p8:set_value(value)
+			for v = 1, n_voices do
+				engine.p8(v, value + params:get('p8_' .. v))
+			end
+		end
+	}
+
+	params:add_group('pitch', 8)
 
 	params:add {
 		name = 'pitch -> p1',
@@ -899,7 +915,20 @@ function init()
 		end
 	}
 
-	params:add_group('hand', 11)
+	params:add {
+		name = 'pitch -> p8',
+		id = 'pitch_p8',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			source_dials.p8.pitch:set_value(value)
+			for v = 1, n_voices do
+				engine.pitch_p8(v, value)
+			end
+		end
+	}
+
+	params:add_group('hand', 12)
 
 	params:add {
 		name = 'hand -> p1',
@@ -1000,6 +1029,20 @@ function init()
 	}
 
 	params:add {
+		name = 'hand -> p8',
+		id = 'hand_p8',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			source_dials.p8.hand:set_value(value)
+			for v = 1, n_voices do
+				engine.tip_p8(v, value)
+				engine.palm_p8(v, -value)
+			end
+		end
+	}
+
+	params:add {
 		name = 'hand -> lfo A freq',
 		id = 'hand_lfo_a_freq',
 		type = 'control',
@@ -1051,7 +1094,7 @@ function init()
 		end
 	}
 
-	params:add_group('foot', 11)
+	params:add_group('foot', 12)
 
 	params:add {
 		name = 'foot -> p1',
@@ -1145,6 +1188,19 @@ function init()
 	}
 
 	params:add {
+		name = 'foot -> p8',
+		id = 'foot_p8',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			source_dials.p8.foot:set_value(value)
+			for v = 1, n_voices do
+				engine.foot_p8(v, value)
+			end
+		end
+	}
+
+	params:add {
 		name = 'foot -> lfo A freq',
 		id = 'foot_lfo_a_freq',
 		type = 'control',
@@ -1192,7 +1248,7 @@ function init()
 		end
 	}
 
-	params:add_group('eg', 12)
+	params:add_group('eg', 13)
 
 	params:add {
 		name = 'attack',
@@ -1350,6 +1406,31 @@ function init()
 	}
 
 	params:add {
+		name = 'eg -> p8',
+		id = 'eg_p8',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			source_dials.p8.eg:set_value(value)
+			for v = 1, n_voices do
+				engine.eg_p8(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'detune exp/lin',
+		id = 'detune_type',
+		type = 'control',
+		controlspec = controlspec.new(0, 1, 'lin', 0, 0.12),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.detune_type(v, value)
+			end
+		end
+	}
+
+	params:add {
 		name = 'fm cutoff',
 		id = 'fm_cutoff',
 		type = 'control',
@@ -1492,6 +1573,16 @@ function init()
 		}
 
 		params:add {
+			name = 'param 8',
+			id = 'p8_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+			action = function(value)
+				engine.p8(v, value + params:get('p8'))
+			end
+		}
+
+		params:add {
 			name = 'fm cutoff',
 			id = 'fm_cutoff_' .. v,
 			type = 'control',
@@ -1532,7 +1623,7 @@ function init()
 			}
 		end
 
-		params:add_group('v' .. v .. ' lfo A', 13)
+		params:add_group('v' .. v .. ' lfo A', 14)
 
 		params:add {
 			name = 'lfo A type',
@@ -1649,6 +1740,16 @@ function init()
 		}
 
 		params:add {
+			name = 'lfo A -> p8',
+			id = 'lfo_a_p8_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+			action = function(value)
+				engine.lfo_a_p8(v, value)
+			end
+		}
+
+		params:add {
 			name = 'lfo A -> lfo B freq',
 			id = 'lfo_a_lfo_b_freq_' .. v,
 			type = 'control',
@@ -1668,7 +1769,7 @@ function init()
 			end
 		}
 
-		params:add_group('v' .. v .. ' lfo B', 13)
+		params:add_group('v' .. v .. ' lfo B', 14)
 
 		params:add {
 			name = 'lfo B type',
@@ -1782,6 +1883,16 @@ function init()
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.lfo_b_p7(v, value)
+			end
+		}
+
+		params:add {
+			name = 'lfo B -> p8',
+			id = 'lfo_b_p8_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+			action = function(value)
+				engine.lfo_b_p8(v, value)
 			end
 		}
 
