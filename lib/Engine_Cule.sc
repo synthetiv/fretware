@@ -354,28 +354,6 @@ Engine_Cule : CroneEngine {
 			Out.ar(context.out_b, sine ! 2 * Lag.kr(outLevel, 0.05));
 		}).add;
 
-		SynthDef.new(\pulse, {
-			arg fmBus, controlBus, outBus, outLevel = 0.2;
-			// TODO: fit the 4 voice params to a standard range (-1 to 1? 0 to 10?) and then scale that range to something appropriate here
-			var pitch, amp, pulsewidth, cutoff, pitchCutoff, resonance,
-				hz, saw, delayed, pulse, cutoffHz, filtered; // TODO: actually... shouldn't pitch->cutoff routing be handled in the control synth? hmm
-			// TODO: why does high-frequency FM seem not to do anything? is that just a feature of pulse->pulse FM (quite possible) or is PulseDPW like SinOscFB w/r/t audio-rate frequency updates?
-			// TODO: try other filters
-			# pitch, amp, pulsewidth, resonance, cutoff, pitchCutoff = In.kr(controlBus, 6);
-			hz = 2.pow(pitch) * In.kr(baseFreqBus);
-			saw = SawDPW.ar(hz);
-			delayed = DelayC.ar(saw, 0.2, hz.reciprocal * pulsewidth.linlin(-1, 1, 0, 1));
-			pulse = delayed - saw;
-			// TODO: bummer, I think BMoog's frequency is updated at control rate, not audio rate. it also seems to be prone to blowing up under heavy modulation, even when clamped to nyquist.
-			// RLPF seems to have the same issue. maybe all filters do...
-			cutoffHz = (2.pow(pitch * ((pitchCutoff + 1) * 2) + cutoff.linexp(-1, 1, 0.01, 11) - 1) * In.kr(baseFreqBus) * (1 + In.ar(fmBus)));
-			cutoffHz = cutoffHz.clip(10, SampleRate.ir / 2);
-			// filtered = BMoog.ar(pulse, cutoffHz, resonance) * amp;
-			filtered = RLPF.ar(pulse, cutoffHz, resonance.linexp(-1, 1, 1, 0.1)) * amp; // TODO: this still gets glitchy sometimes
-			Out.ar(outBus, pulse * amp);
-			Out.ar(context.out_b, filtered ! 2 * Lag.kr(outLevel, 0.05));
-		}).add;
-
 		// TODO: master bus FX like saturation, decimation...?
 
 		context.server.sync;
