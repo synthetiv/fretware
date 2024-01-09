@@ -330,7 +330,7 @@ Engine_Cule : CroneEngine {
 		// fold bias
 
 		SynthDef.new(\sine, {
-			arg fmBus, controlBus, outBus, octave = 0, detuneType = 0.2, fmCutoff = 12000, lpCutoff = 23000, hpCutoff = 16, outLevel = 0.2;
+			arg fmBus, controlBus, outBus, octave = 0, detuneType = 0.2, fadeSize = 0.5, fmCutoff = 12000, lpCutoff = 23000, hpCutoff = 16, outLevel = 0.2;
 			var pitch, amp, tuneA, tuneB, fmIndex, feedback, detune, mix, foldGain, foldBias,
 				hz, detuneLin, detuneExp, modulator, fmMix, carrier, sine;
 			# pitch, amp, tuneA, tuneB, fmIndex, feedback, detune, mix, foldGain, foldBias = In.kr(controlBus, nParams + 2);
@@ -341,7 +341,7 @@ Engine_Cule : CroneEngine {
 				SinOscFB,
 				hz * detuneExp + detuneLin,
 				tuneB,
-				0.5 /* TODO: fade size */,
+				fadeSize,
 				feedback.linexp(-1, 1, 0.01, 3)
 			);
 			fmMix = In.ar(fmBus) + (modulator * fmIndex.linexp(-1, 1, 0.01, 10pi));
@@ -350,7 +350,7 @@ Engine_Cule : CroneEngine {
 				SinOsc,
 				hz / detuneExp - detuneLin,
 				tuneA,
-				0.5 /* TODO: fade size */,
+				fadeSize,
 				fmMix
 			);
 			sine = LinXFade2.ar(carrier, modulator, mix);
@@ -977,6 +977,11 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\detune_type, "if", {
 			arg msg;
 			audioSynths[msg[1] - 1].set(\detuneType, msg[2]);
+		});
+
+		this.addCommand(\fade_size, "if", {
+			arg msg;
+			audioSynths[msg[1] - 1].set(\fadeSize, msg[2]);
 		});
 
 		this.addCommand(\fm_cutoff, "if", {

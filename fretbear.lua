@@ -1431,6 +1431,18 @@ function init()
 	}
 
 	params:add {
+		name = 'harmonic fade size',
+		id = 'fade_size',
+		type = 'control',
+		controlspec = controlspec.new(0.01, 1, 'lin', 0, 0.5),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.fade_size(v, value)
+			end
+		end
+	}
+
+	params:add {
 		name = 'fm cutoff',
 		id = 'fm_cutoff',
 		type = 'control',
