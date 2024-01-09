@@ -23,6 +23,8 @@ Engine_Cule : CroneEngine {
 		^super.new(context, doneCallback);
 	}
 
+	// helper function / pseudo-UGen: an FM operator that can crossfade its tuning across a set
+	// of predefined ratios
 	harmonicOsc {
 		arg uGen, hz, harmonic, fadeSize, uGenArg;
 		var whichRatio = harmonic.linlin(-1, 1, 0, nRatios - 1);
@@ -34,9 +36,12 @@ Engine_Cule : CroneEngine {
 		);
 	}
 
-
 	alloc {
 
+		// frequency ratios used by the two FM operators of each voice
+		// declared as one array, but stored as two arrays, one with odd and one with even
+		// members of the original; this allows operators to crossfade between two ratios
+		// (see harmonicOsc function)
 		fmRatios = [1/4, 1/3, 1/2, 1, 2, 4, 7, 8].clump(2).flop;
 		nRatios = fmRatios.flatten.size;
 
