@@ -210,6 +210,7 @@ Engine_Cule : CroneEngine {
 				eg, lfoA, lfoB,
 				hz;
 
+			// this feedback loop is needed in order for modulators to modulate one another
 			var modulators = LocalIn.kr(nModulators);
 
 			var gateOrTrig = Select.kr(egGateTrig, [
@@ -311,23 +312,6 @@ Engine_Cule : CroneEngine {
 			// write control signals to control bus
 			Out.kr(controlBus, [pitch, amp, p1, p2, p3, p4, p5, p6, p7, p8]);
 		}).add;
-
-		// TODO: alt synths:
-		// - square with pwm, cutoff, reso
-		// - double (var?)saw with detune, cutoff, reso?
-		// - wavetables... samples...
-		// TODO: come up with a good way to make param labels descriptive, because who wants 'timbre A' and 'timbre B'
-
-		// TODO: split "p1" into two parameters: FM (harmonic->fundamental) and blend (fundamendal<->harmonic)
-		// would it be useful for FM param to be reversible so you could, if you wanted, modulate the
-		// harmonic with the fundamental...? doubt it
-		//
-		// so -- new params:
-		// FM index
-		// 2-sine blend
-		// ratio (sent as float from Lua, so Lua has more direct control over these; slew with pitch slew)
-		// fold gain
-		// fold bias
 
 		SynthDef.new(\sine, {
 			arg fmBus, controlBus, outBus, octave = 0, detuneType = 0.2, fadeSize = 0.5, fmCutoff = 12000, lpCutoff = 23000, hpCutoff = 16, outLevel = 0.2;
