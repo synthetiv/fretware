@@ -29,22 +29,22 @@ editor = {
 		-- TODO: LFO
 	},
 	dest_names = {
-		'p1', -- tune A
-		'p2', -- tune B
-		'p3', -- fm index
-		'p4', -- B feedback
-		'p5', -- detune
-		'p6', -- mix
-		'p7', -- fold gain
-		'p8'  -- fold bias
+		'tune_a',
+		'tune_b',
+		'fm_index',
+		'fb_b',
+		'op_detune',
+		'op_mix',
+		'fold_gain',
+		'fold_bias'
 	},
 	dest_labels = {
 		'tune A',
 		'tune B',
 		'fm index',
-		'B feedback',
-		'detune',
-		'mix',
+		'feedback B',
+		'detune A/B',
+		'mix A/B',
 		'fold gain',
 		'fold bias'
 	},
@@ -54,14 +54,14 @@ editor = {
 
 dest_dials = {
 	-- x, y, size, value, min_value, max_value, rounding, start_value, markers, units, title
-	p1 = ui.Dial.new(109,  20, 15, 0, -1, 1, 0.01, 0),
-	p2 = ui.Dial.new(109,  46, 15, 0, -1, 1, 0.01, 0),
-	p3 = ui.Dial.new(109,  72, 15, 0, -1, 1, 0.01, 0),
-	p4 = ui.Dial.new(109,  98, 15, 0, -1, 1, 0.01, 0),
-	p5 = ui.Dial.new(109, 124, 15, 0, -1, 1, 0.01, 0),
-	p6 = ui.Dial.new(109, 150, 15, 0, -1, 1, 0.01, 0),
-	p7 = ui.Dial.new(109, 176, 15, 0, -1, 1, 0.01, 0),
-	p8 = ui.Dial.new(109, 202, 15, 0, -1, 1, 0.01, 0)
+	tune_a    = ui.Dial.new(109,  20, 15, 0, -1, 1, 0.01, 0),
+	tune_b    = ui.Dial.new(109,  46, 15, 0, -1, 1, 0.01, 0),
+	fm_index  = ui.Dial.new(109,  72, 15, 0, -1, 1, 0.01, 0),
+	fb_b      = ui.Dial.new(109,  98, 15, 0, -1, 1, 0.01, 0),
+	op_detune = ui.Dial.new(109, 124, 15, 0, -1, 1, 0.01, 0),
+	op_mix    = ui.Dial.new(109, 150, 15, 0, -1, 1, 0.01, 0),
+	fold_gain = ui.Dial.new(109, 176, 15, 0, -1, 1, 0.01, 0),
+	fold_bias = ui.Dial.new(109, 202, 15, 0, -1, 1, 0.01, 0)
 }
 
 source_dials = {}
@@ -720,104 +720,104 @@ function init()
 
 	params:add {
 		name = 'tune A',
-		id = 'p1',
+		id = 'tune_a',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			dest_dials.p1:set_value(value)
+			dest_dials.tune_a:set_value(value)
 			for v = 1, n_voices do
-				engine.p1(v, value + params:get('p1_' .. v))
+				engine.tune_a(v, value + params:get('tune_a_' .. v))
 			end
 		end
 	}
 
 	params:add {
 		name = 'tune B',
-		id = 'p2',
+		id = 'tune_b',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			dest_dials.p2:set_value(value)
+			dest_dials.tune_b:set_value(value)
 			for v = 1, n_voices do
-				engine.p2(v, value + params:get('p2_' .. v))
+				engine.tune_b(v, value + params:get('tune_b_' .. v))
 			end
 		end
 	}
 
 	params:add {
 		name = 'fm index',
-		id = 'p3',
+		id = 'fm_index',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			dest_dials.p3:set_value(value)
+			dest_dials.fm_index:set_value(value)
 			for v = 1, n_voices do
-				engine.p3(v, value + params:get('p3_' .. v))
+				engine.fm_index(v, value + params:get('fm_index_' .. v))
 			end
 		end
 	}
 
 	params:add {
-		name = 'B feedback',
-		id = 'p4',
+		name = 'feedback B',
+		id = 'fb_b',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			dest_dials.p4:set_value(value)
+			dest_dials.fb_b:set_value(value)
 			for v = 1, n_voices do
-				engine.p4(v, value + params:get('p4_' .. v))
+				engine.fb_b(v, value + params:get('fb_b_' .. v))
 			end
 		end
 	}
 
 	params:add {
-		name = 'detune',
-		id = 'p5',
+		name = 'detune A/B',
+		id = 'op_detune',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			dest_dials.p5:set_value(value)
+			dest_dials.op_detune:set_value(value)
 			for v = 1, n_voices do
-				engine.p5(v, value + params:get('p5_' .. v))
+				engine.op_detune(v, value + params:get('op_detune_' .. v))
 			end
 		end
 	}
 
 	params:add {
-		name = 'mix',
-		id = 'p6',
+		name = 'mix A/B',
+		id = 'op_mix',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, -1),
 		action = function(value)
-			dest_dials.p6:set_value(value)
+			dest_dials.op_mix:set_value(value)
 			for v = 1, n_voices do
-				engine.p6(v, value + params:get('p6_' .. v))
+				engine.op_mix(v, value + params:get('op_mix_' .. v))
 			end
 		end
 	}
 
 	params:add {
 		name = 'fold gain',
-		id = 'p7',
+		id = 'fold_gain',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, -0.15),
 		action = function(value)
-			dest_dials.p7:set_value(value)
+			dest_dials.fold_gain:set_value(value)
 			for v = 1, n_voices do
-				engine.p7(v, value + params:get('p7_' .. v))
+				engine.fold_gain(v, value + params:get('fold_gain_' .. v))
 			end
 		end
 	}
 
 	params:add {
 		name = 'fold bias',
-		id = 'p8',
+		id = 'fold_bias',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, -1),
 		action = function(value)
-			dest_dials.p8:set_value(value)
+			dest_dials.fold_bias:set_value(value)
 			for v = 1, n_voices do
-				engine.p8(v, value + params:get('p8_' .. v))
+				engine.fold_bias(v, value + params:get('fold_bias_' .. v))
 			end
 		end
 	}
@@ -825,105 +825,105 @@ function init()
 	params:add_group('pitch', 8)
 
 	params:add {
-		name = 'pitch -> p1',
-		id = 'pitch_p1',
+		name = 'pitch -> tune_a',
+		id = 'pitch_tune_a',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p1.pitch:set_value(value)
+			source_dials.tune_a.pitch:set_value(value)
 			for v = 1, n_voices do
-				engine.pitch_p1(v, value)
+				engine.pitch_tune_a(v, value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'pitch -> p2',
-		id = 'pitch_p2',
+		name = 'pitch -> tune_b',
+		id = 'pitch_tune_b',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p2.pitch:set_value(value)
+			source_dials.tune_b.pitch:set_value(value)
 			for v = 1, n_voices do
-				engine.pitch_p2(v, value)
+				engine.pitch_tune_b(v, value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'pitch -> p3',
-		id = 'pitch_p3',
+		name = 'pitch -> fm_index',
+		id = 'pitch_fm_index',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p3.pitch:set_value(value)
+			source_dials.fm_index.pitch:set_value(value)
 			for v = 1, n_voices do
-				engine.pitch_p3(v, value)
+				engine.pitch_fm_index(v, value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'pitch -> p4',
-		id = 'pitch_p4',
+		name = 'pitch -> fb_b',
+		id = 'pitch_fb_b',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p4.pitch:set_value(value)
+			source_dials.fb_b.pitch:set_value(value)
 			for v = 1, n_voices do
-				engine.pitch_p4(v, value)
+				engine.pitch_fb_b(v, value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'pitch -> p5',
-		id = 'pitch_p5',
+		name = 'pitch -> op_detune',
+		id = 'pitch_op_detune',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p5.pitch:set_value(value)
+			source_dials.op_detune.pitch:set_value(value)
 			for v = 1, n_voices do
-				engine.pitch_p5(v, value)
+				engine.pitch_op_detune(v, value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'pitch -> p6',
-		id = 'pitch_p6',
+		name = 'pitch -> op_mix',
+		id = 'pitch_op_mix',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p6.pitch:set_value(value)
+			source_dials.op_mix.pitch:set_value(value)
 			for v = 1, n_voices do
-				engine.pitch_p6(v, value)
+				engine.pitch_op_mix(v, value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'pitch -> p7',
-		id = 'pitch_p7',
+		name = 'pitch -> fold_gain',
+		id = 'pitch_fold_gain',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p7.pitch:set_value(value)
+			source_dials.fold_gain.pitch:set_value(value)
 			for v = 1, n_voices do
-				engine.pitch_p7(v, value)
+				engine.pitch_fold_gain(v, value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'pitch -> p8',
-		id = 'pitch_p8',
+		name = 'pitch -> fold_bias',
+		id = 'pitch_fold_bias',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p8.pitch:set_value(value)
+			source_dials.fold_bias.pitch:set_value(value)
 			for v = 1, n_voices do
-				engine.pitch_p8(v, value)
+				engine.pitch_fold_bias(v, value)
 			end
 		end
 	}
@@ -931,113 +931,113 @@ function init()
 	params:add_group('hand', 12)
 
 	params:add {
-		name = 'hand -> p1',
-		id = 'hand_p1',
+		name = 'hand -> tune_a',
+		id = 'hand_tune_a',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p1.hand:set_value(value)
+			source_dials.tune_a.hand:set_value(value)
 			for v = 1, n_voices do
-				engine.tip_p1(v, value)
-				engine.palm_p1(v, -value)
+				engine.tip_tune_a(v, value)
+				engine.palm_tune_a(v, -value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'hand -> p2',
-		id = 'hand_p2',
+		name = 'hand -> tune_b',
+		id = 'hand_tune_b',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p2.hand:set_value(value)
+			source_dials.tune_b.hand:set_value(value)
 			for v = 1, n_voices do
-				engine.tip_p2(v, value)
-				engine.palm_p2(v, -value)
+				engine.tip_tune_b(v, value)
+				engine.palm_tune_b(v, -value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'hand -> p3',
-		id = 'hand_p3',
+		name = 'hand -> fm_index',
+		id = 'hand_fm_index',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p3.hand:set_value(value)
+			source_dials.fm_index.hand:set_value(value)
 			for v = 1, n_voices do
-				engine.tip_p3(v, value)
-				engine.palm_p3(v, -value)
+				engine.tip_fm_index(v, value)
+				engine.palm_fm_index(v, -value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'hand -> p4',
-		id = 'hand_p4',
+		name = 'hand -> fb_b',
+		id = 'hand_fb_b',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p4.hand:set_value(value)
+			source_dials.fb_b.hand:set_value(value)
 			for v = 1, n_voices do
-				engine.tip_p4(v, value)
-				engine.palm_p4(v, -value)
+				engine.tip_fb_b(v, value)
+				engine.palm_fb_b(v, -value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'hand -> p5',
-		id = 'hand_p5',
+		name = 'hand -> op_detune',
+		id = 'hand_op_detune',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p5.hand:set_value(value)
+			source_dials.op_detune.hand:set_value(value)
 			for v = 1, n_voices do
-				engine.tip_p5(v, value)
-				engine.palm_p5(v, -value)
+				engine.tip_op_detune(v, value)
+				engine.palm_op_detune(v, -value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'hand -> p6',
-		id = 'hand_p6',
+		name = 'hand -> op_mix',
+		id = 'hand_op_mix',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0.4),
 		action = function(value)
-			source_dials.p6.hand:set_value(value)
+			source_dials.op_mix.hand:set_value(value)
 			for v = 1, n_voices do
-				engine.tip_p6(v, value)
-				engine.palm_p6(v, -value)
+				engine.tip_op_mix(v, value)
+				engine.palm_op_mix(v, -value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'hand -> p7',
-		id = 'hand_p7',
+		name = 'hand -> fold_gain',
+		id = 'hand_fold_gain',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p7.hand:set_value(value)
+			source_dials.fold_gain.hand:set_value(value)
 			for v = 1, n_voices do
-				engine.tip_p7(v, value)
-				engine.palm_p7(v, -value)
+				engine.tip_fold_gain(v, value)
+				engine.palm_fold_gain(v, -value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'hand -> p8',
-		id = 'hand_p8',
+		name = 'hand -> fold_bias',
+		id = 'hand_fold_bias',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p8.hand:set_value(value)
+			source_dials.fold_bias.hand:set_value(value)
 			for v = 1, n_voices do
-				engine.tip_p8(v, value)
-				engine.palm_p8(v, -value)
+				engine.tip_fold_bias(v, value)
+				engine.palm_fold_bias(v, -value)
 			end
 		end
 	}
@@ -1097,105 +1097,105 @@ function init()
 	params:add_group('foot', 12)
 
 	params:add {
-		name = 'foot -> p1',
-		id = 'foot_p1',
+		name = 'foot -> tune_a',
+		id = 'foot_tune_a',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p1.foot:set_value(value)
+			source_dials.tune_a.foot:set_value(value)
 			for v = 1, n_voices do
-				engine.foot_p1(v, value)
+				engine.foot_tune_a(v, value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'foot -> p2',
-		id = 'foot_p2',
+		name = 'foot -> tune_b',
+		id = 'foot_tune_b',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p2.foot:set_value(value)
+			source_dials.tune_b.foot:set_value(value)
 			for v = 1, n_voices do
-				engine.foot_p2(v, value)
+				engine.foot_tune_b(v, value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'foot -> p3',
-		id = 'foot_p3',
+		name = 'foot -> fm_index',
+		id = 'foot_fm_index',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p3.foot:set_value(value)
+			source_dials.fm_index.foot:set_value(value)
 			for v = 1, n_voices do
-				engine.foot_p3(v, value)
+				engine.foot_fm_index(v, value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'foot -> p4',
-		id = 'foot_p4',
+		name = 'foot -> fb_b',
+		id = 'foot_fb_b',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p4.foot:set_value(value)
+			source_dials.fb_b.foot:set_value(value)
 			for v = 1, n_voices do
-				engine.foot_p4(v, value)
+				engine.foot_fb_b(v, value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'foot -> p5',
-		id = 'foot_p5',
+		name = 'foot -> op_detune',
+		id = 'foot_op_detune',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p5.foot:set_value(value)
+			source_dials.op_detune.foot:set_value(value)
 			for v = 1, n_voices do
-				engine.foot_p5(v, value)
+				engine.foot_op_detune(v, value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'foot -> p6',
-		id = 'foot_p6',
+		name = 'foot -> op_mix',
+		id = 'foot_op_mix',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p6.foot:set_value(value)
+			source_dials.op_mix.foot:set_value(value)
 			for v = 1, n_voices do
-				engine.foot_p6(v, value)
+				engine.foot_op_mix(v, value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'foot -> p7',
-		id = 'foot_p7',
+		name = 'foot -> fold_gain',
+		id = 'foot_fold_gain',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p7.foot:set_value(value)
+			source_dials.fold_gain.foot:set_value(value)
 			for v = 1, n_voices do
-				engine.foot_p7(v, value)
+				engine.foot_fold_gain(v, value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'foot -> p8',
-		id = 'foot_p8',
+		name = 'foot -> fold_bias',
+		id = 'foot_fold_bias',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p8.foot:set_value(value)
+			source_dials.fold_bias.foot:set_value(value)
 			for v = 1, n_voices do
-				engine.foot_p8(v, value)
+				engine.foot_fold_bias(v, value)
 			end
 		end
 	}
@@ -1315,105 +1315,105 @@ function init()
 	}
 
 	params:add {
-		name = 'eg -> p1',
-		id = 'eg_p1',
+		name = 'eg -> tune_a',
+		id = 'eg_tune_a',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p1.eg:set_value(value)
+			source_dials.tune_a.eg:set_value(value)
 			for v = 1, n_voices do
-				engine.eg_p1(v, value)
+				engine.eg_tune_a(v, value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'eg -> p2',
-		id = 'eg_p2',
+		name = 'eg -> tune_b',
+		id = 'eg_tune_b',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p2.eg:set_value(value)
+			source_dials.tune_b.eg:set_value(value)
 			for v = 1, n_voices do
-				engine.eg_p2(v, value)
+				engine.eg_tune_b(v, value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'eg -> p3',
-		id = 'eg_p3',
+		name = 'eg -> fm_index',
+		id = 'eg_fm_index',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p3.eg:set_value(value)
+			source_dials.fm_index.eg:set_value(value)
 			for v = 1, n_voices do
-				engine.eg_p3(v, value)
+				engine.eg_fm_index(v, value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'eg -> p4',
-		id = 'eg_p4',
+		name = 'eg -> fb_b',
+		id = 'eg_fb_b',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p4.eg:set_value(value)
+			source_dials.fb_b.eg:set_value(value)
 			for v = 1, n_voices do
-				engine.eg_p4(v, value)
+				engine.eg_fb_b(v, value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'eg -> p5',
-		id = 'eg_p5',
+		name = 'eg -> op_detune',
+		id = 'eg_op_detune',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p5.eg:set_value(value)
+			source_dials.op_detune.eg:set_value(value)
 			for v = 1, n_voices do
-				engine.eg_p5(v, value)
+				engine.eg_op_detune(v, value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'eg -> p6',
-		id = 'eg_p6',
+		name = 'eg -> op_mix',
+		id = 'eg_op_mix',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p6.eg:set_value(value)
+			source_dials.op_mix.eg:set_value(value)
 			for v = 1, n_voices do
-				engine.eg_p6(v, value)
+				engine.eg_op_mix(v, value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'eg -> p7',
-		id = 'eg_p7',
+		name = 'eg -> fold_gain',
+		id = 'eg_fold_gain',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p7.eg:set_value(value)
+			source_dials.fold_gain.eg:set_value(value)
 			for v = 1, n_voices do
-				engine.eg_p7(v, value)
+				engine.eg_fold_gain(v, value)
 			end
 		end
 	}
 
 	params:add {
-		name = 'eg -> p8',
-		id = 'eg_p8',
+		name = 'eg -> fold_bias',
+		id = 'eg_fold_bias',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			source_dials.p8.eg:set_value(value)
+			source_dials.fold_bias.eg:set_value(value)
 			for v = 1, n_voices do
-				engine.eg_p8(v, value)
+				engine.eg_fold_bias(v, value)
 			end
 		end
 	}
@@ -1515,82 +1515,82 @@ function init()
 		}
 
 		params:add {
-			name = 'param 1',
-			id = 'p1_' .. v,
+			name = 'tune A',
+			id = 'tune_a_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.p1(v, value + params:get('p1'))
+				engine.tune_a(v, value + params:get('tune_a'))
 			end
 		}
 
 		params:add {
-			name = 'param 2',
-			id = 'p2_' .. v,
+			name = 'tune B',
+			id = 'tune_b_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.p2(v, value + params:get('p2'))
+				engine.tune_b(v, value + params:get('tune_b'))
 			end
 		}
 
 		params:add {
-			name = 'param 3',
-			id = 'p3_' .. v,
+			name = 'fm index',
+			id = 'fm_index_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.p3(v, value + params:get('p3'))
+				engine.fm_index(v, value + params:get('fm_index'))
 			end
 		}
 
 		params:add {
-			name = 'param 4',
-			id = 'p4_' .. v,
+			name = 'feedback B',
+			id = 'fb_b_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.p4(v, value + params:get('p4'))
+				engine.fb_b(v, value + params:get('fb_b'))
 			end
 		}
 
 		params:add {
-			name = 'param 5',
-			id = 'p5_' .. v,
+			name = 'detune A/B',
+			id = 'op_detune_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.p5(v, value + params:get('p5'))
+				engine.op_detune(v, value + params:get('op_detune'))
 			end
 		}
 
 		params:add {
-			name = 'param 6',
-			id = 'p6_' .. v,
+			name = 'mix A/B',
+			id = 'op_mix_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.p6(v, value + params:get('p6'))
+				engine.op_mix(v, value + params:get('op_mix'))
 			end
 		}
 
 		params:add {
-			name = 'param 7',
-			id = 'p7_' .. v,
+			name = 'fold gain',
+			id = 'fold_gain_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.p7(v, value + params:get('p7'))
+				engine.fold_gain(v, value + params:get('fold_gain'))
 			end
 		}
 
 		params:add {
-			name = 'param 8',
-			id = 'p8_' .. v,
+			name = 'fold bias',
+			id = 'fold_bias_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.p8(v, value + params:get('p8'))
+				engine.fold_bias(v, value + params:get('fold_bias'))
 			end
 		}
 
@@ -1682,82 +1682,82 @@ function init()
 		}
 
 		params:add {
-			name = 'lfo A -> p1',
-			id = 'lfo_a_p1_' .. v,
+			name = 'lfo A -> tune_a',
+			id = 'lfo_a_tune_a_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_a_p1(v, value)
+				engine.lfo_a_tune_a(v, value)
 			end
 		}
 
 		params:add {
-			name = 'lfo A -> p2',
-			id = 'lfo_a_p2_' .. v,
+			name = 'lfo A -> tune_b',
+			id = 'lfo_a_tune_b_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_a_p2(v, value)
+				engine.lfo_a_tune_b(v, value)
 			end
 		}
 
 		params:add {
-			name = 'lfo A -> p3',
-			id = 'lfo_a_p3_' .. v,
+			name = 'lfo A -> fm_index',
+			id = 'lfo_a_fm_index_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_a_p3(v, value)
+				engine.lfo_a_fm_index(v, value)
 			end
 		}
 
 		params:add {
-			name = 'lfo A -> p4',
-			id = 'lfo_a_p4_' .. v,
+			name = 'lfo A -> fb_b',
+			id = 'lfo_a_fb_b_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_a_p4(v, value)
+				engine.lfo_a_fb_b(v, value)
 			end
 		}
 
 		params:add {
-			name = 'lfo A -> p5',
-			id = 'lfo_a_p5_' .. v,
+			name = 'lfo A -> op_detune',
+			id = 'lfo_a_op_detune_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_a_p5(v, value)
+				engine.lfo_a_op_detune(v, value)
 			end
 		}
 
 		params:add {
-			name = 'lfo A -> p6',
-			id = 'lfo_a_p6_' .. v,
+			name = 'lfo A -> op_mix',
+			id = 'lfo_a_op_mix_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_a_p6(v, value)
+				engine.lfo_a_op_mix(v, value)
 			end
 		}
 
 		params:add {
-			name = 'lfo A -> p7',
-			id = 'lfo_a_p7_' .. v,
+			name = 'lfo A -> fold_gain',
+			id = 'lfo_a_fold_gain_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_a_p7(v, value)
+				engine.lfo_a_fold_gain(v, value)
 			end
 		}
 
 		params:add {
-			name = 'lfo A -> p8',
-			id = 'lfo_a_p8_' .. v,
+			name = 'lfo A -> fold_bias',
+			id = 'lfo_a_fold_bias_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_a_p8(v, value)
+				engine.lfo_a_fold_bias(v, value)
 			end
 		}
 
@@ -1829,82 +1829,82 @@ function init()
 		}
 
 		params:add {
-			name = 'lfo B -> p1',
-			id = 'lfo_b_p1_' .. v,
+			name = 'lfo B -> tune_a',
+			id = 'lfo_b_tune_a_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_b_p1(v, value)
+				engine.lfo_b_tune_a(v, value)
 			end
 		}
 
 		params:add {
-			name = 'lfo B -> p2',
-			id = 'lfo_b_p2_' .. v,
+			name = 'lfo B -> tune_b',
+			id = 'lfo_b_tune_b_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_b_p2(v, value)
+				engine.lfo_b_tune_b(v, value)
 			end
 		}
 
 		params:add {
-			name = 'lfo B -> p3',
-			id = 'lfo_b_p3' .. v,
+			name = 'lfo B -> fm_index',
+			id = 'lfo_b_fm_index' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_b_p3(v, value)
+				engine.lfo_b_fm_index(v, value)
 			end
 		}
 
 		params:add {
-			name = 'lfo B -> p4',
-			id = 'lfo_b_p4_' .. v,
+			name = 'lfo B -> fb_b',
+			id = 'lfo_b_fb_b_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_b_p4(v, value)
+				engine.lfo_b_fb_b(v, value)
 			end
 		}
 
 		params:add {
-			name = 'lfo B -> p5',
-			id = 'lfo_b_p5_' .. v,
+			name = 'lfo B -> op_detune',
+			id = 'lfo_b_op_detune_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_b_p5(v, value)
+				engine.lfo_b_op_detune(v, value)
 			end
 		}
 
 		params:add {
-			name = 'lfo B -> p6',
-			id = 'lfo_b_p6' .. v,
+			name = 'lfo B -> op_mix',
+			id = 'lfo_b_op_mix' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_b_p6(v, value)
+				engine.lfo_b_op_mix(v, value)
 			end
 		}
 
 		params:add {
-			name = 'lfo B -> p7',
-			id = 'lfo_b_p7_' .. v,
+			name = 'lfo B -> fold_gain',
+			id = 'lfo_b_fold_gain_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_b_p7(v, value)
+				engine.lfo_b_fold_gain(v, value)
 			end
 		}
 
 		params:add {
-			name = 'lfo B -> p8',
-			id = 'lfo_b_p8_' .. v,
+			name = 'lfo B -> fold_bias',
+			id = 'lfo_b_fold_bias_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_b_p8(v, value)
+				engine.lfo_b_fold_bias(v, value)
 			end
 		}
 
