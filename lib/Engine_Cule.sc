@@ -47,18 +47,19 @@ Engine_Cule : CroneEngine {
 
 		baseFreqBus = Bus.control(context.server);
 
-		// direct outs from audio synths, to be mixed by each synth into their own FM inputs 
+		// direct outs from audio synths, to be mixed by each synth into their own FM inputs
 		synthOutBuses = Array.fill(nVoices, {
 			Bus.audio(context.server);
 		});
 
-		// voice-to-voice FM amounts, by destination, then source
+		// voice-to-voice FM amounts, by destination voice, then source voice
 		fmBuses = Array.fill(nVoices, {
 			Array.fill(nVoices, {
 				Bus.control(context.server);
 			});
 		});
 
+		// TODO: LFOs as separate synths
 		SynthDef.new(\line, {
 
 			arg voiceIndex,
@@ -222,6 +223,7 @@ Engine_Cule : CroneEngine {
 			var lagTip = Lag.kr(tip, 0.05);
 
 			// calculate modulation matrix
+
 			// this feedback loop is needed in order for modulators to modulate one another
 			var modulators = LocalIn.kr(nModulators);
 
