@@ -14,6 +14,7 @@ Engine_Cule : CroneEngine {
 	var controlBuffers;
 	var voiceSynths;
 	var synthOutBuses;
+	var fmBuses;
 	var polls;
 	var replyFunc;
 
@@ -51,11 +52,19 @@ Engine_Cule : CroneEngine {
 			Bus.audio(context.server);
 		});
 
+		// voice-to-voice FM amounts, by destination, then source
+		fmBuses = Array.fill(nVoices, {
+			Array.fill(nVoices, {
+				Bus.control(context.server);
+			});
+		});
+
 		SynthDef.new(\line, {
 
 			arg voiceIndex,
 				buffer,
 				outBus,
+				fmBus,
 				pitch = 0,
 				gate = 0,
 				t_trig = 0,
@@ -193,14 +202,6 @@ Engine_Cule : CroneEngine {
 				// TODO: pitch -> FM amounts from other voices
 				// TODO: EG -> LFO freqs and amounts, and vice versa
 
-				voice1_fm = 0,
-				voice2_fm = 0,
-				voice3_fm = 0,
-				voice4_fm = 0,
-				voice5_fm = 0,
-				voice6_fm = 0,
-				voice7_fm = 0,
-
 				egGateTrig = 0,
 				trigLength = 0.01,
 				replyRate = 10;
@@ -294,7 +295,7 @@ Engine_Cule : CroneEngine {
 			pitch = Lag.kr(pitch, pitchSlew);
 
 			// calculate FM mix to feed to operator A
-			fmInput = Mix(InFeedback.ar(synthOutBuses) * [voice1_fm, voice2_fm, voice3_fm, voice4_fm, voice5_fm, voice6_fm, voice7_fm]);
+			fmInput = Mix(InFeedback.ar(synthOutBuses) * In.kr(fmBus, nVoices));
 
 			// slew direct control
 			tuneA    = Lag.kr(tuneA,    lag);
@@ -360,6 +361,7 @@ Engine_Cule : CroneEngine {
 				\buffer, controlBuffers[i],
 				\delay, i * 0.2,
 				\outBus, synthOutBuses[i],
+				\fmBus, fmBuses[i][0],
 			], context.og, \addToTail); // "output" group
 		});
 		polls = Array.fill(nVoices, {
@@ -883,33 +885,9 @@ Engine_Cule : CroneEngine {
 			voiceSynths[msg[1] - 1].set(\pitch_foldBias, msg[2]);
 		});
 
-		this.addCommand(\voice1_fm, "if", {
+		this.addCommand(\voice_fm, "iif", {
 			arg msg;
-			voiceSynths[msg[1] - 1].set(\voice1_fm, msg[2]);
-		});
-		this.addCommand(\voice2_fm, "if", {
-			arg msg;
-			voiceSynths[msg[1] - 1].set(\voice2_fm, msg[2]);
-		});
-		this.addCommand(\voice3_fm, "if", {
-			arg msg;
-			voiceSynths[msg[1] - 1].set(\voice3_fm, msg[2]);
-		});
-		this.addCommand(\voice4_fm, "if", {
-			arg msg;
-			voiceSynths[msg[1] - 1].set(\voice4_fm, msg[2]);
-		});
-		this.addCommand(\voice5_fm, "if", {
-			arg msg;
-			voiceSynths[msg[1] - 1].set(\voice5_fm, msg[2]);
-		});
-		this.addCommand(\voice6_fm, "if", {
-			arg msg;
-			voiceSynths[msg[1] - 1].set(\voice6_fm, msg[2]);
-		});
-		this.addCommand(\voice7_fm, "if", {
-			arg msg;
-			voiceSynths[msg[1] - 1].set(\voice7_fm, msg[2]);
+			fmBuses[msg[1] - 1][msg[2] - 1].set(msg[3]);
 		});
 
 		this.addCommand(\octave, "ii", {

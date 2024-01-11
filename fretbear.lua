@@ -1630,7 +1630,7 @@ function init()
 				k = 6,
 				default = 0,
 				action = function(value)
-					engine['voice' .. w ..'_fm'](v, value)
+					engine.voice_fm(v, w, value)
 				end
 			}
 		end
