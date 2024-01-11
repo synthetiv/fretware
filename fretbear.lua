@@ -16,8 +16,9 @@ redraw_metro = nil
 
 g = grid.connect()
 
-touche = midi.connect(1)
-fbv = midi.connect(4)
+-- TODO: connect to these devices by name
+touche = midi.connect(1) -- 'TOUCHE 1'
+fbv = midi.connect(4) -- 'FBV Express Mk II 1'
 
 editor = {
 	shift = false,
@@ -106,7 +107,7 @@ function voice_loop_button(v)
 	local voice = voice_states[v]
 	if voice.looping then
 		-- stop looping
-		engine.clear_loop(v)
+		engine.clearLoop(v)
 		voice.looping = false
 		if voice.loop_clock then
 			clock.cancel(voice.loop_clock)
@@ -310,7 +311,7 @@ function reset_loop_clock()
 						-- TODO: is rounding really appropriate here?
 						local loop_length_ticks = math.floor(loop_length_beats / rate + 0.5)
 						local loop_tick = 1
-						engine.set_loop(v, beat_sec * loop_length_beats)
+						engine.setLoop(v, beat_sec * loop_length_beats)
 						voice.looping = true
 						voice.looping_next = false
 						voice.loop_armed = false
@@ -320,13 +321,13 @@ function reset_loop_clock()
 								clock.sync(rate)
 								loop_tick = loop_tick % loop_length_ticks + 1
 								if loop_tick == 1 then
-									engine.reset_loop_phase(v)
+									engine.resetLoopPhase(v)
 								end
 							end
 						end)
 					elseif voice.looping then
 						-- adjust rate to match tempo as needed
-						engine.loop_rate_scale(v, clock.get_beat_sec() / voice.loop_beat_sec)
+						engine.loopRateScale(v, clock.get_beat_sec() / voice.loop_beat_sec)
 					end
 				end
 			end
@@ -428,7 +429,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(130, 522, 'exp', 0, musicutil.note_num_to_freq(60), 'Hz'),
 		action = function(value)
-			engine.base_freq(value)
+			engine.baseFreq(value)
 		end
 	}
 
@@ -706,7 +707,7 @@ function init()
 		default = 1,
 		action = function(value)
 			for v = 1, n_voices do
-				engine.amp_mode(v, value)
+				engine.ampMode(v, value - 1)
 			end
 		end
 	}
@@ -718,7 +719,7 @@ function init()
 		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.01, 's'),
 		action = function(value)
 			for v = 1, n_voices do
-				engine.pitch_slew(v, value)
+				engine.pitchSlew(v, value)
 			end
 		end
 	}
@@ -731,7 +732,7 @@ function init()
 		action = function(value)
 			dest_dials.tune_a:set_value(value)
 			for v = 1, n_voices do
-				engine.tune_a(v, value + params:get('tune_a_' .. v))
+				engine.tuneA(v, value + params:get('tune_a_' .. v))
 			end
 		end
 	}
@@ -744,7 +745,7 @@ function init()
 		action = function(value)
 			dest_dials.tune_b:set_value(value)
 			for v = 1, n_voices do
-				engine.tune_b(v, value + params:get('tune_b_' .. v))
+				engine.tuneB(v, value + params:get('tune_b_' .. v))
 			end
 		end
 	}
@@ -757,7 +758,7 @@ function init()
 		action = function(value)
 			dest_dials.fm_index:set_value(value)
 			for v = 1, n_voices do
-				engine.fm_index(v, value + params:get('fm_index_' .. v))
+				engine.fmIndex(v, value + params:get('fm_index_' .. v))
 			end
 		end
 	}
@@ -770,7 +771,7 @@ function init()
 		action = function(value)
 			dest_dials.fb_b:set_value(value)
 			for v = 1, n_voices do
-				engine.fb_b(v, value + params:get('fb_b_' .. v))
+				engine.fbB(v, value + params:get('fb_b_' .. v))
 			end
 		end
 	}
@@ -783,7 +784,7 @@ function init()
 		action = function(value)
 			dest_dials.op_detune:set_value(value)
 			for v = 1, n_voices do
-				engine.op_detune(v, value + params:get('op_detune_' .. v))
+				engine.opDetune(v, value + params:get('op_detune_' .. v))
 			end
 		end
 	}
@@ -796,7 +797,7 @@ function init()
 		action = function(value)
 			dest_dials.op_mix:set_value(value)
 			for v = 1, n_voices do
-				engine.op_mix(v, value + params:get('op_mix_' .. v))
+				engine.opMix(v, value + params:get('op_mix_' .. v))
 			end
 		end
 	}
@@ -809,7 +810,7 @@ function init()
 		action = function(value)
 			dest_dials.fold_gain:set_value(value)
 			for v = 1, n_voices do
-				engine.fold_gain(v, value + params:get('fold_gain_' .. v))
+				engine.foldGain(v, value + params:get('fold_gain_' .. v))
 			end
 		end
 	}
@@ -822,7 +823,7 @@ function init()
 		action = function(value)
 			dest_dials.fold_bias:set_value(value)
 			for v = 1, n_voices do
-				engine.fold_bias(v, value + params:get('fold_bias_' .. v))
+				engine.foldBias(v, value + params:get('fold_bias_' .. v))
 			end
 		end
 	}
@@ -837,7 +838,7 @@ function init()
 		action = function(value)
 			source_dials.tune_a.pitch:set_value(value)
 			for v = 1, n_voices do
-				engine.pitch_tune_a(v, value)
+				engine.pitch_tuneA(v, value)
 			end
 		end
 	}
@@ -850,7 +851,7 @@ function init()
 		action = function(value)
 			source_dials.tune_b.pitch:set_value(value)
 			for v = 1, n_voices do
-				engine.pitch_tune_b(v, value)
+				engine.pitch_tuneB(v, value)
 			end
 		end
 	}
@@ -863,7 +864,7 @@ function init()
 		action = function(value)
 			source_dials.fm_index.pitch:set_value(value)
 			for v = 1, n_voices do
-				engine.pitch_fm_index(v, value)
+				engine.pitch_fmIndex(v, value)
 			end
 		end
 	}
@@ -876,7 +877,7 @@ function init()
 		action = function(value)
 			source_dials.fb_b.pitch:set_value(value)
 			for v = 1, n_voices do
-				engine.pitch_fb_b(v, value)
+				engine.pitch_fbB(v, value)
 			end
 		end
 	}
@@ -889,7 +890,7 @@ function init()
 		action = function(value)
 			source_dials.op_detune.pitch:set_value(value)
 			for v = 1, n_voices do
-				engine.pitch_op_detune(v, value)
+				engine.pitch_opDetune(v, value)
 			end
 		end
 	}
@@ -902,7 +903,7 @@ function init()
 		action = function(value)
 			source_dials.op_mix.pitch:set_value(value)
 			for v = 1, n_voices do
-				engine.pitch_op_mix(v, value)
+				engine.pitch_opMix(v, value)
 			end
 		end
 	}
@@ -915,7 +916,7 @@ function init()
 		action = function(value)
 			source_dials.fold_gain.pitch:set_value(value)
 			for v = 1, n_voices do
-				engine.pitch_fold_gain(v, value)
+				engine.pitch_foldGain(v, value)
 			end
 		end
 	}
@@ -928,7 +929,7 @@ function init()
 		action = function(value)
 			source_dials.fold_bias.pitch:set_value(value)
 			for v = 1, n_voices do
-				engine.pitch_fold_bias(v, value)
+				engine.pitch_foldBias(v, value)
 			end
 		end
 	}
@@ -936,15 +937,15 @@ function init()
 	params:add_group('hand', 12)
 
 	params:add {
-		name = 'hand -> tune_a',
+		name = 'hand -> tune a',
 		id = 'hand_tune_a',
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
 			source_dials.tune_a.hand:set_value(value)
 			for v = 1, n_voices do
-				engine.tip_tune_a(v, value)
-				engine.palm_tune_a(v, -value)
+				engine.tip_tuneA(v, value)
+				engine.palm_tuneA(v, -value)
 			end
 		end
 	}
@@ -957,8 +958,8 @@ function init()
 		action = function(value)
 			source_dials.tune_b.hand:set_value(value)
 			for v = 1, n_voices do
-				engine.tip_tune_b(v, value)
-				engine.palm_tune_b(v, -value)
+				engine.tip_tuneB(v, value)
+				engine.palm_tuneB(v, -value)
 			end
 		end
 	}
@@ -971,8 +972,8 @@ function init()
 		action = function(value)
 			source_dials.fm_index.hand:set_value(value)
 			for v = 1, n_voices do
-				engine.tip_fm_index(v, value)
-				engine.palm_fm_index(v, -value)
+				engine.tip_fmIndex(v, value)
+				engine.palm_fmIndex(v, -value)
 			end
 		end
 	}
@@ -985,8 +986,8 @@ function init()
 		action = function(value)
 			source_dials.fb_b.hand:set_value(value)
 			for v = 1, n_voices do
-				engine.tip_fb_b(v, value)
-				engine.palm_fb_b(v, -value)
+				engine.tip_fbB(v, value)
+				engine.palm_fbB(v, -value)
 			end
 		end
 	}
@@ -999,8 +1000,8 @@ function init()
 		action = function(value)
 			source_dials.op_detune.hand:set_value(value)
 			for v = 1, n_voices do
-				engine.tip_op_detune(v, value)
-				engine.palm_op_detune(v, -value)
+				engine.tip_opDetune(v, value)
+				engine.palm_opDetune(v, -value)
 			end
 		end
 	}
@@ -1013,8 +1014,8 @@ function init()
 		action = function(value)
 			source_dials.op_mix.hand:set_value(value)
 			for v = 1, n_voices do
-				engine.tip_op_mix(v, value)
-				engine.palm_op_mix(v, -value)
+				engine.tip_opMix(v, value)
+				engine.palm_opMix(v, -value)
 			end
 		end
 	}
@@ -1027,8 +1028,8 @@ function init()
 		action = function(value)
 			source_dials.fold_gain.hand:set_value(value)
 			for v = 1, n_voices do
-				engine.tip_fold_gain(v, value)
-				engine.palm_fold_gain(v, -value)
+				engine.tip_foldGain(v, value)
+				engine.palm_foldGain(v, -value)
 			end
 		end
 	}
@@ -1041,8 +1042,8 @@ function init()
 		action = function(value)
 			source_dials.fold_bias.hand:set_value(value)
 			for v = 1, n_voices do
-				engine.tip_fold_bias(v, value)
-				engine.palm_fold_bias(v, -value)
+				engine.tip_foldBias(v, value)
+				engine.palm_foldBias(v, -value)
 			end
 		end
 	}
@@ -1054,8 +1055,8 @@ function init()
 		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
 		action = function(value)
 			for v = 1, n_voices do
-				engine.tip_lfo_a_freq(v, value)
-				engine.palm_lfo_a_freq(v, -value)
+				engine.tip_lfoAFreq(v, value)
+				engine.palm_lfoAFreq(v, -value)
 			end
 		end
 	}
@@ -1067,8 +1068,8 @@ function init()
 		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
 		action = function(value)
 			for v = 1, n_voices do
-				engine.tip_lfo_a_amount(v, value)
-				engine.palm_lfo_a_amount(v, -value)
+				engine.tip_lfoAAmount(v, value)
+				engine.palm_lfoAAmount(v, -value)
 			end
 		end
 	}
@@ -1080,8 +1081,8 @@ function init()
 		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
 		action = function(value)
 			for v = 1, n_voices do
-				engine.tip_lfo_b_freq(v, value)
-				engine.palm_lfo_b_freq(v, -value)
+				engine.tip_lfoBFreq(v, value)
+				engine.palm_lfoBFreq(v, -value)
 			end
 		end
 	}
@@ -1093,8 +1094,8 @@ function init()
 		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
 		action = function(value)
 			for v = 1, n_voices do
-				engine.tip_lfo_b_amount(v, value)
-				engine.palm_lfo_b_amount(v, -value)
+				engine.tip_lfoBAmount(v, value)
+				engine.palm_lfoBAmount(v, -value)
 			end
 		end
 	}
@@ -1109,7 +1110,7 @@ function init()
 		action = function(value)
 			source_dials.tune_a.foot:set_value(value)
 			for v = 1, n_voices do
-				engine.foot_tune_a(v, value)
+				engine.foot_tuneA(v, value)
 			end
 		end
 	}
@@ -1122,7 +1123,7 @@ function init()
 		action = function(value)
 			source_dials.tune_b.foot:set_value(value)
 			for v = 1, n_voices do
-				engine.foot_tune_b(v, value)
+				engine.foot_tuneB(v, value)
 			end
 		end
 	}
@@ -1135,7 +1136,7 @@ function init()
 		action = function(value)
 			source_dials.fm_index.foot:set_value(value)
 			for v = 1, n_voices do
-				engine.foot_fm_index(v, value)
+				engine.foot_fmIndex(v, value)
 			end
 		end
 	}
@@ -1148,7 +1149,7 @@ function init()
 		action = function(value)
 			source_dials.fb_b.foot:set_value(value)
 			for v = 1, n_voices do
-				engine.foot_fb_b(v, value)
+				engine.foot_fbB(v, value)
 			end
 		end
 	}
@@ -1161,7 +1162,7 @@ function init()
 		action = function(value)
 			source_dials.op_detune.foot:set_value(value)
 			for v = 1, n_voices do
-				engine.foot_op_detune(v, value)
+				engine.foot_opDetune(v, value)
 			end
 		end
 	}
@@ -1174,7 +1175,7 @@ function init()
 		action = function(value)
 			source_dials.op_mix.foot:set_value(value)
 			for v = 1, n_voices do
-				engine.foot_op_mix(v, value)
+				engine.foot_opMix(v, value)
 			end
 		end
 	}
@@ -1187,7 +1188,7 @@ function init()
 		action = function(value)
 			source_dials.fold_gain.foot:set_value(value)
 			for v = 1, n_voices do
-				engine.foot_fold_gain(v, value)
+				engine.foot_foldGain(v, value)
 			end
 		end
 	}
@@ -1200,7 +1201,7 @@ function init()
 		action = function(value)
 			source_dials.fold_bias.foot:set_value(value)
 			for v = 1, n_voices do
-				engine.foot_fold_bias(v, value)
+				engine.foot_foldBias(v, value)
 			end
 		end
 	}
@@ -1212,7 +1213,7 @@ function init()
 		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
 		action = function(value)
 			for v = 1, n_voices do
-				engine.foot_lfo_a_freq(v, value)
+				engine.foot_lfoAFreq(v, value)
 			end
 		end
 	}
@@ -1224,7 +1225,7 @@ function init()
 		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
 		action = function(value)
 			for v = 1, n_voices do
-				engine.foot_lfo_a_amount(v, value)
+				engine.foot_lfoAAmount(v, value)
 			end
 		end
 	}
@@ -1236,7 +1237,7 @@ function init()
 		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
 		action = function(value)
 			for v = 1, n_voices do
-				engine.foot_lfo_b_freq(v, value)
+				engine.foot_lfoBFreq(v, value)
 			end
 		end
 	}
@@ -1248,7 +1249,7 @@ function init()
 		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
 		action = function(value)
 			for v = 1, n_voices do
-				engine.foot_lfo_b_amount(v, value)
+				engine.foot_lfoBAmount(v, value)
 			end
 		end
 	}
@@ -1327,7 +1328,7 @@ function init()
 		action = function(value)
 			source_dials.tune_a.eg:set_value(value)
 			for v = 1, n_voices do
-				engine.eg_tune_a(v, value)
+				engine.eg_tuneA(v, value)
 			end
 		end
 	}
@@ -1340,7 +1341,7 @@ function init()
 		action = function(value)
 			source_dials.tune_b.eg:set_value(value)
 			for v = 1, n_voices do
-				engine.eg_tune_b(v, value)
+				engine.eg_tuneB(v, value)
 			end
 		end
 	}
@@ -1353,7 +1354,7 @@ function init()
 		action = function(value)
 			source_dials.fm_index.eg:set_value(value)
 			for v = 1, n_voices do
-				engine.eg_fm_index(v, value)
+				engine.eg_fmIndex(v, value)
 			end
 		end
 	}
@@ -1366,7 +1367,7 @@ function init()
 		action = function(value)
 			source_dials.fb_b.eg:set_value(value)
 			for v = 1, n_voices do
-				engine.eg_fb_b(v, value)
+				engine.eg_fbB(v, value)
 			end
 		end
 	}
@@ -1379,7 +1380,7 @@ function init()
 		action = function(value)
 			source_dials.op_detune.eg:set_value(value)
 			for v = 1, n_voices do
-				engine.eg_op_detune(v, value)
+				engine.eg_opDetune(v, value)
 			end
 		end
 	}
@@ -1392,7 +1393,7 @@ function init()
 		action = function(value)
 			source_dials.op_mix.eg:set_value(value)
 			for v = 1, n_voices do
-				engine.eg_op_mix(v, value)
+				engine.eg_opMix(v, value)
 			end
 		end
 	}
@@ -1405,7 +1406,7 @@ function init()
 		action = function(value)
 			source_dials.fold_gain.eg:set_value(value)
 			for v = 1, n_voices do
-				engine.eg_fold_gain(v, value)
+				engine.eg_foldGain(v, value)
 			end
 		end
 	}
@@ -1418,7 +1419,7 @@ function init()
 		action = function(value)
 			source_dials.fold_bias.eg:set_value(value)
 			for v = 1, n_voices do
-				engine.eg_fold_bias(v, value)
+				engine.eg_foldBias(v, value)
 			end
 		end
 	}
@@ -1430,7 +1431,7 @@ function init()
 		controlspec = controlspec.new(0, 1, 'lin', 0, 0.12),
 		action = function(value)
 			for v = 1, n_voices do
-				engine.detune_type(v, value)
+				engine.detuneType(v, value)
 			end
 		end
 	}
@@ -1442,7 +1443,7 @@ function init()
 		controlspec = controlspec.new(0.01, 1, 'lin', 0, 0.5),
 		action = function(value)
 			for v = 1, n_voices do
-				engine.fade_size(v, value)
+				engine.fadeSize(v, value)
 			end
 		end
 	}
@@ -1454,7 +1455,7 @@ function init()
 		controlspec = controlspec.new(32, 23000, 'exp', 0, 12000, 'Hz'),
 		action = function(value)
 			for v = 1, n_voices do
-				engine.fm_cutoff(v, value)
+				engine.fmCutoff(v, value)
 			end
 		end
 	}
@@ -1466,7 +1467,7 @@ function init()
 		controlspec = controlspec.new(16, 12000, 'exp', 0, 16, 'Hz'),
 		action = function(value)
 			for v = 1, n_voices do
-				engine.hp_cutoff(v, value)
+				engine.hpCutoff(v, value)
 			end
 		end
 	}
@@ -1478,7 +1479,7 @@ function init()
 		controlspec = controlspec.new(32, 23000, 'exp', 0, 23000, 'Hz'),
 		action = function(value)
 			for v = 1, n_voices do
-				engine.lp_cutoff(v, value)
+				engine.lpCutoff(v, value)
 			end
 		end
 	}
@@ -1493,7 +1494,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.loop_position(v, value)
+				engine.loopPosition(v, value)
 			end
 		}
 
@@ -1525,7 +1526,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.tune_a(v, value + params:get('tune_a'))
+				engine.tuneA(v, value + params:get('tune_a'))
 			end
 		}
 
@@ -1535,7 +1536,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.tune_b(v, value + params:get('tune_b'))
+				engine.tuneB(v, value + params:get('tune_b'))
 			end
 		}
 
@@ -1545,7 +1546,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.fm_index(v, value + params:get('fm_index'))
+				engine.fmIndex(v, value + params:get('fm_index'))
 			end
 		}
 
@@ -1555,7 +1556,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.fb_b(v, value + params:get('fb_b'))
+				engine.fbB(v, value + params:get('fb_b'))
 			end
 		}
 
@@ -1565,7 +1566,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.op_detune(v, value + params:get('op_detune'))
+				engine.opDetune(v, value + params:get('op_detune'))
 			end
 		}
 
@@ -1575,7 +1576,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.op_mix(v, value + params:get('op_mix'))
+				engine.opMix(v, value + params:get('op_mix'))
 			end
 		}
 
@@ -1585,7 +1586,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.fold_gain(v, value + params:get('fold_gain'))
+				engine.foldGain(v, value + params:get('fold_gain'))
 			end
 		}
 
@@ -1595,7 +1596,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.fold_bias(v, value + params:get('fold_bias'))
+				engine.foldBias(v, value + params:get('fold_bias'))
 			end
 		}
 
@@ -1605,7 +1606,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(32, 23000, 'exp', 0, 12000, 'Hz'),
 			action = function(value)
-				engine.fm_cutoff(v, value)
+				engine.fmCutoff(v, value)
 			end
 		}
 
@@ -1619,7 +1620,7 @@ function init()
 			default = 0.2,
 			-- controlspec = controlspec.new(0, 0.5, 'exp', 0, 0.2),
 			action = function(value)
-				engine.out_level(v, value)
+				engine.outLevel(v, value)
 			end
 		}
 
@@ -1635,7 +1636,7 @@ function init()
 				k = 6,
 				default = 0,
 				action = function(value)
-					engine.voice_fm(v, w, value)
+					engine.voiceFM(v, w, value)
 				end
 			}
 		end
@@ -1648,7 +1649,7 @@ function init()
 			type = 'option',
 			options = { 'sine', 'tri', 'saw', 'rand', 's+h' },
 			action = function(value)
-				engine.lfo_a_type(v, value)
+				engine.lfoAType(v, value)
 			end
 		}
 
@@ -1658,7 +1659,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(0.01, 10, 'exp', 0, 0.9, 'Hz'),
 			action = function(value)
-				engine.lfo_a_freq(v, value)
+				engine.lfoAFreq(v, value)
 			end
 		}
 
@@ -1672,7 +1673,7 @@ function init()
 				return string.format('%.2f', value * 12)
 			end,
 			action = function(value)
-				engine.lfo_a_pitch(v, value)
+				engine.lfoA_pitch(v, value)
 			end
 		}
 
@@ -1682,7 +1683,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_a_amp(v, value)
+				engine.lfoA_amp(v, value)
 			end
 		}
 
@@ -1692,7 +1693,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_a_tune_a(v, value)
+				engine.lfoA_tuneA(v, value)
 			end
 		}
 
@@ -1702,7 +1703,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_a_tune_b(v, value)
+				engine.lfoA_tuneB(v, value)
 			end
 		}
 
@@ -1712,7 +1713,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_a_fm_index(v, value)
+				engine.lfoA_fmIndex(v, value)
 			end
 		}
 
@@ -1722,7 +1723,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_a_fb_b(v, value)
+				engine.lfoA_fbB(v, value)
 			end
 		}
 
@@ -1732,7 +1733,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_a_op_detune(v, value)
+				engine.lfoA_opDetune(v, value)
 			end
 		}
 
@@ -1742,7 +1743,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_a_op_mix(v, value)
+				engine.lfoA_opMix(v, value)
 			end
 		}
 
@@ -1752,7 +1753,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_a_fold_gain(v, value)
+				engine.lfoA_foldGain(v, value)
 			end
 		}
 
@@ -1762,7 +1763,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_a_fold_bias(v, value)
+				engine.lfoA_foldBias(v, value)
 			end
 		}
 
@@ -1772,7 +1773,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_a_lfo_b_freq(v, value)
+				engine.lfoA_lfoBFreq(v, value)
 			end
 		}
 
@@ -1782,7 +1783,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_a_lfo_b_amount(v, value)
+				engine.lfoA_lfoBAmount(v, value)
 			end
 		}
 
@@ -1795,7 +1796,7 @@ function init()
 			options = { 'sine', 'tri', 'saw', 'rand', 's+h' },
 			default = 4,
 			action = function(value)
-				engine.lfo_b_type(v, value)
+				engine.lfoBType(v, value)
 			end
 		}
 
@@ -1805,7 +1806,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(0.01, 10, 'exp', 0, 0.9, 'Hz'),
 			action = function(value)
-				engine.lfo_b_freq(v, value)
+				engine.lfoBFreq(v, value)
 			end
 		}
 
@@ -1819,7 +1820,7 @@ function init()
 				return string.format('%.2f', value * 12)
 			end,
 			action = function(value)
-				engine.lfo_b_pitch(v, value)
+				engine.lfoB_pitch(v, value)
 			end
 		}
 
@@ -1829,7 +1830,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_b_amp(v, value)
+				engine.lfoB_amp(v, value)
 			end
 		}
 
@@ -1839,7 +1840,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_b_tune_a(v, value)
+				engine.lfoB_tuneA(v, value)
 			end
 		}
 
@@ -1849,7 +1850,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_b_tune_b(v, value)
+				engine.lfoB_tuneB(v, value)
 			end
 		}
 
@@ -1859,7 +1860,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_b_fm_index(v, value)
+				engine.lfoB_fmIndex(v, value)
 			end
 		}
 
@@ -1869,7 +1870,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_b_fb_b(v, value)
+				engine.lfoB_fbB(v, value)
 			end
 		}
 
@@ -1879,7 +1880,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_b_op_detune(v, value)
+				engine.lfoB_opDetune(v, value)
 			end
 		}
 
@@ -1889,7 +1890,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_b_op_mix(v, value)
+				engine.lfoB_opMix(v, value)
 			end
 		}
 
@@ -1899,7 +1900,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_b_fold_gain(v, value)
+				engine.lfoB_foldGain(v, value)
 			end
 		}
 
@@ -1909,7 +1910,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_b_fold_bias(v, value)
+				engine.lfoB_foldBias(v, value)
 			end
 		}
 
@@ -1919,7 +1920,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_b_lfo_a_freq(v, value)
+				engine.lfoB_lfoAFreq(v, value)
 			end
 		}
 
@@ -1929,7 +1930,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
 			action = function(value)
-				engine.lfo_b_lfo_a_amount(v, value)
+				engine.lfoB_lfoAAmount(v, value)
 			end
 		}
 
