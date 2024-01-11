@@ -406,9 +406,13 @@ function init()
 
 	-- set up polls
 	for v = 1, n_voices do
+		-- TODO: respond more immediately to sudden pitch changes, without calling
+		-- grid_redraw() unnecessarily.
+		-- grid_redraw() used to be called with EVERY pitch poll callback for EVERY voice.
+		-- instead, call it only when triggered by a pitch change, and NOT when doing a
+		-- routine pitch check...??
 		local pitch_poll = poll.set('pitch_' .. v, function(value)
 			voice_states[v].pitch = value
-			grid_redraw()
 		end)
 		pitch_poll:start()
 		local amp_poll = poll.set('amp_' .. v, function(value)
