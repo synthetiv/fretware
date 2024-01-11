@@ -218,6 +218,9 @@ Engine_Cule : CroneEngine {
 				Trig.kr(t_trig, trigLength),
 			]);
 
+			// slew tip for direct control of amplitude -- otherwise there will be audible steppiness
+			var lagTip = Lag.kr(tip, 0.05);
+
 			// calculate modulation matrix
 			// this feedback loop is needed in order for modulators to modulate one another
 			var modulators = LocalIn.kr(nModulators);
@@ -260,8 +263,8 @@ Engine_Cule : CroneEngine {
 			foldBias = (foldBias + Mix(modulators * [pitch_foldBias, tip_foldBias, palm_foldBias, foot_foldBias, eg_foldBias, lfoA_foldBias, lfoB_foldBias]));
 
 			amp = (Select.kr(ampMode, [
-				tip,
-				tip * EnvGen.kr(Env.asr(attack, 1, release), gateOrTrig);,
+				lagTip,
+				lagTip * EnvGen.kr(Env.asr(attack, 1, release), gateOrTrig);,
 				eg
 			]) * (1 + Mix(modulators[4..5] * [lfoA_amp, lfoB_amp]))).max(0);
 
@@ -297,7 +300,7 @@ Engine_Cule : CroneEngine {
 			// calculate FM mix to feed to operator A
 			fmInput = Mix(InFeedback.ar(synthOutBuses) * In.kr(fmBus, nVoices));
 
-			// slew direct control
+			// slew parameters
 			tuneA    = Lag.kr(tuneA,    lag);
 			tuneB    = Lag.kr(tuneB,    lag);
 			fmIndex  = Lag.kr(fmIndex,  lag);
