@@ -54,9 +54,7 @@ Engine_Cule : CroneEngine {
 
 		// voice-to-voice FM amounts, by destination voice, then source voice
 		fmBuses = Array.fill(nVoices, {
-			Array.fill(nVoices, {
-				Bus.control(context.server);
-			});
+			Bus.control(context.server, nVoices);
 		});
 
 		// TODO: LFOs as separate synths
@@ -365,7 +363,7 @@ Engine_Cule : CroneEngine {
 				\buffer, controlBuffers[i],
 				\delay, i * 0.2,
 				\outBus, synthOutBuses[i],
-				\fmBus, fmBuses[i][0],
+				\fmBus, fmBuses[i],
 			], context.og, \addToTail); // "output" group
 		});
 		polls = Array.fill(nVoices, {
@@ -891,7 +889,7 @@ Engine_Cule : CroneEngine {
 
 		this.addCommand(\voice_fm, "iif", {
 			arg msg;
-			fmBuses[msg[1] - 1][msg[2] - 1].set(msg[3]);
+			Bus.newFrom(fmBuses[msg[1] - 1], msg[2] - 1).set(msg[3]);
 		});
 
 		this.addCommand(\octave, "ii", {
