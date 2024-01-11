@@ -411,6 +411,7 @@ function init()
 		-- grid_redraw() used to be called with EVERY pitch poll callback for EVERY voice.
 		-- instead, call it only when triggered by a pitch change, and NOT when doing a
 		-- routine pitch check...??
+		-- and maybe debounce it too
 		local pitch_poll = poll.set('pitch_' .. v, function(value)
 			voice_states[v].pitch = value
 		end)
