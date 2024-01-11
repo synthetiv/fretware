@@ -260,9 +260,9 @@ Engine_Cule : CroneEngine {
 			foldBias = (foldBias + Mix(modulators * [pitch_foldBias, tip_foldBias, palm_foldBias, foot_foldBias, eg_foldBias, lfoA_foldBias, lfoB_foldBias]));
 
 			amp = (Select.kr(ampMode, [
-				modulators[1],
-				modulators[1] * EnvGen.kr(Env.asr(attack, 1, release), gateOrTrig);,
-				modulators[4]
+				tip,
+				tip * EnvGen.kr(Env.asr(attack, 1, release), gateOrTrig);,
+				eg
 			]) * (1 + Mix(modulators[4..5] * [lfoA_amp, lfoB_amp]))).max(0);
 
 			// now we're done with the modulation matrix
