@@ -254,7 +254,6 @@ Engine_Cule : CroneEngine {
 				LFNoise0.kr(lfoBFreq)
 			]);
 
-			// TODO: clip these values in the audio synth, not here
 			tuneA = (tuneA + Mix(modulators * [pitch_tuneA, tip_tuneA, palm_tuneA, foot_tuneA, eg_tuneA, lfoA_tuneA, lfoB_tuneA]));
 			tuneB = (tuneB + Mix(modulators * [pitch_tuneB, tip_tuneB, palm_tuneB, foot_tuneB, eg_tuneB, lfoA_tuneB, lfoB_tuneB]));
 			fmIndex = (fmIndex + Mix(modulators * [pitch_fmIndex, tip_fmIndex, palm_fmIndex, foot_fmIndex, eg_fmIndex, lfoA_fmIndex, lfoB_fmIndex]));
