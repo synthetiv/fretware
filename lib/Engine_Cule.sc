@@ -2,8 +2,10 @@ Engine_Cule : CroneEngine {
 
 	classvar nVoices = 7;
 	classvar nModulators = 7;
+	// TODO: build a mod matrix not by counting params, but by prefixing them with something, then using the Synth class method that gives you all control names and filtering for that prefix, then counting those... and mapping them or something...?
 	classvar nRecordedModulators = 5;
-	classvar maxLoopTime = 16;
+	classvar bufferRateScale = 0.5;
+	classvar maxLoopTime = 32;
 
 	var fmRatios;
 	var nRatios;
@@ -203,63 +205,24 @@ Engine_Cule : CroneEngine {
 				trigLength = 0.01,
 				replyRate = 10;
 
-			var bufferLength, bufferPhase, delayPhase,
+			var bufferRate, bufferLength, bufferPhase, delayPhase,
 				loopStart, loopPhase, loopTrigger, loopOffset,
-				eg, lfoA, lfoB,
+				eg, amp, lfoA, lfoB,
 				hz, detuneLin, detuneExp,
 				fmInput, opB, fmMix, opA,
 				voiceOutput;
-
-			// this feedback loop is needed in order for modulators to modulate one another
-			var modulators = LocalIn.kr(nModulators);
 
 			var gateOrTrig = Select.kr(egGateTrig, [
 				gate,
 				Trig.kr(t_trig, trigLength),
 			]);
 
-			var ar = EnvGen.kr(
-				Env.asr(attack, 1, release),
-				gateOrTrig
-			);
-
-			var amp = (Select.kr(ampMode, [
-				modulators[1],
-				modulators[1] * ar,
-				modulators[4]
-			]) * (1 + Mix(modulators[4..5] * [lfoA_amp, lfoB_amp]))).max(0);
-
-			var bufferRateScale = 0.5,
-				bufferRate = ControlRate.ir * bufferRateScale;
-
-			bufferLength = BufFrames.kr(buffer);
-			bufferPhase = Phasor.kr(rate: bufferRateScale * (1 - freeze), end: bufferLength);
-			// delay must be at least 1 frame, or we'll be writing to + reading from the same point
-			delayPhase = bufferPhase - (delay * bufferRate).max(1);
-			loopStart = bufferPhase - (loopLength * bufferRate).min(bufferLength);
-			loopPhase = Phasor.kr(Trig.kr(freeze) + t_loopReset, bufferRateScale * loopRateScale, loopStart, bufferPhase, loopStart);
-			// TODO: confirm that this is really firing when it's supposed to (i.e. when loopPhase
-			// resets)! if not, either fix it, or do away with it
-			loopTrigger = Trig.kr(BinaryOpUGen.new('==', loopPhase, loopStart));
-			loopOffset = Latch.kr(bufferLength - (loopLength * bufferRate), loopTrigger) * loopPosition;
-			loopPhase = loopPhase - loopOffset;
-			BufWr.kr([pitch, tip, palm, foot, amp], buffer, bufferPhase);
-			# pitch, tip, palm, foot, amp = BufRd.kr(nRecordedModulators, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
-
-			// slew direct control
-			tip      = Lag.kr(tip,      lag);
-			palm     = Lag.kr(palm,     lag);
-			foot     = Lag.kr(foot,     lag);
-			tuneA    = Lag.kr(tuneA,    lag);
-			tuneB    = Lag.kr(tuneB,    lag);
-			fmIndex  = Lag.kr(fmIndex,  lag);
-			fbB      = Lag.kr(fbB,      lag);
-			opDetune = Lag.kr(opDetune, lag);
-			opMix    = Lag.kr(opMix,    lag);
-			foldGain = Lag.kr(foldGain, lag);
-			foldBias = Lag.kr(foldBias, lag);
+			// calculate modulation matrix
+			// this feedback loop is needed in order for modulators to modulate one another
+			var modulators = LocalIn.kr(nModulators);
 
 			eg = EnvGen.kr(
+				// TODO: modulate env times!
 				Env.adsr(attack, decay, sustain, release),
 				gateOrTrig,
 				-6.dbamp
@@ -285,6 +248,40 @@ Engine_Cule : CroneEngine {
 				LFNoise0.kr(lfoBFreq)
 			]);
 
+			// TODO: clip these values in the audio synth, not here
+			tuneA = (tuneA + Mix(modulators * [pitch_tuneA, tip_tuneA, palm_tuneA, foot_tuneA, eg_tuneA, lfoA_tuneA, lfoB_tuneA]));
+			tuneB = (tuneB + Mix(modulators * [pitch_tuneB, tip_tuneB, palm_tuneB, foot_tuneB, eg_tuneB, lfoA_tuneB, lfoB_tuneB]));
+			fmIndex = (fmIndex + Mix(modulators * [pitch_fmIndex, tip_fmIndex, palm_fmIndex, foot_fmIndex, eg_fmIndex, lfoA_fmIndex, lfoB_fmIndex]));
+			fbB = (fbB + Mix(modulators * [pitch_fbB, tip_fbB, palm_fbB, foot_fbB, eg_fbB, lfoA_fbB, lfoB_fbB]));
+			opDetune = (opDetune + Mix(modulators * [pitch_opDetune, tip_opDetune, palm_opDetune, foot_opDetune, eg_opDetune, lfoA_opDetune, lfoB_opDetune]));
+			opMix = (opMix + Mix(modulators * [pitch_opMix, tip_opMix, palm_opMix, foot_opMix, eg_opMix, lfoA_opMix, lfoB_opMix]));
+			foldGain = (foldGain + Mix(modulators * [pitch_foldGain, tip_foldGain, palm_foldGain, foot_foldGain, eg_foldGain, lfoA_foldGain, lfoB_foldGain]));
+			foldBias = (foldBias + Mix(modulators * [pitch_foldBias, tip_foldBias, palm_foldBias, foot_foldBias, eg_foldBias, lfoA_foldBias, lfoB_foldBias]));
+
+			amp = (Select.kr(ampMode, [
+				modulators[1],
+				modulators[1] * EnvGen.kr(Env.asr(attack, 1, release), gateOrTrig);,
+				modulators[4]
+			]) * (1 + Mix(modulators[4..5] * [lfoA_amp, lfoB_amp]))).max(0);
+
+			// now we're done with the modulation matrix
+
+			// create buffer for looping pitch/amp/control data
+			bufferRate = ControlRate.ir * bufferRateScale;
+			bufferLength = BufFrames.kr(buffer);
+			bufferPhase = Phasor.kr(rate: bufferRateScale * (1 - freeze), end: bufferLength);
+			// delay must be at least 1 frame, or we'll be writing to + reading from the same point
+			delayPhase = bufferPhase - (delay * bufferRate).max(1);
+			loopStart = bufferPhase - (loopLength * bufferRate).min(bufferLength);
+			loopPhase = Phasor.kr(Trig.kr(freeze) + t_loopReset, bufferRateScale * loopRateScale, loopStart, bufferPhase, loopStart);
+			// TODO: confirm that this is really firing when it's supposed to (i.e. when loopPhase
+			// resets)! if not, either fix it, or do away with it
+			loopTrigger = Trig.kr(BinaryOpUGen.new('==', loopPhase, loopStart));
+			loopOffset = Latch.kr(bufferLength - (loopLength * bufferRate), loopTrigger) * loopPosition;
+			loopPhase = loopPhase - loopOffset;
+			BufWr.kr([pitch, tip, palm, foot, amp], buffer, bufferPhase);
+			# pitch, tip, palm, foot, amp = BufRd.kr(nRecordedModulators, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
+
 			LocalOut.kr([pitch, tip, palm, foot, eg, lfoA, lfoB]);
 
 			pitch = pitch + tune + Mix([eg, lfoA, lfoB] * [eg_pitch, lfoA_pitch, lfoB_pitch]);
@@ -296,31 +293,18 @@ Engine_Cule : CroneEngine {
 			// if I try that, SC seems to just hang forever, no error message
 			pitch = Lag.kr(pitch, pitchSlew);
 
-			// TODO: clip these values in the audio synth, not here
-			tuneA = (tuneA + Mix(modulators * [pitch_tuneA, tip_tuneA, palm_tuneA,
-						foot_tuneA, eg_tuneA, lfoA_tuneA, lfoB_tuneA]));
-			tuneB = (tuneB + Mix(modulators * [pitch_tuneB, tip_tuneB, palm_tuneB,
-						foot_tuneB, eg_tuneB, lfoA_tuneB, lfoB_tuneB]));
-			fmIndex = (fmIndex + Mix(modulators * [pitch_fmIndex, tip_fmIndex,
-						palm_fmIndex, foot_fmIndex, eg_fmIndex,
-						lfoA_fmIndex, lfoB_fmIndex]));
-			fbB = (fbB + Mix(modulators * [pitch_fbB, tip_fbB, palm_fbB, foot_fbB,
-						eg_fbB, lfoA_fbB, lfoB_fbB]));
-			opDetune = (opDetune + Mix(modulators * [pitch_opDetune, tip_opDetune,
-						palm_opDetune, foot_opDetune, eg_opDetune,
-						lfoA_opDetune, lfoB_opDetune]));
-			opMix = (opMix + Mix(modulators * [pitch_opMix, tip_opMix, palm_opMix,
-						foot_opMix, eg_opMix, lfoA_opMix, lfoB_opMix]));
-			foldGain = (foldGain + Mix(modulators * [pitch_foldGain, tip_foldGain,
-						palm_foldGain, foot_foldGain, eg_foldGain,
-						lfoA_foldGain, lfoB_foldGain]));
-			foldBias = (foldBias + Mix(modulators * [pitch_foldBias, tip_foldBias,
-						palm_foldBias, foot_foldBias, eg_foldBias,
-						lfoA_foldBias, lfoB_foldBias]));
-
 			// calculate FM mix to feed to operator A
-			fmInput = Mix(InFeedback.ar(synthOutBuses) * [voice1_fm, voice2_fm,
-					voice3_fm, voice4_fm, voice5_fm, voice6_fm, voice7_fm]);
+			fmInput = Mix(InFeedback.ar(synthOutBuses) * [voice1_fm, voice2_fm, voice3_fm, voice4_fm, voice5_fm, voice6_fm, voice7_fm]);
+
+			// slew direct control
+			tuneA    = Lag.kr(tuneA,    lag);
+			tuneB    = Lag.kr(tuneB,    lag);
+			fmIndex  = Lag.kr(fmIndex,  lag);
+			fbB      = Lag.kr(fbB,      lag);
+			opDetune = Lag.kr(opDetune, lag);
+			opMix    = Lag.kr(opMix,    lag);
+			foldGain = Lag.kr(foldGain, lag);
+			foldBias = Lag.kr(foldBias, lag);
 
 			hz = 2.pow(pitch + octave) * In.kr(baseFreqBus);
 			detuneLin = opDetune * 10 * detuneType;
@@ -367,7 +351,7 @@ Engine_Cule : CroneEngine {
 		baseFreqBus.setSynchronous(60.midicps);
 
 		controlBuffers = Array.fill(nVoices, {
-			Buffer.alloc(context.server, context.server.sampleRate / context.server.options.blockSize * maxLoopTime, nRecordedModulators);
+			Buffer.alloc(context.server, context.server.sampleRate / context.server.options.blockSize * maxLoopTime * bufferRateScale, nRecordedModulators);
 		});
 		voiceSynths = Array.fill(nVoices, {
 			arg i;
