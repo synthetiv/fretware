@@ -1464,7 +1464,7 @@ function init()
 		name = 'hp cutoff',
 		id = 'hp_cutoff',
 		type = 'control',
-		controlspec = controlspec.new(16, 12000, 'exp', 0, 16, 'Hz'),
+		controlspec = controlspec.new(8, 12000, 'exp', 0, 8, 'Hz'),
 		action = function(value)
 			for v = 1, n_voices do
 				engine.hpCutoff(v, value)
