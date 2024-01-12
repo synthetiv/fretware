@@ -26,8 +26,9 @@ editor = {
 		'hand',
 		'foot',
 		'pitch',
-		'eg'
-		-- TODO: LFO
+		'eg',
+		'lfoA',
+		'lfoB'
 	},
 	dests = {
 		{
@@ -93,7 +94,9 @@ for s = 1, #editor.dests do
 		hand  = ui.Dial.new( 2,  2, 12, 0, -1, 1, 0.01, 0),
 		foot  = ui.Dial.new(19,  2, 12, 0, -1, 1, 0.01, 0),
 		pitch = ui.Dial.new( 2, 22, 12, 0, -1, 1, 0.01, 0),
-		eg    = ui.Dial.new(19, 22, 12, 0, -1, 1, 0.01, 0)
+		eg    = ui.Dial.new(19, 22, 12, 0, -1, 1, 0.01, 0),
+		lfoA  = ui.Dial.new( 2, 42, 12, 0, -1, 1, 0.01, 0),
+		lfoB  = ui.Dial.new(19, 42, 12, 0, -1, 1, 0.01, 0)
 		-- ui.Dial.new( 10, 42, 12, 0, -1, 1, 0.01, 0),
 	}
 end
