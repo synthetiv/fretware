@@ -29,25 +29,47 @@ editor = {
 		'eg'
 		-- TODO: LFO
 	},
-	dest_names = {
-		'tune_a',
-		'tune_b',
-		'fm_index',
-		'fb_b',
-		'op_detune',
-		'op_mix',
-		'fold_gain',
-		'fold_bias'
-	},
-	dest_labels = {
-		'tune A',
-		'tune B',
-		'fm index',
-		'feedback B',
-		'detune A/B',
-		'mix A/B',
-		'fold gain',
-		'fold bias'
+	dests = {
+		{
+			name = 'tuneA',
+			label = 'tune A',
+			default = 0,
+		},
+		{
+			name = 'tuneB',
+			label = 'tune B',
+			default = 0,
+		},
+		{
+			name = 'fmIndex',
+			label = 'fm index',
+			default = 0,
+		},
+		{
+			name = 'fbB',
+			label = 'feedback B',
+			default = 0,
+		},
+		{
+			name = 'opDetune',
+			label = 'detune A/B',
+			default = 0,
+		},
+		{
+			name = 'opMix',
+			label = 'mix A/B',
+			default = -1
+		},
+		{
+			name = 'foldGain',
+			label = 'fold gain',
+			default = -0.1
+		},
+		{
+			name = 'foldBias',
+			label = 'fold bias',
+			default = -1
+		}
 	},
 	source = 1,
 	dest = 1,
@@ -55,19 +77,19 @@ editor = {
 
 dest_dials = {
 	-- x, y, size, value, min_value, max_value, rounding, start_value, markers, units, title
-	tune_a    = ui.Dial.new(109,  20, 15, 0, -1, 1, 0.01, 0),
-	tune_b    = ui.Dial.new(109,  46, 15, 0, -1, 1, 0.01, 0),
-	fm_index  = ui.Dial.new(109,  72, 15, 0, -1, 1, 0.01, 0),
-	fb_b      = ui.Dial.new(109,  98, 15, 0, -1, 1, 0.01, 0),
-	op_detune = ui.Dial.new(109, 124, 15, 0, -1, 1, 0.01, 0),
-	op_mix    = ui.Dial.new(109, 150, 15, 0, -1, 1, 0.01, 0),
-	fold_gain = ui.Dial.new(109, 176, 15, 0, -1, 1, 0.01, 0),
-	fold_bias = ui.Dial.new(109, 202, 15, 0, -1, 1, 0.01, 0)
+	tuneA    = ui.Dial.new(109,  20, 15, 0, -1, 1, 0.01, 0),
+	tuneB    = ui.Dial.new(109,  46, 15, 0, -1, 1, 0.01, 0),
+	fmIndex  = ui.Dial.new(109,  72, 15, 0, -1, 1, 0.01, 0),
+	fbB      = ui.Dial.new(109,  98, 15, 0, -1, 1, 0.01, 0),
+	opDetune = ui.Dial.new(109, 124, 15, 0, -1, 1, 0.01, 0),
+	opMix    = ui.Dial.new(109, 150, 15, 0, -1, 1, 0.01, 0),
+	foldGain = ui.Dial.new(109, 176, 15, 0, -1, 1, 0.01, 0),
+	foldBias = ui.Dial.new(109, 202, 15, 0, -1, 1, 0.01, 0)
 }
 
 source_dials = {}
-for s = 1, #editor.dest_names do
-	source_dials[editor.dest_names[s]] = {
+for s = 1, #editor.dests do
+	source_dials[editor.dests[s].name] = {
 		hand  = ui.Dial.new( 2,  2, 12, 0, -1, 1, 0.01, 0),
 		foot  = ui.Dial.new(19,  2, 12, 0, -1, 1, 0.01, 0),
 		pitch = ui.Dial.new( 2, 22, 12, 0, -1, 1, 0.01, 0),
@@ -122,7 +144,7 @@ function voice_loop_button(v)
 	else
 		-- start looping
 		if loop_free then
-			engine.set_loop(v, util.time() - voice.loop_armed)
+			engine.setLoop(v, util.time() - voice.loop_armed)
 			voice.looping = true
 			voice.loop_armed = false
 		else
@@ -724,709 +746,114 @@ function init()
 		end
 	}
 
-	params:add {
-		name = 'tune A',
-		id = 'tune_a',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			dest_dials.tune_a:set_value(value)
-			for v = 1, n_voices do
-				engine.tuneA(v, value + params:get('tune_a_' .. v))
+	for d = 1, #editor.dests do
+		local dest = editor.dests[d]
+		local engine_command = engine[dest.name]
+		params:add {
+			name = dest.label,
+			id = dest.name,
+			type = 'control',
+			controlspec = controlspec.new(-1, 1, 'lin', 0, dest.default),
+			action = function(value)
+				dest_dials[dest.name]:set_value(value)
+				for v = 1, n_voices do
+					engine_command(v, value + params:get(dest.name .. '_' .. v))
+				end
 			end
+		}
+	end
+
+	for s = 1, #editor.source_names do
+		local source = editor.source_names[s]
+
+		if source == 'eg' then
+			-- EG group gets extra parameters.
+			-- TODO: do the same for LFOs
+			params:add_group('eg', 5 + #editor.dests)
+			params:add {
+				name = 'attack',
+				id = 'attack',
+				type = 'control',
+				controlspec = controlspec.new(0.001, 2, 'exp', 0, 0.01, 's'),
+				action = function(value)
+					for v = 1, n_voices do
+						engine.attack(v, value)
+					end
+				end
+			}
+			params:add {
+				name = 'decay',
+				id = 'decay',
+				type = 'control',
+				controlspec = controlspec.new(0.001, 6, 'exp', 0, 0.1, 's'),
+				action = function(value)
+					for v = 1, n_voices do
+						engine.decay(v, value)
+					end
+				end
+			}
+			params:add {
+				name = 'sustain',
+				id = 'sustain',
+				type = 'control',
+				controlspec = controlspec.new(0, 1, 'lin', 0, 0.8),
+				action = function(value)
+					for v = 1, n_voices do
+						engine.sustain(v, value)
+					end
+				end
+			}
+			params:add {
+				name = 'release',
+				id = 'release',
+				type = 'control',
+				controlspec = controlspec.new(0.001, 6, 'exp', 0, 0.3, 's'),
+				action = function(value)
+					for v = 1, n_voices do
+						engine.release(v, value)
+					end
+				end
+			}
+			params:add {
+				name = 'eg -> pitch',
+				id = 'eg_pitch',
+				type = 'control',
+				controlspec = controlspec.new(-0.2, 0.2, 'lin', 0, 0),
+				formatter = function(param)
+					local value = param:get()
+					return string.format('%.2f', value * 12)
+				end,
+				action = function(value)
+					for v = 1, n_voices do
+						engine.eg_pitch(v, value)
+					end
+				end
+			}
+		else
+			params:add_group(source, #editor.dests)
 		end
-	}
 
-	params:add {
-		name = 'tune B',
-		id = 'tune_b',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			dest_dials.tune_b:set_value(value)
-			for v = 1, n_voices do
-				engine.tuneB(v, value + params:get('tune_b_' .. v))
-			end
+		for d = 1, #editor.dests do
+			local dest = editor.dests[d]
+			local engine_command = engine[source .. '_' .. dest.name]
+			params:add {
+				name = source .. ' -> ' .. dest.label,
+				id = source .. '_' .. dest.name,
+				type = 'control',
+				controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+				action = function(value)
+					source_dials[dest.name][source]:set_value(value)
+					for v = 1, n_voices do
+						engine_command(v, value)
+					end
+				end
+			}
 		end
-	}
-
-	params:add {
-		name = 'fm index',
-		id = 'fm_index',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			dest_dials.fm_index:set_value(value)
-			for v = 1, n_voices do
-				engine.fmIndex(v, value + params:get('fm_index_' .. v))
-			end
-		end
-	}
-
-	params:add {
-		name = 'feedback B',
-		id = 'fb_b',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			dest_dials.fb_b:set_value(value)
-			for v = 1, n_voices do
-				engine.fbB(v, value + params:get('fb_b_' .. v))
-			end
-		end
-	}
-
-	params:add {
-		name = 'detune A/B',
-		id = 'op_detune',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			dest_dials.op_detune:set_value(value)
-			for v = 1, n_voices do
-				engine.opDetune(v, value + params:get('op_detune_' .. v))
-			end
-		end
-	}
-
-	params:add {
-		name = 'mix A/B',
-		id = 'op_mix',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, -1),
-		action = function(value)
-			dest_dials.op_mix:set_value(value)
-			for v = 1, n_voices do
-				engine.opMix(v, value + params:get('op_mix_' .. v))
-			end
-		end
-	}
-
-	params:add {
-		name = 'fold gain',
-		id = 'fold_gain',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, -0.15),
-		action = function(value)
-			dest_dials.fold_gain:set_value(value)
-			for v = 1, n_voices do
-				engine.foldGain(v, value + params:get('fold_gain_' .. v))
-			end
-		end
-	}
-
-	params:add {
-		name = 'fold bias',
-		id = 'fold_bias',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, -1),
-		action = function(value)
-			dest_dials.fold_bias:set_value(value)
-			for v = 1, n_voices do
-				engine.foldBias(v, value + params:get('fold_bias_' .. v))
-			end
-		end
-	}
-
-	params:add_group('pitch', 8)
-
-	params:add {
-		name = 'pitch -> tune_a',
-		id = 'pitch_tune_a',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.tune_a.pitch:set_value(value)
-			for v = 1, n_voices do
-				engine.pitch_tuneA(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'pitch -> tune_b',
-		id = 'pitch_tune_b',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.tune_b.pitch:set_value(value)
-			for v = 1, n_voices do
-				engine.pitch_tuneB(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'pitch -> fm_index',
-		id = 'pitch_fm_index',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.fm_index.pitch:set_value(value)
-			for v = 1, n_voices do
-				engine.pitch_fmIndex(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'pitch -> fb_b',
-		id = 'pitch_fb_b',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.fb_b.pitch:set_value(value)
-			for v = 1, n_voices do
-				engine.pitch_fbB(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'pitch -> op_detune',
-		id = 'pitch_op_detune',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.op_detune.pitch:set_value(value)
-			for v = 1, n_voices do
-				engine.pitch_opDetune(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'pitch -> op_mix',
-		id = 'pitch_op_mix',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.op_mix.pitch:set_value(value)
-			for v = 1, n_voices do
-				engine.pitch_opMix(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'pitch -> fold_gain',
-		id = 'pitch_fold_gain',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.fold_gain.pitch:set_value(value)
-			for v = 1, n_voices do
-				engine.pitch_foldGain(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'pitch -> fold_bias',
-		id = 'pitch_fold_bias',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.fold_bias.pitch:set_value(value)
-			for v = 1, n_voices do
-				engine.pitch_foldBias(v, value)
-			end
-		end
-	}
-
-	params:add_group('hand', 12)
-
-	params:add {
-		name = 'hand -> tune a',
-		id = 'hand_tune_a',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.tune_a.hand:set_value(value)
-			for v = 1, n_voices do
-				engine.tip_tuneA(v, value)
-				engine.palm_tuneA(v, -value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'hand -> tune_b',
-		id = 'hand_tune_b',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.tune_b.hand:set_value(value)
-			for v = 1, n_voices do
-				engine.tip_tuneB(v, value)
-				engine.palm_tuneB(v, -value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'hand -> fm_index',
-		id = 'hand_fm_index',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.fm_index.hand:set_value(value)
-			for v = 1, n_voices do
-				engine.tip_fmIndex(v, value)
-				engine.palm_fmIndex(v, -value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'hand -> fb_b',
-		id = 'hand_fb_b',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.fb_b.hand:set_value(value)
-			for v = 1, n_voices do
-				engine.tip_fbB(v, value)
-				engine.palm_fbB(v, -value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'hand -> op_detune',
-		id = 'hand_op_detune',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.op_detune.hand:set_value(value)
-			for v = 1, n_voices do
-				engine.tip_opDetune(v, value)
-				engine.palm_opDetune(v, -value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'hand -> op_mix',
-		id = 'hand_op_mix',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0.4),
-		action = function(value)
-			source_dials.op_mix.hand:set_value(value)
-			for v = 1, n_voices do
-				engine.tip_opMix(v, value)
-				engine.palm_opMix(v, -value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'hand -> fold_gain',
-		id = 'hand_fold_gain',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.fold_gain.hand:set_value(value)
-			for v = 1, n_voices do
-				engine.tip_foldGain(v, value)
-				engine.palm_foldGain(v, -value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'hand -> fold_bias',
-		id = 'hand_fold_bias',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.fold_bias.hand:set_value(value)
-			for v = 1, n_voices do
-				engine.tip_foldBias(v, value)
-				engine.palm_foldBias(v, -value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'hand -> lfo A freq',
-		id = 'hand_lfo_a_freq',
-		type = 'control',
-		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.tip_lfoAFreq(v, value)
-				engine.palm_lfoAFreq(v, -value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'hand -> lfo A amt',
-		id = 'hand_lfo_a_amount',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.tip_lfoAAmount(v, value)
-				engine.palm_lfoAAmount(v, -value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'hand -> lfo B freq',
-		id = 'hand_lfo_b_freq',
-		type = 'control',
-		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.tip_lfoBFreq(v, value)
-				engine.palm_lfoBFreq(v, -value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'hand -> lfo B amt',
-		id = 'hand_lfo_b_amount',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.tip_lfoBAmount(v, value)
-				engine.palm_lfoBAmount(v, -value)
-			end
-		end
-	}
-
-	params:add_group('foot', 12)
-
-	params:add {
-		name = 'foot -> tune_a',
-		id = 'foot_tune_a',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.tune_a.foot:set_value(value)
-			for v = 1, n_voices do
-				engine.foot_tuneA(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'foot -> tune_b',
-		id = 'foot_tune_b',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.tune_b.foot:set_value(value)
-			for v = 1, n_voices do
-				engine.foot_tuneB(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'foot -> fm_index',
-		id = 'foot_fm_index',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.fm_index.foot:set_value(value)
-			for v = 1, n_voices do
-				engine.foot_fmIndex(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'foot -> fb_b',
-		id = 'foot_fb_b',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.fb_b.foot:set_value(value)
-			for v = 1, n_voices do
-				engine.foot_fbB(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'foot -> op_detune',
-		id = 'foot_op_detune',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.op_detune.foot:set_value(value)
-			for v = 1, n_voices do
-				engine.foot_opDetune(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'foot -> op_mix',
-		id = 'foot_op_mix',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.op_mix.foot:set_value(value)
-			for v = 1, n_voices do
-				engine.foot_opMix(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'foot -> fold_gain',
-		id = 'foot_fold_gain',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.fold_gain.foot:set_value(value)
-			for v = 1, n_voices do
-				engine.foot_foldGain(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'foot -> fold_bias',
-		id = 'foot_fold_bias',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.fold_bias.foot:set_value(value)
-			for v = 1, n_voices do
-				engine.foot_foldBias(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'foot -> lfo A freq',
-		id = 'foot_lfo_a_freq',
-		type = 'control',
-		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.foot_lfoAFreq(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'foot -> lfo A amt',
-		id = 'foot_lfo_a_amount',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.foot_lfoAAmount(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'foot -> lfo B freq',
-		id = 'foot_lfo_b_freq',
-		type = 'control',
-		controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.foot_lfoBFreq(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'foot -> lfo B amt',
-		id = 'foot_lfo_b_amount',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.foot_lfoBAmount(v, value)
-			end
-		end
-	}
-
-	params:add_group('eg', 13)
-
-	params:add {
-		name = 'attack',
-		id = 'attack',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 2, 'exp', 0, 0.01, 's'),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.attack(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'decay',
-		id = 'decay',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 6, 'exp', 0, 0.1, 's'),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.decay(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'sustain',
-		id = 'sustain',
-		type = 'control',
-		controlspec = controlspec.new(0, 1, 'lin', 0, 0.8),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.sustain(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'release',
-		id = 'release',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 6, 'exp', 0, 0.3, 's'),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.release(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'eg -> pitch',
-		id = 'eg_pitch',
-		type = 'control',
-		controlspec = controlspec.new(-0.2, 0.2, 'lin', 0, 0),
-		formatter = function(param)
-			local value = param:get()
-			return string.format('%.2f', value * 12)
-		end,
-		action = function(value)
-			for v = 1, n_voices do
-				engine.eg_pitch(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'eg -> tune_a',
-		id = 'eg_tune_a',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.tune_a.eg:set_value(value)
-			for v = 1, n_voices do
-				engine.eg_tuneA(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'eg -> tune_b',
-		id = 'eg_tune_b',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.tune_b.eg:set_value(value)
-			for v = 1, n_voices do
-				engine.eg_tuneB(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'eg -> fm_index',
-		id = 'eg_fm_index',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.fm_index.eg:set_value(value)
-			for v = 1, n_voices do
-				engine.eg_fmIndex(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'eg -> fb_b',
-		id = 'eg_fb_b',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.fb_b.eg:set_value(value)
-			for v = 1, n_voices do
-				engine.eg_fbB(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'eg -> op_detune',
-		id = 'eg_op_detune',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.op_detune.eg:set_value(value)
-			for v = 1, n_voices do
-				engine.eg_opDetune(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'eg -> op_mix',
-		id = 'eg_op_mix',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.op_mix.eg:set_value(value)
-			for v = 1, n_voices do
-				engine.eg_opMix(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'eg -> fold_gain',
-		id = 'eg_fold_gain',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.fold_gain.eg:set_value(value)
-			for v = 1, n_voices do
-				engine.eg_foldGain(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'eg -> fold_bias',
-		id = 'eg_fold_bias',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-		action = function(value)
-			source_dials.fold_bias.eg:set_value(value)
-			for v = 1, n_voices do
-				engine.eg_foldBias(v, value)
-			end
-		end
-	}
+	end
 
 	params:add {
 		name = 'detune exp/lin',
-		id = 'detune_type',
+		id = 'detuneType',
 		type = 'control',
 		controlspec = controlspec.new(0, 1, 'lin', 0, 0.12),
 		action = function(value)
@@ -1438,7 +865,7 @@ function init()
 
 	params:add {
 		name = 'harmonic fade size',
-		id = 'fade_size',
+		id = 'fadeSize',
 		type = 'control',
 		controlspec = controlspec.new(0.01, 1, 'lin', 0, 0.5),
 		action = function(value)
@@ -1450,7 +877,7 @@ function init()
 
 	params:add {
 		name = 'fm cutoff',
-		id = 'fm_cutoff',
+		id = 'fmCutoff',
 		type = 'control',
 		controlspec = controlspec.new(32, 23000, 'exp', 0, 12000, 'Hz'),
 		action = function(value)
@@ -1462,7 +889,7 @@ function init()
 
 	params:add {
 		name = 'hp cutoff',
-		id = 'hp_cutoff',
+		id = 'hpCutoff',
 		type = 'control',
 		controlspec = controlspec.new(8, 12000, 'exp', 0, 8, 'Hz'),
 		action = function(value)
@@ -1474,7 +901,7 @@ function init()
 
 	params:add {
 		name = 'lp cutoff',
-		id = 'lp_cutoff',
+		id = 'lpCutoff',
 		type = 'control',
 		controlspec = controlspec.new(32, 23000, 'exp', 0, 23000, 'Hz'),
 		action = function(value)
@@ -1490,7 +917,7 @@ function init()
 
 		params:add {
 			name = 'loop position',
-			id = 'loop_position_' .. v,
+			id = 'loopPosition_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
 			action = function(value)
@@ -1520,86 +947,21 @@ function init()
 			end
 		}
 
-		params:add {
-			name = 'tune A',
-			id = 'tune_a_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.tuneA(v, value + params:get('tune_a'))
-			end
-		}
+		for d = 1, #editor.dests do
+			local param = editor.dests[d]
+			local engine_command = engine[param.name]
+			params:add {
+				name = param.label,
+				id = param.name .. '_' .. v,
+				type = 'control',
+				controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+				action = function(value)
+					engine_command(v, value + params:get(param.name))
+				end
+			}
+		end
 
-		params:add {
-			name = 'tune B',
-			id = 'tune_b_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.tuneB(v, value + params:get('tune_b'))
-			end
-		}
-
-		params:add {
-			name = 'fm index',
-			id = 'fm_index_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.fmIndex(v, value + params:get('fm_index'))
-			end
-		}
-
-		params:add {
-			name = 'feedback B',
-			id = 'fb_b_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.fbB(v, value + params:get('fb_b'))
-			end
-		}
-
-		params:add {
-			name = 'detune A/B',
-			id = 'op_detune_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.opDetune(v, value + params:get('op_detune'))
-			end
-		}
-
-		params:add {
-			name = 'mix A/B',
-			id = 'op_mix_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.opMix(v, value + params:get('op_mix'))
-			end
-		}
-
-		params:add {
-			name = 'fold gain',
-			id = 'fold_gain_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.foldGain(v, value + params:get('fold_gain'))
-			end
-		}
-
-		params:add {
-			name = 'fold bias',
-			id = 'fold_bias_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.foldBias(v, value + params:get('fold_bias'))
-			end
-		}
-
+		-- TODO: make this cooperate with the global FM cutoff param, and add hp + lp cutoffs
 		params:add {
 			name = 'fm cutoff',
 			id = 'fm_cutoff_' .. v,
@@ -1640,6 +1002,8 @@ function init()
 				end
 			}
 		end
+
+		-- TOOD: per-voice modulation routing for non-LFO sources
 
 		params:add_group('v' .. v .. ' lfo A', 14)
 
@@ -1980,8 +1344,8 @@ function init()
 	redraw_metro = metro.init {
 		time = 1 / 30,
 		event = function()
-			for p = 1, #editor.dest_names do
-				local dial = dest_dials[editor.dest_names[p]]
+			for p = 1, #editor.dests do
+				local dial = dest_dials[editor.dests[p].name]
 				dial.y = dial.y + (((p - editor.dest) * 25 + 20) - dial.y) * 0.5
 			end
 			redraw()
@@ -2005,16 +1369,16 @@ function redraw()
 	screen.clear()
 	screen.fill() -- prevent a flash of stroke when leaving system UI
 	for s = 1, #editor.source_names do
-		local dial = source_dials[editor.dest_names[editor.dest]][editor.source_names[s]]
+		local dial = source_dials[editor.dests[editor.dest].name][editor.source_names[s]]
 		dial:set_active(editor.source == s)
 		dial:redraw()
 	end
-	for d = 1, #editor.dest_names do
-		local dial = dest_dials[editor.dest_names[d]]
+	for d = 1, #editor.dests do
+		local dial = dest_dials[editor.dests[d].name]
 		dial:set_active(editor.dest == d)
 		dial:redraw()
 		screen.move(dial.x - 4, dial.y + 11)
-		screen.text_right(editor.dest_labels[d])
+		screen.text_right(editor.dests[d].label)
 		screen.stroke()
 	end
 	screen.update()
@@ -2024,9 +1388,9 @@ function enc(n, d)
 	if n == 1 then
 		editor.source = (editor.source + d - 1) % #editor.source_names + 1
 	elseif n == 2 then
-		params:delta(editor.source_names[editor.source] .. '_' .. editor.dest_names[editor.dest], d)
+		params:delta(editor.source_names[editor.source] .. '_' .. editor.dests[editor.dest].name, d)
 	elseif n == 3 then
-		params:delta(editor.dest_names[editor.dest], d)
+		params:delta(editor.dests[editor.dest].name, d)
 	end
 	-- TODO: if editor.shift, edit mod source properties:
 	-- A/R, LFO shape/rate...
@@ -2038,9 +1402,9 @@ function key(n, z)
 		editor.shift = z == 1
 	elseif z == 1 then
 		if n == 2 then
-			editor.dest = (editor.dest - 2) % #editor.dest_names + 1
+			editor.dest = (editor.dest - 2) % #editor.dests + 1
 		elseif n == 3 then
-			editor.dest = editor.dest % #editor.dest_names + 1
+			editor.dest = editor.dest % #editor.dests + 1
 		end
 	end
 end

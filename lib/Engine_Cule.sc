@@ -64,6 +64,7 @@ Engine_Cule : CroneEngine {
 			\pitch,
 			\tip,
 			\palm,
+			\hand,
 			\foot,
 			\eg,
 			\lfoA,
@@ -155,7 +156,7 @@ Engine_Cule : CroneEngine {
 
 			var bufferRate, bufferLength, bufferPhase, delayPhase,
 				loopStart, loopPhase, loopTrigger, loopOffset,
-				eg, amp, lfoA, lfoB,
+				eg, amp, hand, lfoA, lfoB,
 				hz, detuneLin, detuneExp,
 				fmInput, opB, fmMix, opA,
 				voiceOutput;
@@ -187,6 +188,8 @@ Engine_Cule : CroneEngine {
 				gateOrTrig,
 				-6.dbamp
 			);
+
+			// TODO: LFO frequency randomization
 
 			lfoAFreq = lfoAFreq * 2.pow(modulation[\lfoAFreq]);
 			lfoAAmount = lfoAAmount + modulation[\lfoAAmount];
@@ -241,7 +244,8 @@ Engine_Cule : CroneEngine {
 			BufWr.kr([pitch, tip, palm, foot, amp], buffer, bufferPhase);
 			# pitch, tip, palm, foot, amp = BufRd.kr(nRecordedModulators, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
 
-			LocalOut.kr([pitch, tip, palm, foot, eg, lfoA, lfoB]);
+			hand = tip - palm;
+			LocalOut.kr([pitch, tip, palm, hand, foot, eg, lfoA, lfoB]);
 
 			pitch = pitch + tune + modulation[\pitch];
 
