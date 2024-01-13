@@ -770,8 +770,7 @@ function init()
 		local source = editor.source_names[s]
 
 		if source == 'eg' then
-			-- EG group gets extra parameters.
-			-- TODO: do the same for LFOs
+			-- EG group gets extra parameters
 			params:add_group('eg', 5 + #editor.dests)
 			params:add {
 				name = 'attack',
@@ -829,6 +828,34 @@ function init()
 				action = function(value)
 					for v = 1, n_voices do
 						engine.eg_pitch(v, value)
+					end
+				end
+			}
+		elseif source == 'lfoA' or source == 'lfoB' then
+			-- LFOs have extra parameters too
+			params:add_group(source, 2 + #editor.dests)
+			local type_command = engine[source .. 'Type']
+			local freq_command = engine[source .. 'Freq']
+			params:add {
+				name = source .. ' type',
+				id = source .. 'Type',
+				type = 'option',
+				options = { 'sine', 'tri', 'saw', 'rand', 's+h' },
+				default = source == 'lfoA' and 1 or 4,
+				action = function(value)
+					for v = 1, n_voices do
+						type_command(v, value - 1)
+					end
+				end
+			}
+			params:add {
+				name = source .. ' freq',
+				id = source .. 'Freq',
+				type = 'control',
+				controlspec = controlspec.new(0.01, 10, 'exp', 0, source == 'lfoA' and 0.9 or 1.1, 'Hz'),
+				action = function(value)
+					for v = 1, n_voices do
+						freq_command(v, value)
 					end
 				end
 			}
@@ -1006,300 +1033,7 @@ function init()
 			}
 		end
 
-		-- TOOD: per-voice modulation routing for non-LFO sources
-
-		params:add_group('v' .. v .. ' lfo A', 14)
-
-		params:add {
-			name = 'lfo A type',
-			id = 'lfo_a_type_' .. v,
-			type = 'option',
-			options = { 'sine', 'tri', 'saw', 'rand', 's+h' },
-			action = function(value)
-				engine.lfoAType(v, value - 1)
-			end
-		}
-
-		params:add {
-			name = 'lfo A freq',
-			id = 'lfo_a_freq_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0.01, 10, 'exp', 0, 0.9, 'Hz'),
-			action = function(value)
-				engine.lfoAFreq(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo A -> pitch',
-			id = 'lfo_a_pitch_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
-			formatter = function(param)
-				local value = param:get()
-				return string.format('%.2f', value * 12)
-			end,
-			action = function(value)
-				engine.lfoA_pitch(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo A -> amp',
-			id = 'lfo_a_amp_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoA_amp(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo A -> tune_a',
-			id = 'lfo_a_tune_a_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoA_tuneA(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo A -> tune_b',
-			id = 'lfo_a_tune_b_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoA_tuneB(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo A -> fm_index',
-			id = 'lfo_a_fm_index_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoA_fmIndex(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo A -> fb_b',
-			id = 'lfo_a_fb_b_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoA_fbB(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo A -> op_detune',
-			id = 'lfo_a_op_detune_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoA_opDetune(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo A -> op_mix',
-			id = 'lfo_a_op_mix_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoA_opMix(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo A -> fold_gain',
-			id = 'lfo_a_fold_gain_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoA_foldGain(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo A -> fold_bias',
-			id = 'lfo_a_fold_bias_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoA_foldBias(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo A -> lfo B freq',
-			id = 'lfo_a_lfo_b_freq_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoA_lfoBFreq(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo A -> lfo B amt',
-			id = 'lfo_a_lfo_b_amount_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoA_lfoBAmount(v, value)
-			end
-		}
-
-		params:add_group('v' .. v .. ' lfo B', 14)
-
-		params:add {
-			name = 'lfo B type',
-			id = 'lfo_b_type_' .. v,
-			type = 'option',
-			options = { 'sine', 'tri', 'saw', 'rand', 's+h' },
-			default = 4,
-			action = function(value)
-				engine.lfoBType(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo B freq',
-			id = 'lfo_b_freq_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0.01, 10, 'exp', 0, 0.9, 'Hz'),
-			action = function(value)
-				engine.lfoBFreq(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo B -> pitch',
-			id = 'lfo_b_pitch_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
-			formatter = function(param)
-				local value = param:get()
-				return string.format('%.2f', value * 12)
-			end,
-			action = function(value)
-				engine.lfoB_pitch(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo B -> amp',
-			id = 'lfo_b_amp_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoB_amp(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo B -> tune_a',
-			id = 'lfo_b_tune_a_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoB_tuneA(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo B -> tune_b',
-			id = 'lfo_b_tune_b_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoB_tuneB(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo B -> fm_index',
-			id = 'lfo_b_fm_index' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoB_fmIndex(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo B -> fb_b',
-			id = 'lfo_b_fb_b_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoB_fbB(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo B -> op_detune',
-			id = 'lfo_b_op_detune_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoB_opDetune(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo B -> op_mix',
-			id = 'lfo_b_op_mix' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoB_opMix(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo B -> fold_gain',
-			id = 'lfo_b_fold_gain_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoB_foldGain(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo B -> fold_bias',
-			id = 'lfo_b_fold_bias_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoB_foldBias(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo B -> lfo A freq',
-			id = 'lfo_b_lfo_a_freq_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-5, 5, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoB_lfoAFreq(v, value)
-			end
-		}
-
-		params:add {
-			name = 'lfo B -> lfo A amt',
-			id = 'lfo_b_lfo_a_amount_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.lfoB_lfoAAmount(v, value)
-			end
-		}
+		-- TODO: per-voice modulation routing, EG controls, LFO controls... cooperate with global controls
 
 		norns.enc.accel(1, false)
 		norns.enc.sens(1, 8)
