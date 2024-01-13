@@ -21,7 +21,6 @@ touche = midi.connect(1) -- 'TOUCHE 1'
 fbv = midi.connect(4) -- 'FBV Express Mk II 1'
 
 editor = {
-	shift = false,
 	source_names = {
 		'hand',
 		'foot',
@@ -53,12 +52,12 @@ editor = {
 		},
 		{
 			name = 'opDetune',
-			label = 'detune A/B',
+			label = 'detune A:B',
 			default = 0,
 		},
 		{
 			name = 'opMix',
-			label = 'mix A/B',
+			label = 'mix A:B',
 			default = -1
 		},
 		{
@@ -78,28 +77,29 @@ editor = {
 
 dest_dials = {
 	-- x, y, size, value, min_value, max_value, rounding, start_value, markers, units, title
-	tuneA    = ui.Dial.new(82,  40, 15, 0, -1, 1, 0.01, 0),
-	tuneB    = ui.Dial.new(102, 40, 15, 0, -1, 1, 0.01, 0),
-	fmIndex  = ui.Dial.new(122, 40, 15, 0, -1, 1, 0.01, 0),
-	fbB      = ui.Dial.new(142, 40, 15, 0, -1, 1, 0.01, 0),
-	opDetune = ui.Dial.new(162, 40, 15, 0, -1, 1, 0.01, 0),
-	opMix    = ui.Dial.new(182, 40, 15, 0, -1, 1, 0.01, 0),
-	foldGain = ui.Dial.new(202, 40, 15, 0, -1, 1, 0.01, 0),
-	foldBias = ui.Dial.new(222, 40, 15, 0, -1, 1, 0.01, 0)
+	tuneA    = ui.Dial.new(82,  50, 15, 0, -1, 1, 0.01, 0, nil, nil, ''),
+	tuneB    = ui.Dial.new(102, 50, 15, 0, -1, 1, 0.01, 0, nil, nil, ''),
+	fmIndex  = ui.Dial.new(122, 50, 15, 0, -1, 1, 0.01, 0, nil, nil, ''),
+	fbB      = ui.Dial.new(142, 50, 15, 0, -1, 1, 0.01, 0, nil, nil, ''),
+	opDetune = ui.Dial.new(162, 50, 15, 0, -1, 1, 0.01, 0, nil, nil, ''),
+	opMix    = ui.Dial.new(182, 50, 15, 0, -1, 1, 0.01, 0, nil, nil, ''),
+	foldGain = ui.Dial.new(202, 50, 15, 0, -1, 1, 0.01, 0, nil, nil, ''),
+	foldBias = ui.Dial.new(222, 50, 15, 0, -1, 1, 0.01, 0, nil, nil, '')
 }
 
 source_dials = {}
 for s = 1, #editor.dests do
 	source_dials[editor.dests[s].name] = {
-		hand  = ui.Dial.new( 2,  2, 12, 0, -1, 1, 0.01, 0),
-		foot  = ui.Dial.new(19,  2, 12, 0, -1, 1, 0.01, 0),
-		pitch = ui.Dial.new( 2, 22, 12, 0, -1, 1, 0.01, 0),
-		eg    = ui.Dial.new(19, 22, 12, 0, -1, 1, 0.01, 0),
-		lfoA  = ui.Dial.new( 2, 42, 12, 0, -1, 1, 0.01, 0),
-		lfoB  = ui.Dial.new(19, 42, 12, 0, -1, 1, 0.01, 0)
-		-- ui.Dial.new( 10, 42, 12, 0, -1, 1, 0.01, 0),
+		hand  = ui.Dial.new(82, 2, 11, 0, -1, 1, 0.01, 0, nil, nil, ''),
+		foot  = ui.Dial.new(82, 2, 11, 0, -1, 1, 0.01, 0, nil, nil, ''),
+		pitch = ui.Dial.new(82, 2, 11, 0, -1, 1, 0.01, 0, nil, nil, ''),
+		eg    = ui.Dial.new(82, 2, 11, 0, -1, 1, 0.01, 0, nil, nil, ''),
+		lfoA  = ui.Dial.new(82, 2, 11, 0, -1, 1, 0.01, 0, nil, nil, ''),
+		lfoB  = ui.Dial.new(82, 2, 11, 0, -1, 1, 0.01, 0, nil, nil, '')
 	}
 end
+
+held_keys = { false, false, false }
 
 voice_states = {}
 for v = 1, n_voices do
@@ -1103,55 +1103,89 @@ function redraw()
 	-- TODO: show held pitch(es) based on how they're specified in scala file!!; indicate bend/glide
 	screen.clear()
 	screen.fill() -- prevent a flash of stroke when leaving system UI
+
 	for d = 1, #editor.dests do
-		local dial = dest_dials[editor.dests[d].name]
-		dial:set_active(editor.dest == d or editor.dest % #editor.dests + 1 == d)
-		dial:redraw()
-		screen.move(dial.x - 4, dial.y + 11)
-		screen.text_rotate(dial.x + 9, dial.y - 4, editor.dests[d].label, -90)
+
+		local dest = editor.dests[d].name
+		local dest_dial = dest_dials[dest]
+		local source_dial = source_dials[dest][editor.source_names[editor.source]]
+		local active = editor.dest == d or editor.dest % #editor.dests + 1 == d
+
+		dest_dial:set_active(active)
+		dest_dial:redraw()
+		dest_dial:set_active(active)
+
+		source_dial.x = dest_dial.x + 2
+		source_dial.y = dest_dial.y + 2
+		source_dial:redraw()
+
+		screen.move(dest_dial.x - 4, dest_dial.y + 11)
+		screen.level(active and 15 or 3)
+		screen.text_rotate(dest_dial.x + 10, dest_dial.y - 4, editor.dests[d].label, -90)
 		screen.stroke()
 	end
+
+	screen.rect(0, 0, 30, 32)
 	screen.level(0)
-	screen.rect(0, 0, 36, 64)
 	screen.fill()
-	for s = 1, #editor.source_names do
-		local dial = source_dials[editor.dests[editor.dest].name][editor.source_names[s]]
-		dial:set_active(editor.source == s)
-		dial:redraw()
-	end
+
+	-- TODO: icons
+
+	screen.level('hand' == editor.source_names[editor.source] and 15 or 3)
+	screen.move(2, 7)
+	screen.text('Hd')
+
+	screen.level('foot' == editor.source_names[editor.source] and 15 or 3)
+	screen.move(18, 7)
+	screen.text('Ft')
+
+	screen.level('pitch' == editor.source_names[editor.source] and 15 or 3)
+	screen.move(2, 18)
+	screen.text('Pt')
+
+	screen.level('eg' == editor.source_names[editor.source] and 15 or 3)
+	screen.move(18, 18)
+	screen.text('Eg')
+
+	screen.level('lfoA' == editor.source_names[editor.source] and 15 or 3)
+	screen.move(2, 29)
+	screen.text('La')
+
+	screen.level('lfoB' == editor.source_names[editor.source] and 15 or 3)
+	screen.move(18, 29)
+	screen.text('Lb')
+
 	screen.update()
 end
 
 function enc(n, d)
-	if editor.shift then
-		if n == 2 then
-			params:delta(editor.source_names[editor.source] .. '_' .. editor.dests[editor.dest].name, d)
-		elseif n == 3 then
-			params:delta(editor.source_names[editor.source] .. '_' .. editor.dests[editor.dest % #editor.dests + 1].name, d)
+	if n == 1 then
+		local source_name = editor.source_names[editor.source]
+		if source_name == 'lfoA' or source_name == 'lfoB' then
+			params:delta(source_name .. 'Freq', d)
+		else
+			-- TODO: some kind of global control over envelope?
+			-- envelope time skew, like -1 = zero attack + double decay, +1 = double attack + zero decay
+			-- or an overall rate scale
 		end
-	else
-		if n == 1 then
-			local source_name = editor.source_names[editor.source]
-			if source_name == 'lfoA' or source_name == 'lfoB' then
-				params:delta(source_name .. 'Freq', d)
-			else
-				-- TODO: some kind of global control over envelope?
-				-- envelope time skew, like -1 = zero attack + double decay, +1 = double attack + zero decay
-				-- or an overall rate scale
-			end
-		elseif n == 2 then
+	elseif n == 2 then
+		if held_keys[2] then
+			params:delta(editor.source_names[editor.source] .. '_' .. editor.dests[editor.dest].name, d)
+		else
 			params:delta(editor.dests[editor.dest].name, d)
-		elseif n == 3 then
+		end
+	elseif n == 3 then
+		if held_keys[3] then
+			params:delta(editor.source_names[editor.source] .. '_' .. editor.dests[editor.dest % #editor.dests + 1].name, d)
+		else
 			params:delta(editor.dests[editor.dest % #editor.dests + 1].name, d)
 		end
 	end
 end
 
 function key(n, z)
-	if n == 1 then
-		editor.shift = z == 1
-	elseif z == 1 then
-		if editor.shift then
+	if n > 1 and z == 0 and util.time() - held_keys[n] < 0.2 then
+		if held_keys[1] then
 			if n == 2 then
 				editor.source = (editor.source - 2) % #editor.source_names + 1
 			elseif n == 3 then
@@ -1165,6 +1199,7 @@ function key(n, z)
 			end
 		end
 	end
+	held_keys[n] = z == 1 and util.time() or false
 end
 
 function cleanup()
