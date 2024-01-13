@@ -210,14 +210,16 @@ Engine_Cule : CroneEngine {
 				LFNoise0.kr(lfoBFreq)
 			]);
 
-			tuneA    = tuneA.lag(lag)    + modulation[\tuneA];
-			tuneB    = tuneB.lag(lag)    + modulation[\tuneB];
-			fmIndex  = fmIndex.lag(lag)  + modulation[\fmIndex];
-			fbB      = fbB.lag(lag)      + modulation[\fbB];
-			opDetune = opDetune.lag(lag) + modulation[\opDetune];
-			opMix    = opMix.lag(lag)    + modulation[\opMix];
-			foldGain = foldGain.lag(lag) + modulation[\foldGain];
-			foldBias = foldBias.lag(lag) + modulation[\foldBias];
+			// this weird-looking LinSelectX pattern scales modulation signals so that
+			// final parameter values (base + modulation) can always reach [-1, 1]
+			tuneA    = LinSelectX.kr(1 + modulation[\tuneA],    [-1, tuneA.lag(lag),    1 ]);
+			tuneB    = LinSelectX.kr(1 + modulation[\tuneB],    [-1, tuneB.lag(lag),    1 ]);
+			fmIndex  = LinSelectX.kr(1 + modulation[\fmIndex],  [-1, fmIndex.lag(lag),  1 ]);
+			fbB      = LinSelectX.kr(1 + modulation[\fbB],      [-1, fbB.lag(lag),      1 ]);
+			opDetune = LinSelectX.kr(1 + modulation[\opDetune], [-1, opDetune.lag(lag), 1 ]);
+			opMix    = LinSelectX.kr(1 + modulation[\opMix],    [-1, opMix.lag(lag),    1 ]);
+			foldGain = LinSelectX.kr(1 + modulation[\foldGain], [-1, foldGain.lag(lag), 1 ]);
+			foldBias = LinSelectX.kr(1 + modulation[\foldBias], [-1, foldBias.lag(lag), 1 ]);
 
 			amp = (Select.kr(ampMode, [
 				lagTip,
@@ -248,7 +250,7 @@ Engine_Cule : CroneEngine {
 			hand = tip - palm;
 			LocalOut.kr([pitch, tip, palm, hand, foot, eg, lfoA, lfoB]);
 
-			pitch = pitch + tune + modulation[\pitch];
+			pitch = LinSelectX.kr(1 + modulation[\pitch], [-1, pitch, 1]) + tune;
 
 			// send control values to polls, both regularly (replyRate Hz) and immediately when gate goes high or when voice loops
 			highPriorityUpdate = Changed.kr(pitch, 0.04) + t_trig;
