@@ -78,14 +78,14 @@ editor = {
 
 dest_dials = {
 	-- x, y, size, value, min_value, max_value, rounding, start_value, markers, units, title
-	tuneA    = ui.Dial.new(5,   40, 15, 0, -1, 1, 0.01, 0),
-	tuneB    = ui.Dial.new(31,  40, 15, 0, -1, 1, 0.01, 0),
-	fmIndex  = ui.Dial.new(57,  40, 15, 0, -1, 1, 0.01, 0),
-	fbB      = ui.Dial.new(83,  40, 15, 0, -1, 1, 0.01, 0),
-	opDetune = ui.Dial.new(109, 40, 15, 0, -1, 1, 0.01, 0),
-	opMix    = ui.Dial.new(135, 40, 15, 0, -1, 1, 0.01, 0),
-	foldGain = ui.Dial.new(161, 40, 15, 0, -1, 1, 0.01, 0),
-	foldBias = ui.Dial.new(187, 40, 15, 0, -1, 1, 0.01, 0)
+	tuneA    = ui.Dial.new(82,  40, 15, 0, -1, 1, 0.01, 0),
+	tuneB    = ui.Dial.new(102, 40, 15, 0, -1, 1, 0.01, 0),
+	fmIndex  = ui.Dial.new(122, 40, 15, 0, -1, 1, 0.01, 0),
+	fbB      = ui.Dial.new(142, 40, 15, 0, -1, 1, 0.01, 0),
+	opDetune = ui.Dial.new(162, 40, 15, 0, -1, 1, 0.01, 0),
+	opMix    = ui.Dial.new(182, 40, 15, 0, -1, 1, 0.01, 0),
+	foldGain = ui.Dial.new(202, 40, 15, 0, -1, 1, 0.01, 0),
+	foldBias = ui.Dial.new(222, 40, 15, 0, -1, 1, 0.01, 0)
 }
 
 source_dials = {}
