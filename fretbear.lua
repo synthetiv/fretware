@@ -78,14 +78,14 @@ editor = {
 
 dest_dials = {
 	-- x, y, size, value, min_value, max_value, rounding, start_value, markers, units, title
-	tuneA    = ui.Dial.new(109,  20, 15, 0, -1, 1, 0.01, 0),
-	tuneB    = ui.Dial.new(109,  46, 15, 0, -1, 1, 0.01, 0),
-	fmIndex  = ui.Dial.new(109,  72, 15, 0, -1, 1, 0.01, 0),
-	fbB      = ui.Dial.new(109,  98, 15, 0, -1, 1, 0.01, 0),
-	opDetune = ui.Dial.new(109, 124, 15, 0, -1, 1, 0.01, 0),
-	opMix    = ui.Dial.new(109, 150, 15, 0, -1, 1, 0.01, 0),
-	foldGain = ui.Dial.new(109, 176, 15, 0, -1, 1, 0.01, 0),
-	foldBias = ui.Dial.new(109, 202, 15, 0, -1, 1, 0.01, 0)
+	tuneA    = ui.Dial.new(5,   40, 15, 0, -1, 1, 0.01, 0),
+	tuneB    = ui.Dial.new(31,  40, 15, 0, -1, 1, 0.01, 0),
+	fmIndex  = ui.Dial.new(57,  40, 15, 0, -1, 1, 0.01, 0),
+	fbB      = ui.Dial.new(83,  40, 15, 0, -1, 1, 0.01, 0),
+	opDetune = ui.Dial.new(109, 40, 15, 0, -1, 1, 0.01, 0),
+	opMix    = ui.Dial.new(135, 40, 15, 0, -1, 1, 0.01, 0),
+	foldGain = ui.Dial.new(161, 40, 15, 0, -1, 1, 0.01, 0),
+	foldBias = ui.Dial.new(187, 40, 15, 0, -1, 1, 0.01, 0)
 }
 
 source_dials = {}
@@ -1033,10 +1033,6 @@ function init()
 		end
 
 		-- TODO: per-voice modulation routing, EG controls, LFO controls... cooperate with global controls
-
-		norns.enc.accel(1, false)
-		norns.enc.sens(1, 8)
-
 	end
 
 	params:add_separator('etc')
@@ -1082,7 +1078,7 @@ function init()
 		event = function()
 			for p = 1, #editor.dests do
 				local dial = dest_dials[editor.dests[p].name]
-				dial.y = dial.y + (((p - editor.dest) * 25 + 20) - dial.y) * 0.5
+				dial.x = math.floor(dial.x + (((p - editor.dest) * 20 + 82) - dial.x) * 0.6)
 			end
 			redraw()
 			grid_redraw()
@@ -1104,43 +1100,66 @@ function redraw()
 	-- TODO: show held pitch(es) based on how they're specified in scala file!!; indicate bend/glide
 	screen.clear()
 	screen.fill() -- prevent a flash of stroke when leaving system UI
+	for d = 1, #editor.dests do
+		local dial = dest_dials[editor.dests[d].name]
+		dial:set_active(editor.dest == d or editor.dest % #editor.dests + 1 == d)
+		dial:redraw()
+		screen.move(dial.x - 4, dial.y + 11)
+		screen.text_rotate(dial.x + 9, dial.y - 4, editor.dests[d].label, -90)
+		screen.stroke()
+	end
+	screen.level(0)
+	screen.rect(0, 0, 36, 64)
+	screen.fill()
 	for s = 1, #editor.source_names do
 		local dial = source_dials[editor.dests[editor.dest].name][editor.source_names[s]]
 		dial:set_active(editor.source == s)
 		dial:redraw()
 	end
-	for d = 1, #editor.dests do
-		local dial = dest_dials[editor.dests[d].name]
-		dial:set_active(editor.dest == d)
-		dial:redraw()
-		screen.move(dial.x - 4, dial.y + 11)
-		screen.text_right(editor.dests[d].label)
-		screen.stroke()
-	end
 	screen.update()
 end
 
 function enc(n, d)
-	if n == 1 then
-		editor.source = (editor.source + d - 1) % #editor.source_names + 1
-	elseif n == 2 then
-		params:delta(editor.source_names[editor.source] .. '_' .. editor.dests[editor.dest].name, d)
-	elseif n == 3 then
-		params:delta(editor.dests[editor.dest].name, d)
+	if editor.shift then
+		if n == 2 then
+			params:delta(editor.source_names[editor.source] .. '_' .. editor.dests[editor.dest].name, d)
+		elseif n == 3 then
+			params:delta(editor.source_names[editor.source] .. '_' .. editor.dests[editor.dest % #editor.dests + 1].name, d)
+		end
+	else
+		if n == 1 then
+			local source_name = editor.source_names[editor.source]
+			if source_name == 'lfoA' or source_name == 'lfoB' then
+				params:delta(source_name .. 'Freq', d)
+			else
+				-- TODO: some kind of global control over envelope?
+				-- envelope time skew, like -1 = zero attack + double decay, +1 = double attack + zero decay
+				-- or an overall rate scale
+			end
+		elseif n == 2 then
+			params:delta(editor.dests[editor.dest].name, d)
+		elseif n == 3 then
+			params:delta(editor.dests[editor.dest % #editor.dests + 1].name, d)
+		end
 	end
-	-- TODO: if editor.shift, edit mod source properties:
-	-- A/R, LFO shape/rate...
-	-- OR... allow mod-modding
 end
 
 function key(n, z)
 	if n == 1 then
 		editor.shift = z == 1
 	elseif z == 1 then
-		if n == 2 then
-			editor.dest = (editor.dest - 2) % #editor.dests + 1
-		elseif n == 3 then
-			editor.dest = editor.dest % #editor.dests + 1
+		if editor.shift then
+			if n == 2 then
+				editor.source = (editor.source - 2) % #editor.source_names + 1
+			elseif n == 3 then
+				editor.source = editor.source % #editor.source_names + 1
+			end
+		else
+			if n == 2 then
+				editor.dest = (editor.dest - 2) % (#editor.dests - 1) + 1
+			elseif n == 3 then
+				editor.dest = editor.dest % (#editor.dests - 1) + 1
+			end
 		end
 	end
 end
