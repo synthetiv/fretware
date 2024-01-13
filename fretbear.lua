@@ -33,32 +33,32 @@ editor = {
 		{
 			name = 'tuneA',
 			label = 'tune A',
-			default = 0,
+			default = 0
 		},
 		{
 			name = 'tuneB',
 			label = 'tune B',
-			default = 0,
+			default = 0
 		},
 		{
 			name = 'fmIndex',
 			label = 'fm index',
-			default = 0,
+			default = -1
 		},
 		{
 			name = 'fbB',
 			label = 'feedback B',
-			default = 0,
+			default = 0
 		},
 		{
 			name = 'opDetune',
 			label = 'detune A:B',
-			default = 0,
+			default = 0
 		},
 		{
 			name = 'opMix',
 			label = 'mix A:B',
-			default = -1
+			default = 0
 		},
 		{
 			name = 'foldGain',
