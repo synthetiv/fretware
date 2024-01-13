@@ -1016,7 +1016,7 @@ function init()
 			type = 'option',
 			options = { 'sine', 'tri', 'saw', 'rand', 's+h' },
 			action = function(value)
-				engine.lfoAType(v, value)
+				engine.lfoAType(v, value - 1)
 			end
 		}
 
