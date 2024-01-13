@@ -1,7 +1,7 @@
 Engine_Cule : CroneEngine {
 
 	classvar nVoices = 7;
-	classvar nRecordedModulators = 5;
+	classvar nRecordedModulators = 6;
 	classvar bufferRateScale = 0.5;
 	classvar maxLoopTime = 32;
 
@@ -154,16 +154,12 @@ Engine_Cule : CroneEngine {
 
 			var bufferRate, bufferLength, bufferPhase, delayPhase,
 				loopStart, loopPhase, loopTrigger, loopOffset,
-				eg, amp, hand, lfoA, lfoB,
+				modulation = Dictionary.new,
+				adsr, eg, amp, lfoA, lfoB,
 				hz, detuneLin, detuneExp,
 				fmInput, opB, fmMix, opA,
 				voiceOutput,
 				highPriorityUpdate;
-
-			var gateOrTrig = Select.kr(egGateTrig, [
-				gate,
-				Trig.kr(t_trig, trigLength),
-			]);
 
 			// slew tip for direct control of amplitude -- otherwise there will be audible steppiness
 			var lagTip = Lag.kr(tip, 0.05);
@@ -173,20 +169,40 @@ Engine_Cule : CroneEngine {
 			// this feedback loop is needed in order for modulators to modulate one another
 			var modulators = LocalIn.kr(modulatorNames.size);
 
+			// create buffer for looping pitch/amp/control data
+			bufferRate = ControlRate.ir * bufferRateScale;
+			bufferLength = BufFrames.kr(buffer);
+			bufferPhase = Phasor.kr(rate: bufferRateScale * (1 - freeze), end: bufferLength);
+			// delay must be at least 1 frame, or we'll be writing to + reading from the same point
+			delayPhase = bufferPhase - (delay * bufferRate).max(1);
+			loopStart = bufferPhase - (loopLength * bufferRate).min(bufferLength);
+			loopPhase = Phasor.kr(Trig.kr(freeze) + t_loopReset, bufferRateScale * loopRateScale, loopStart, bufferPhase, loopStart);
+			// TODO: confirm that this is really firing when it's supposed to (i.e. when loopPhase
+			// resets)! if not, either fix it, or do away with it
+			loopTrigger = Trig.kr(BinaryOpUGen.new('==', loopPhase, loopStart));
+			loopOffset = Latch.kr(bufferLength - (loopLength * bufferRate), loopTrigger) * loopPosition;
+			loopPhase = loopPhase - loopOffset;
+			// TODO: restore the ability for diff voices to have diff amp modes.
+			// that means making it possible to decouple a voice's parameters from the global ones
+			BufWr.kr([pitch, tip, palm, foot, gate, t_trig], buffer, bufferPhase);
+			# pitch, tip, palm, foot, gate, t_trig = BufRd.kr(nRecordedModulators, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
+
 			// build a dictionary of summed modulation signals to apply to parameters
-			var modulation = Dictionary.new;
 			parameterNames.do({ |paramName|
 				modulation.put(paramName, Mix.fill(modulatorNames.size, { |m|
 					modulators[m] * NamedControl.kr((modulatorNames[m].asString ++ '_' ++ paramName.asString).asSymbol, 0, lag);
 				}));
 			});
 
-			eg = EnvGen.kr(
-				// TODO: modulate env times!
-				Env.adsr(attack, decay, sustain, release),
-				gateOrTrig,
-				-6.dbamp
-			);
+			// maybe replace gate with trig
+			gate = Select.kr(egGateTrig, [
+				gate,
+				Trig.kr(t_trig, trigLength),
+			]);
+
+			// TODO: modulate env times!
+			adsr = Env.adsr(attack, decay, sustain, release);
+			eg = EnvGen.kr(adsr, gate);
 
 			// TODO: LFO frequency randomization
 
@@ -221,34 +237,15 @@ Engine_Cule : CroneEngine {
 			foldGain = LinSelectX.kr(1 + modulation[\foldGain], [-1, foldGain.lag(lag), 1 ]);
 			foldBias = LinSelectX.kr(1 + modulation[\foldBias], [-1, foldBias.lag(lag), 1 ]);
 
-			amp = (Select.kr(ampMode, [
-				lagTip,
-				lagTip * EnvGen.kr(Env.asr(attack, 1, release), gateOrTrig);,
-				eg
-			]) * (1 + modulation[\amp])).max(0);
-
 			// now we're done with the modulation matrix
 
-			// create buffer for looping pitch/amp/control data
-			bufferRate = ControlRate.ir * bufferRateScale;
-			bufferLength = BufFrames.kr(buffer);
-			bufferPhase = Phasor.kr(rate: bufferRateScale * (1 - freeze), end: bufferLength);
-			// delay must be at least 1 frame, or we'll be writing to + reading from the same point
-			delayPhase = bufferPhase - (delay * bufferRate).max(1);
-			loopStart = bufferPhase - (loopLength * bufferRate).min(bufferLength);
-			loopPhase = Phasor.kr(Trig.kr(freeze) + t_loopReset, bufferRateScale * loopRateScale, loopStart, bufferPhase, loopStart);
-			// TODO: confirm that this is really firing when it's supposed to (i.e. when loopPhase
-			// resets)! if not, either fix it, or do away with it
-			loopTrigger = Trig.kr(BinaryOpUGen.new('==', loopPhase, loopStart));
-			loopOffset = Latch.kr(bufferLength - (loopLength * bufferRate), loopTrigger) * loopPosition;
-			loopPhase = loopPhase - loopOffset;
-			// TODO: record gate too, so envelope continues to work as a modulation source
-			// -- what implications would that have for recording amp directly the way we do now?
-			BufWr.kr([pitch, tip, palm, foot, amp], buffer, bufferPhase);
-			# pitch, tip, palm, foot, amp = BufRd.kr(nRecordedModulators, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
+			LocalOut.kr([pitch, tip, palm, tip - palm, foot, eg, lfoA, lfoB]);
 
-			hand = tip - palm;
-			LocalOut.kr([pitch, tip, palm, hand, foot, eg, lfoA, lfoB]);
+			amp = (Select.kr(ampMode, [
+				lagTip,
+				lagTip * EnvGen.kr(Env.asr(attack, 1, release), gate),
+				eg * -6.dbamp
+			]) * (1 + modulation[\amp])).max(0);
 
 			pitch = LinSelectX.kr(1 + modulation[\pitch], [-1, pitch, 1]) + tune;
 
