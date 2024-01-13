@@ -243,6 +243,7 @@ function fbv.event(data)
 	end
 end
 
+-- TODO: debounce here
 function grid_redraw()
 	g:all(0)
 	k:draw()
@@ -432,20 +433,22 @@ function init()
 
 	-- set up polls
 	for v = 1, n_voices do
-		-- TODO: respond more immediately to sudden pitch changes, without calling
-		-- grid_redraw() unnecessarily.
-		-- grid_redraw() used to be called with EVERY pitch poll callback for EVERY voice.
-		-- instead, call it only when triggered by a pitch change, and NOT when doing a
-		-- routine pitch check...??
-		-- and maybe debounce it too
-		local pitch_poll = poll.set('pitch_' .. v, function(value)
-			voice_states[v].pitch = value
-		end)
-		pitch_poll:start()
+		-- one poll to respond to voice amplitude info
 		local amp_poll = poll.set('amp_' .. v, function(value)
 			voice_states[v].amp = value
 		end)
 		amp_poll:start()
+		-- a second to respond to pitch AND refresh grid; this helps a lot when voices are arpeggiating or looping
+		local instant_pitch_poll = poll.set('instant_pitch_' .. v, function(value)
+			voice_states[v].pitch = value
+			grid_redraw()
+		end)
+		instant_pitch_poll:start()
+		-- and another poll for "routine" pitch updates, to show glide, vibrato, etc.
+		local pitch_poll = poll.set('pitch_' .. v, function(value)
+			voice_states[v].pitch = value
+		end)
+		pitch_poll:start()
 	end
 
 	params:add {

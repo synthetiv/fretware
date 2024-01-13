@@ -157,7 +157,8 @@ Engine_Cule : CroneEngine {
 				eg, amp, hand, lfoA, lfoB,
 				hz, detuneLin, detuneExp,
 				fmInput, opB, fmMix, opA,
-				voiceOutput;
+				voiceOutput,
+				highPriorityUpdate;
 
 			var gateOrTrig = Select.kr(egGateTrig, [
 				gate,
@@ -239,6 +240,8 @@ Engine_Cule : CroneEngine {
 			loopTrigger = Trig.kr(BinaryOpUGen.new('==', loopPhase, loopStart));
 			loopOffset = Latch.kr(bufferLength - (loopLength * bufferRate), loopTrigger) * loopPosition;
 			loopPhase = loopPhase - loopOffset;
+			// TODO: record gate too, so envelope continues to work as a modulation source
+			// -- what implications would that have for recording amp directly the way we do now?
 			BufWr.kr([pitch, tip, palm, foot, amp], buffer, bufferPhase);
 			# pitch, tip, palm, foot, amp = BufRd.kr(nRecordedModulators, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
 
@@ -248,7 +251,12 @@ Engine_Cule : CroneEngine {
 			pitch = pitch + tune + modulation[\pitch];
 
 			// send control values to polls, both regularly (replyRate Hz) and immediately when gate goes high or when voice loops
-			SendReply.kr(trig: Impulse.kr(replyRate) + Changed.kr(pitch, 0.04), cmdName: '/voicePitchAmp', values: [voiceIndex, pitch, amp]);
+			highPriorityUpdate = Changed.kr(pitch, 0.04) + t_trig;
+			SendReply.kr(
+				trig: Impulse.kr(replyRate) + highPriorityUpdate,
+				cmdName: '/voiceState',
+				values: [voiceIndex, amp, pitch, highPriorityUpdate]
+			);
 
 			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
 			// if I try that, SC seems to just hang forever, no error message
@@ -316,16 +324,21 @@ Engine_Cule : CroneEngine {
 			arg i;
 			i = i + 1;
 			[
+				this.addPoll(("instant_pitch_" ++ i).asSymbol, periodic: false),
 				this.addPoll(("pitch_" ++ i).asSymbol, periodic: false),
 				this.addPoll(("amp_" ++ i).asSymbol, periodic: false)
 			];
 		});
 		replyFunc = OSCFunc({
 			arg msg;
-			// msg looks like [ '/voicePitchAmp', ??, -1, index, pitch, amp ]
-			polls[msg[3]][0].update(msg[4]);
-			polls[msg[3]][1].update(msg[5]);
-		}, path: '/voicePitchAmp', srcID: context.server.addr);
+			// msg looks like [ '/voiceState', ??, -1, voiceIndex, amp, pitch, highPriorityUpdate ]
+			polls[msg[3]][2].update(msg[4]);
+			if(msg[6] == 1, {
+				polls[msg[3]][0].update(msg[5]);
+			}, {
+				polls[msg[3]][1].update(msg[5]);
+			});
+		}, path: '/voiceState', srcID: context.server.addr);
 
 		this.addCommand(\baseFreq, "f", {
 			arg msg;
