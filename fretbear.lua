@@ -2,7 +2,8 @@
 
 engine.name = 'Cule'
 musicutil = require 'musicutil'
-ui = require 'ui'
+
+Dial = include 'lib/dial'
 
 n_voices = 7
 
@@ -77,25 +78,25 @@ editor = {
 
 dest_dials = {
 	-- x, y, size, value, min_value, max_value, rounding, start_value, markers, units, title
-	tuneA    = ui.Dial.new(82,  50, 15, 0, -1, 1, 0.01, 0, nil, nil, ''),
-	tuneB    = ui.Dial.new(102, 50, 15, 0, -1, 1, 0.01, 0, nil, nil, ''),
-	fmIndex  = ui.Dial.new(122, 50, 15, 0, -1, 1, 0.01, 0, nil, nil, ''),
-	fbB      = ui.Dial.new(142, 50, 15, 0, -1, 1, 0.01, 0, nil, nil, ''),
-	opDetune = ui.Dial.new(162, 50, 15, 0, -1, 1, 0.01, 0, nil, nil, ''),
-	opMix    = ui.Dial.new(182, 50, 15, 0, -1, 1, 0.01, 0, nil, nil, ''),
-	foldGain = ui.Dial.new(202, 50, 15, 0, -1, 1, 0.01, 0, nil, nil, ''),
-	foldBias = ui.Dial.new(222, 50, 15, 0, -1, 1, 0.01, 0, nil, nil, '')
+	tuneA    = Dial.new(82,  50, 15),
+	tuneB    = Dial.new(102, 50, 15),
+	fmIndex  = Dial.new(122, 50, 15),
+	fbB      = Dial.new(142, 50, 15),
+	opDetune = Dial.new(162, 50, 15),
+	opMix    = Dial.new(182, 50, 15),
+	foldGain = Dial.new(202, 50, 15),
+	foldBias = Dial.new(222, 50, 15),
 }
 
 source_dials = {}
 for s = 1, #editor.dests do
 	source_dials[editor.dests[s].name] = {
-		hand  = ui.Dial.new(82, 2, 11, 0, -1, 1, 0.01, 0, nil, nil, ''),
-		foot  = ui.Dial.new(82, 2, 11, 0, -1, 1, 0.01, 0, nil, nil, ''),
-		pitch = ui.Dial.new(82, 2, 11, 0, -1, 1, 0.01, 0, nil, nil, ''),
-		eg    = ui.Dial.new(82, 2, 11, 0, -1, 1, 0.01, 0, nil, nil, ''),
-		lfoA  = ui.Dial.new(82, 2, 11, 0, -1, 1, 0.01, 0, nil, nil, ''),
-		lfoB  = ui.Dial.new(82, 2, 11, 0, -1, 1, 0.01, 0, nil, nil, '')
+		hand  = Dial.new(82, 2, 11),
+		foot  = Dial.new(82, 2, 11),
+		pitch = Dial.new(82, 2, 11),
+		eg    = Dial.new(82, 2, 11),
+		lfoA  = Dial.new(82, 2, 11),
+		lfoB  = Dial.new(82, 2, 11),
 	}
 end
 
@@ -1111,16 +1112,16 @@ function redraw()
 		local source_dial = source_dials[dest][editor.source_names[editor.source]]
 		local active = editor.dest == d or editor.dest % #editor.dests + 1 == d
 
-		dest_dial:set_active(active)
+		dest_dial.active = active
 		dest_dial:redraw()
-		dest_dial:set_active(active)
 
 		source_dial.x = dest_dial.x + 2
 		source_dial.y = dest_dial.y + 2
+		source_dial.active = active
 		source_dial:redraw()
 
 		screen.move(dest_dial.x - 4, dest_dial.y + 11)
-		screen.level(active and 15 or 3)
+		screen.level(active and 15 or 2)
 		screen.text_rotate(dest_dial.x + 10, dest_dial.y - 4, editor.dests[d].label, -90)
 		screen.stroke()
 	end
