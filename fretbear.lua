@@ -1007,7 +1007,7 @@ function init()
 
 		params:add {
 			name = 'out level',
-			id = 'out_level_' .. v,
+			id = 'outLevel_' .. v,
 			type = 'taper',
 			min = 0,
 			max = 0.5,
