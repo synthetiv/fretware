@@ -211,14 +211,14 @@ Engine_Cule : CroneEngine {
 				LFNoise0.kr(lfoBFreq)
 			]);
 
-			tuneA = tuneA + modulation[\tuneA];
-			tuneB = tuneB + modulation[\tuneB];
-			fmIndex = fmIndex + modulation[\fmIndex];
-			fbB = fbB + modulation[\fbB];
-			opDetune = opDetune + modulation[\opDetune];
-			opMix = opMix + modulation[\opMix];
-			foldGain = foldGain + modulation[\foldGain];
-			foldBias = foldBias + modulation[\foldBias];
+			tuneA    = tuneA.lag(lag)    + modulation[\tuneA];
+			tuneB    = tuneB.lag(lag)    + modulation[\tuneB];
+			fmIndex  = fmIndex.lag(lag)  + modulation[\fmIndex];
+			fbB      = fbB.lag(lag)      + modulation[\fbB];
+			opDetune = opDetune.lag(lag) + modulation[\opDetune];
+			opMix    = opMix.lag(lag)    + modulation[\opMix];
+			foldGain = foldGain.lag(lag) + modulation[\foldGain];
+			foldBias = foldBias.lag(lag) + modulation[\foldBias];
 
 			amp = (Select.kr(ampMode, [
 				lagTip,
@@ -258,16 +258,6 @@ Engine_Cule : CroneEngine {
 
 			// calculate FM mix to feed to operator A
 			fmInput = Mix(InFeedback.ar(synthOutBuses) * In.kr(fmBus, nVoices));
-
-			// slew parameters
-			tuneA    = Lag.kr(tuneA,    lag);
-			tuneB    = Lag.kr(tuneB,    lag);
-			fmIndex  = Lag.kr(fmIndex,  lag);
-			fbB      = Lag.kr(fbB,      lag);
-			opDetune = Lag.kr(opDetune, lag);
-			opMix    = Lag.kr(opMix,    lag);
-			foldGain = Lag.kr(foldGain, lag);
-			foldBias = Lag.kr(foldBias, lag);
 
 			hz = 2.pow(pitch + octave) * In.kr(baseFreqBus);
 			detuneLin = opDetune * 10 * detuneType;
