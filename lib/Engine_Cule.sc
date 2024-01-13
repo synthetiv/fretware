@@ -97,8 +97,6 @@ Engine_Cule : CroneEngine {
 		"sending synthdef...".postln;
 
 		// TODO: LFOs as separate synths
-		// TODO: "SynthDef: could not write def: DoesNotUnderstandError" ...??
-		// see https://github.com/supercollider/supercollider/issues/4013
 		voiceDef = SynthDef.new(\line, {
 
 			arg voiceIndex,

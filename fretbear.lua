@@ -1010,7 +1010,6 @@ function init()
 			max = 0.5,
 			k = 2,
 			default = 0.2,
-			-- controlspec = controlspec.new(0, 0.5, 'exp', 0, 0.2),
 			action = function(value)
 				engine.outLevel(v, value)
 			end
