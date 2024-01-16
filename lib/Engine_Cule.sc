@@ -161,9 +161,6 @@ Engine_Cule : CroneEngine {
 				voiceOutput,
 				highPriorityUpdate;
 
-			// slew tip for direct control of amplitude -- otherwise there will be audible steppiness
-			var lagTip = Lag.kr(tip, 0.05);
-
 			// calculate modulation matrix
 
 			// this feedback loop is needed in order for modulators to modulate one another
@@ -241,9 +238,11 @@ Engine_Cule : CroneEngine {
 
 			LocalOut.kr([pitch, tip, palm, tip - palm, foot, eg, lfoA, lfoB]);
 
+			// slew tip for direct control of amplitude -- otherwise there will be audible steppiness
+			tip = Lag.kr(tip, 0.05);
 			amp = (Select.kr(ampMode, [
-				lagTip,
-				lagTip * EnvGen.kr(Env.asr(attack, 1, release), gate),
+				tip,
+				tip * EnvGen.kr(Env.asr(attack, 1, release), gate),
 				eg * -6.dbamp
 			]) * (1 + modulation[\amp])).max(0);
 
