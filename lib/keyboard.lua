@@ -470,7 +470,7 @@ function Keyboard:draw()
 		self.voice_data[v].high = high + offset
 		self.voice_data[v].weight = weight
 		self.voice_data[v].amp = voice_states[v].amp
-		self.voice_data[v].control = voice_states[v].control
+		self.voice_data[v].control = v == active_voice
 	end
 
 	for x = self.x, self.x2 do

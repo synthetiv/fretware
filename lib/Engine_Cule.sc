@@ -321,6 +321,9 @@ Engine_Cule : CroneEngine {
 		polls = Array.fill(nVoices, {
 			arg i;
 			i = i + 1;
+			// TODO: instant amp poll...?? or is there a better way?
+			// need for more immediate amp feedback is clear now that we're showing
+			// amplitudes on screen
 			[
 				this.addPoll(("instant_pitch_" ++ i).asSymbol, periodic: false),
 				this.addPoll(("pitch_" ++ i).asSymbol, periodic: false),

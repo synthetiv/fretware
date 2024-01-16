@@ -108,6 +108,8 @@ for v = 1, n_voices do
 		control = v == 1,
 		pitch = 0,
 		amp = 0,
+		editing = false,
+		timbre_locked = false,
 		looping = false,
 		looping_next = false,
 		loop_armed = false,
@@ -115,9 +117,8 @@ for v = 1, n_voices do
 		loop_beat_sec = 0.25
 	}
 end
-selected_voices = { 1 }
-n_selected_voices = 1
-lead_voice = 1
+
+active_voice = 1
 
 tip = 0
 palm = 0
@@ -159,37 +160,44 @@ end
 
 function g.key(x, y, z)
 	if y < 8 and x <= 2 then
-		if z == 1 then
-			local v = 8 - y
-			if x == 1 then
+		local v = 8 - y
+		if x == 1 then
+			if z == 1 then
 				voice_loop_button(v)
-			elseif x == 2 then
-				local voice = voice_states[v]
-				-- TODO: is this stuff useful now?
-				voice.control = not voice.control
-				if voice.control then
+			end
+		elseif x == 2 then
+			local voice = voice_states[v]
+			-- TODO: hold voice key for ~3s to reset voice-specific params
+			-- and if locked, set them to defaults for equivalent global params!
+			-- or some other key combo... hold key then double tap shift?? idk
+			-- OR... hold key then press a PRESET KEY...
+			-- TODO: should you need to lock timbre to save amp mode after engaging loop?
+			-- probably not! use looping state to set/save amp mode instead
+			voice.key_held = z == 1
+			if z == 1 then
+				if k.held_keys.shift then
+					voice.timbre_locked = not voice.timbre_locked
+					for d = 1, #editor.dests do
+						local global_param = editor.dests[d].name
+						local global_value = params:get(global_param)
+						local local_param = global_param .. '_' .. v
+						local local_value = params:get(local_param)
+						-- TODO: is there a death spiral lurking here? are global/local offsets not being restored properly?
+						if voice.timbre_locked then
+							params:set(local_param, global_value + local_value)
+						else
+							params:set(local_param, local_value - global_value)
+						end
+					end
+				elseif active_voice ~= v then
+					engine.tip(active_voice, 0)
+					engine.palm(active_voice, 0)
+					engine.gate(active_voice, 0)
 					-- force SuperCollider to set delay to 0, to work around the
 					-- weird bug that sometimes makes delay something else
 					engine.delay(v, 0)
-					table.insert(selected_voices, v)
-					n_selected_voices = n_selected_voices + 1
-					lead_voice = n_selected_voices
+					active_voice = v
 					send_pitch_volts()
-				else
-					local sv = 1
-					while sv <= n_selected_voices do
-						if selected_voices[sv] == v then
-							table.remove(selected_voices, sv)
-							n_selected_voices = n_selected_voices - 1
-							lead_voice = n_selected_voices
-							send_pitch_volts()
-						else
-							sv = sv + 1
-						end
-					end
-					engine.tip(v, 0)
-					engine.palm(v, 0)
-					engine.gate(v, 0)
 				end
 			end
 		end
@@ -205,9 +213,7 @@ end
 function send_pitch_volts()
 	-- TODO: this added offset for the quantizer really shouldn't be necessary; what's going on here?
 	crow.output[1].volts = k.bent_pitch + k.octave + (k.quantizing and 1/24 or 0)
-	if n_selected_voices > 0 then
-		engine.pitch(selected_voices[lead_voice], k.bent_pitch + k.octave)
-	end
+	engine.pitch(active_voice, k.bent_pitch + k.octave)
 end
 
 function touche.event(data)
@@ -216,11 +222,11 @@ function touche.event(data)
 		-- back = 16, front = 17, left = 18, right = 19
 		if message.cc == 17 then
 			tip = message.val / 126
-			control_engine_voices('tip', tip) -- let SC do the scaling
+			engine.tip(active_voice, tip) -- let SC do the scaling
 			crow.output[2].volts = 10 * math.sqrt(tip)
 		elseif message.cc == 16 then
 			palm = message.val / 126
-			control_engine_voices('palm', palm)
+			engine.palm(active_voice, palm)
 			crow.output[3].volts = palm * params:get('damp_range') + params:get('damp_base')
 		elseif message.cc == 18 then
 			k:bend(-math.min(1, message.val / 126)) -- TODO: not sure why 126 is the max value I'm getting from Touche...
@@ -237,9 +243,9 @@ function fbv.event(data)
 	if message.ch == 1 and message.type == 'cc' then
 		if message.cc == 13 then
 			foot = message.val / 127
-			control_engine_voices('foot', foot)
+			engine.foot(active_voice, foot)
 		elseif message.cc == 17 and message.val == 127 then
-			voice_loop_button(selected_voices[lead_voice])
+			voice_loop_button(active_voice)
 		end
 	end
 end
@@ -251,7 +257,6 @@ function grid_redraw()
 	for v = 1, n_voices do
 		local voice = voice_states[v]
 		local level = voice.amp
-		local is_lead = n_selected_voices > 1 and selected_voices[lead_voice] == v
 		if voice.loop_armed then
 			level = level * 0.5 + 0.5
 		elseif voice.looping then
@@ -259,7 +264,7 @@ function grid_redraw()
 		end
 		level = 2 + math.floor(level * 14)
 		g:led(1, 8 - v, level)
-		g:led(2, 8 - v, voice.control and (is_lead and 8 or 5) or 1)
+		g:led(2, 8 - v, v == active_voice and 8 or 1)
 	end
 	g:refresh()
 end
@@ -293,13 +298,14 @@ function reset_arp_clock()
 			local rate = math.pow(2, -params:get('arp_clock_div'))
 			clock.sync(rate)
 			if params:get('arp_clock_source') == 1 and k.arping and k.n_sustained_keys > 0 then
-				if n_selected_voices > 0 then
-					if math.random() < params:get('voice_sel_direction') then
-						lead_voice = lead_voice % n_selected_voices + 1
-					else
-						lead_voice = (lead_voice - 2) % n_selected_voices + 1
-					end
-				end
+				-- TODO: find a new way to do the arp-across-voices trick
+				-- if n_selected_voices > 0 then
+				-- 	if math.random() < params:get('voice_sel_direction') then
+				-- 		lead_voice = lead_voice % n_selected_voices + 1
+				-- 	else
+				-- 		lead_voice = (lead_voice - 2) % n_selected_voices + 1
+				-- 	end
+				-- end
 				k:arp(true)
 				clock.sleep(clock.get_beat_sec() * rate / 2)
 				k:arp(false)
@@ -362,14 +368,6 @@ function reset_loop_clock()
 	end
 end
 
-function control_engine_voices(method, value)
-	for v = 1, n_voices do
-		if voice_states[v].control then
-			engine[method](v, value)
-		end
-	end
-end
-
 function init()
 
 	k.on_pitch = function()
@@ -380,9 +378,7 @@ function init()
 
 	k.on_gate = function(gate)
 		crow.output[4](gate)
-		if n_selected_voices > 0 then
-			engine.gate(selected_voices[lead_voice], gate and 1 or 0)
-		end
+		engine.gate(active_voice, gate and 1 or 0)
 	end
 
 	-- TODO: why doesn't crow.add() work anymore?
@@ -545,13 +541,6 @@ function init()
 		action = function(value)
 			reset_loop_clock()
 		end
-	}
-
-	params:add {
-		name = 'voice sel direction (1=fwd)',
-		id = 'voice_sel_direction',
-		type = 'control',
-		controlspec = controlspec.new(0, 1, 'lin', 0, 1),
 	}
 
 	params:add {
@@ -755,16 +744,20 @@ function init()
 
 	for d = 1, #editor.dests do
 		local dest = editor.dests[d]
-		local engine_command = engine[dest.name]
+		local dest_name = dest.name
+		local engine_command = engine[dest_name]
 		params:add {
 			name = dest.label,
-			id = dest.name,
+			id = dest_name,
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, dest.default),
 			action = function(value)
-				dest_dials[dest.name]:set_value(value)
+				dest_dials[dest_name]:set_value(value)
 				for v = 1, n_voices do
-					engine_command(v, value + params:get(dest.name .. '_' .. v))
+					if not voice_states[v].timbre_locked then
+						-- TODO: watch performance here; you could pre-build these strings if needed
+						engine_command(v, value + params:get(dest_name .. '_' .. v))
+					end
 				end
 			end
 		}
@@ -983,14 +976,19 @@ function init()
 
 		for d = 1, #editor.dests do
 			local param = editor.dests[d]
+			local param_name = param.name
 			local engine_command = engine[param.name]
 			params:add {
 				name = param.label,
-				id = param.name .. '_' .. v,
+				id = param_name .. '_' .. v,
 				type = 'control',
-				controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+				controlspec = controlspec.new(-2, 2, 'lin', 0, 0),
 				action = function(value)
-					engine_command(v, value + params:get(param.name))
+					if voice_states[v].timbre_locked then
+						engine_command(v, value)
+					else
+						engine_command(v, value + params:get(param_name))
+					end
 				end
 			}
 		end
@@ -1106,7 +1104,9 @@ function redraw()
 	screen.fill() -- prevent a flash of stroke when leaving system UI
 
 	for d = 1, #editor.dests do
-
+		-- TODO: if active voice key is held or if active voice is locked, show param values for active voice
+		-- that probably means setting dial values here
+		-- and does it mean showing/hiding voice-specific dials along with global ones...?
 		local dest = editor.dests[d].name
 		local dest_dial = dest_dials[dest]
 		local source_dial = source_dials[dest][editor.source_names[editor.source]]
@@ -1126,35 +1126,62 @@ function redraw()
 		screen.stroke()
 	end
 
-	screen.rect(0, 0, 30, 32)
+	screen.rect(0, 0, 34, 32)
 	screen.level(0)
 	screen.fill()
 
 	-- TODO: icons
 
 	screen.level('hand' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(2, 7)
+	screen.move(8, 7)
 	screen.text('Hd')
 
 	screen.level('foot' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(18, 7)
+	screen.move(24, 7)
 	screen.text('Ft')
 
 	screen.level('pitch' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(2, 18)
+	screen.move(8, 18)
 	screen.text('Pt')
 
 	screen.level('eg' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(18, 18)
+	screen.move(24, 18)
 	screen.text('Eg')
 
 	screen.level('lfoA' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(2, 29)
+	screen.move(8, 29)
 	screen.text('La')
 
 	screen.level('lfoB' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(18, 29)
+	screen.move(24, 29)
 	screen.text('Lb')
+
+	-- draw voices, indicating editing state (lead voice + held key) and timbre_locked state
+	screen.rect(0, 0, 6, 64)
+	screen.level(0)
+	screen.fill()
+	local locked = voice_states[active_voice].timbre_locked or false
+	for v = 1, n_voices do
+		local voice = voice_states[v]
+		if v == active_voice then
+			if voice_states[v].key_held or voice_states[v].timbre_locked then
+				screen.level(math.floor(voice.amp * 11 + 4))
+			else
+				screen.level(math.floor(voice.amp * 13 + 2))
+			end
+			screen.rect(0, 64 - v * 6 - 1, 3, 3)
+			screen.fill()
+		else
+			screen.level(math.floor(voice.amp * 14 + 1))
+			if not locked and not voice.timbre_locked then
+				screen.rect(1, 64 - v * 6, 2, 2)
+				screen.stroke()
+			else
+				screen.pixel(1, 64 - v * 6 - 1 + 1)
+				screen.fill()
+			end
+		end
+	end
 
 	screen.update()
 end
@@ -1163,7 +1190,7 @@ function enc(n, d)
 	if n == 1 then
 		local source_name = editor.source_names[editor.source]
 		if source_name == 'lfoA' or source_name == 'lfoB' then
-			params:delta(source_name .. 'Freq', d)
+			voice_param_delta(source_name .. 'Freq', d)
 		else
 			-- TODO: some kind of global control over envelope?
 			-- envelope time skew, like -1 = zero attack + double decay, +1 = double attack + zero decay
@@ -1171,17 +1198,27 @@ function enc(n, d)
 		end
 	elseif n == 2 then
 		if held_keys[2] then
-			params:delta(editor.source_names[editor.source] .. '_' .. editor.dests[editor.dest].name, d)
+			voice_param_delta(editor.source_names[editor.source] .. '_' .. editor.dests[editor.dest].name, d)
 		else
-			params:delta(editor.dests[editor.dest].name, d)
+			voice_param_delta(editor.dests[editor.dest].name, d)
 		end
 	elseif n == 3 then
 		if held_keys[3] then
-			params:delta(editor.source_names[editor.source] .. '_' .. editor.dests[editor.dest % #editor.dests + 1].name, d)
+			voice_param_delta(editor.source_names[editor.source] .. '_' .. editor.dests[editor.dest % #editor.dests + 1].name, d)
 		else
-			params:delta(editor.dests[editor.dest % #editor.dests + 1].name, d)
+			voice_param_delta(editor.dests[editor.dest % #editor.dests + 1].name, d)
 		end
 	end
+end
+
+-- edit global voice param, OR specific voice param if key is held or timbre is locked
+function voice_param_delta(param_name, d)
+	local active_voice_state = voice_states[active_voice]
+	local edit_active_voice = active_voice_state.key_held or active_voice_state.timbre_locked
+	if edit_active_voice then
+		param_name = param_name .. '_' .. active_voice
+	end
+	params:delta(param_name, d)
 end
 
 function key(n, z)
