@@ -176,6 +176,8 @@ function g.key(x, y, z)
 			voice.key_held = z == 1
 			if z == 1 then
 				if k.held_keys.shift then
+					-- TODO: should timbre lock automatically when loop is engaged??
+					-- TODO: should MIDI-mapped params follow held voice keys...?????
 					voice.timbre_locked = not voice.timbre_locked
 					for d = 1, #editor.dests do
 						local global_param = editor.dests[d].name
