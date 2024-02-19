@@ -53,6 +53,10 @@ Engine_Cule : CroneEngine {
 			\opMix,
 			\foldGain,
 			\foldBias,
+			\attack,
+			\decay,
+			\sustain,
+			\release,
 			\lfoAFreq,
 			\lfoAAmount,
 			\lfoBFreq,
@@ -198,12 +202,17 @@ Engine_Cule : CroneEngine {
 			]);
 
 			// TODO: modulate env times!
-			adsr = Env.adsr(attack, decay, sustain, release);
+			adsr = Env.adsr(
+				attack * 8.pow(modulation[\attack]),
+				decay * 8.pow(modulation[\decay]),
+				(sustain + modulation[\sustain]).clip,
+				release * 8.pow(modulation[\decay])
+			);
 			eg = EnvGen.kr(adsr, gate);
 
 			// TODO: LFO frequency randomization
 
-			lfoAFreq = lfoAFreq * 2.pow(modulation[\lfoAFreq]);
+			lfoAFreq = lfoAFreq * 8.pow(modulation[\lfoAFreq]);
 			lfoAAmount = lfoAAmount + modulation[\lfoAAmount];
 			lfoA = lfoAAmount * Select.kr(lfoAType, [
 				SinOsc.kr(lfoAFreq),
@@ -213,7 +222,7 @@ Engine_Cule : CroneEngine {
 				LFNoise0.kr(lfoAFreq)
 			]);
 
-			lfoBFreq = lfoBFreq * 2.pow(modulation[\lfoBFreq]);
+			lfoBFreq = lfoBFreq * 8.pow(modulation[\lfoBFreq]);
 			lfoBAmount = lfoBAmount + modulation[\lfoBAmount];
 			lfoB = lfoBAmount * Select.kr(lfoBType, [
 				SinOsc.kr(lfoBFreq),

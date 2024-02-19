@@ -70,6 +70,36 @@ editor = {
 			name = 'foldBias',
 			label = 'fold bias',
 			default = -1
+		},
+		{
+			name = 'attack',
+			label = 'attack',
+			default = 0
+		},
+		{
+			name = 'decay',
+			label = 'decay',
+			default = 0
+		},
+		{
+			name = 'sustain',
+			label = 'sustain',
+			default = 0
+		},
+		{
+			name = 'release',
+			label = 'release',
+			default = 0
+		},
+		{
+			name = 'lfoAFreq',
+			label = 'lfo a freq',
+			default = 0
+		},
+		{
+			name = 'lfoBFreq',
+			label = 'lfo b freq',
+			default = 0
 		}
 	},
 	source = 1,
@@ -86,6 +116,12 @@ dest_dials = {
 	opMix    = Dial.new(182, 50, 15),
 	foldGain = Dial.new(202, 50, 15),
 	foldBias = Dial.new(222, 50, 15),
+	attack   = Dial.new(242, 50, 15),
+	decay    = Dial.new(262, 50, 15),
+	sustain  = Dial.new(282, 50, 15),
+	release  = Dial.new(302, 50, 15),
+	lfoAFreq = Dial.new(322, 50, 15),
+	lfoBFreq = Dial.new(342, 50, 15),
 }
 
 source_dials = {}
@@ -724,19 +760,21 @@ function init()
 
 	for d = 1, #editor.dests do
 		local dest = editor.dests[d]
-		local engine_command = engine[dest.name]
-		params:add {
-			name = dest.label,
-			id = dest.name,
-			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, dest.default),
-			action = function(value)
-				dest_dials[dest.name]:set_value(value)
-				for v = 1, n_voices do
-					engine_command(v, value + params:get(dest.name .. '_' .. v))
+		if dest.name ~= 'attack' and dest.name ~= 'decay' and dest.name ~= 'sustain' and dest.name ~= 'release' and dest.name ~= 'lfoAFreq' and dest.name ~= 'lfoBFreq' then
+			local engine_command = engine[dest.name]
+			params:add {
+				name = dest.label,
+				id = dest.name,
+				type = 'control',
+				controlspec = controlspec.new(-1, 1, 'lin', 0, dest.default),
+				action = function(value)
+					dest_dials[dest.name]:set_value(value)
+					for v = 1, n_voices do
+						engine_command(v, value + params:get(dest.name .. '_' .. v))
+					end
 				end
-			end
-		}
+			}
+		end
 	end
 
 	for s = 1, #editor.source_names do
@@ -751,6 +789,7 @@ function init()
 				type = 'control',
 				controlspec = controlspec.new(0.001, 2, 'exp', 0, 0.01, 's'),
 				action = function(value)
+					dest_dials.attack:set_value(params:get_raw('attack') * 2 - 1)
 					for v = 1, n_voices do
 						engine.attack(v, value)
 					end
@@ -762,6 +801,7 @@ function init()
 				type = 'control',
 				controlspec = controlspec.new(0.001, 6, 'exp', 0, 0.1, 's'),
 				action = function(value)
+					dest_dials.decay:set_value(params:get_raw('decay') * 2 - 1)
 					for v = 1, n_voices do
 						engine.decay(v, value)
 					end
@@ -773,6 +813,7 @@ function init()
 				type = 'control',
 				controlspec = controlspec.new(0, 1, 'lin', 0, 0.8),
 				action = function(value)
+					dest_dials.sustain:set_value(params:get_raw('sustain') * 2 - 1)
 					for v = 1, n_voices do
 						engine.sustain(v, value)
 					end
@@ -784,6 +825,7 @@ function init()
 				type = 'control',
 				controlspec = controlspec.new(0.001, 6, 'exp', 0, 0.3, 's'),
 				action = function(value)
+					dest_dials.release:set_value(params:get_raw('release') * 2 - 1)
 					for v = 1, n_voices do
 						engine.release(v, value)
 					end
@@ -808,14 +850,18 @@ function init()
 			-- LFOs have extra parameters too
 			params:add_group(source, 2 + #editor.dests)
 			local type_command = engine[source .. 'Type']
-			local freq_command = engine[source .. 'Freq']
+			local freq_param = source .. 'Freq'
+			local freq_command = engine[freq_param]
+			local dest_dial = dest_dials[freq_param]
 			params:add {
 				name = source .. ' type',
 				id = source .. 'Type',
 				type = 'option',
 				options = { 'sine', 'tri', 'saw', 'rand', 's+h' },
+				-- TODO: why does lfo B still default to sine??
 				default = source == 'lfoA' and 1 or 4,
 				action = function(value)
+					print(source, 'type', value)
 					for v = 1, n_voices do
 						type_command(v, value - 1)
 					end
@@ -823,10 +869,11 @@ function init()
 			}
 			params:add {
 				name = source .. ' freq',
-				id = source .. 'Freq',
+				id = freq_param,
 				type = 'control',
 				controlspec = controlspec.new(0.01, 10, 'exp', 0, source == 'lfoA' and 0.9 or 1.1, 'Hz'),
-				action = function(value)
+				action = function(value, param)
+					dest_dial:set_value(params:get_raw(freq_param) * 2 - 1)
 					for v = 1, n_voices do
 						freq_command(v, value)
 					end
