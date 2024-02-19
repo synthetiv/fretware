@@ -138,6 +138,8 @@ function voice_loop_button(v)
 		if voice.loop_clock then
 			clock.cancel(voice.loop_clock)
 		end
+		-- update amp mode, if needed (when a voice is looping, amp_mode param has no effect)
+		engine.ampMode(v, params:get('amp_mode') - 1)
 	elseif not voice.loop_armed then
 		-- get ready to loop (set loop start time here)
 		if loop_free then
@@ -640,7 +642,10 @@ function init()
 		default = 1,
 		action = function(value)
 			for v = 1, n_voices do
-				engine.ampMode(v, value - 1)
+				-- looping voices get to keep their original amp mode
+				if not voice_states[v].looping then
+					engine.ampMode(v, value - 1)
+				end
 			end
 		end
 	}
