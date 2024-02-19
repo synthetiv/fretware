@@ -220,7 +220,7 @@ function touche.event(data)
 			crow.output[2].volts = 10 * math.sqrt(tip)
 		elseif message.cc == 16 then
 			palm = message.val / 126
-			control_engine_voices('palm', palm)
+			control_engine_voices('palm', palm * palm)
 			crow.output[3].volts = palm * params:get('damp_range') + params:get('damp_base')
 		elseif message.cc == 18 then
 			k:bend(-math.min(1, message.val / 126)) -- TODO: not sure why 126 is the max value I'm getting from Touche...
