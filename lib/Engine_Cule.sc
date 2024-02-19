@@ -296,7 +296,7 @@ Engine_Cule : CroneEngine {
 			Out.ar(outBus, voiceOutput);
 
 			// filter and write to main outs
-			voiceOutput = LPF.ar(HPF.ar(voiceOutput, hpCutoff), lpCutoff);
+			voiceOutput = LPF.ar(HPF.ar(voiceOutput, hpCutoff.lag(lag)), lpCutoff.lag(lag));
 			// TODO: stereo pan!
 			Out.ar(context.out_b, voiceOutput ! 2 * Lag.kr(outLevel, 0.05));
 		}).add;

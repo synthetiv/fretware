@@ -453,23 +453,70 @@ function init()
 	end
 
 	params:add {
-		name = 'base frequency (C)',
-		id = 'base_freq',
-		type = 'control',
-		controlspec = controlspec.new(130, 522, 'exp', 0, musicutil.note_num_to_freq(60), 'Hz'),
+		name = 'loop clock div',
+		id = 'loop_clock_div',
+		type = 'number',
+		default = 3,
+		min = -3,
+		max = 3,
+		formatter = function(param)
+			local measures = -param:get() - 2
+			if measures == -5 then -- 3 = 1/32 = no quantization of loop lengths
+				return 'free'
+			elseif measures >= 0 then
+				return string.format('%d', math.pow(2, measures))
+			else
+				return string.format('1/%d', math.pow(2, -measures))
+			end
+		end,
 		action = function(value)
-			engine.baseFreq(value)
+			reset_loop_clock()
 		end
 	}
 
 	params:add {
-		name = 'base freq reset',
-		id = 'base_freq_reset',
-		type = 'binary',
-		behavior = 'trigger',
+		name = 'arp clock div',
+		id = 'arp_clock_div',
+		type = 'number',
+		default = 2,
+		min = -3,
+		max = 5,
+		formatter = function(param)
+			local measures = -param:get() - 2
+			if measures >= 0 then
+				return string.format('%d', math.pow(2, measures))
+			else
+				return string.format('1/%d', math.pow(2, -measures))
+			end
+		end,
 		action = function(value)
-			params:set('base_freq', musicutil.note_num_to_freq(60))
+			reset_arp_clock()
 		end
+	}
+
+	params:add {
+		name = 'arp clock source',
+		id = 'arp_clock_source',
+		type = 'option',
+		options = { 'system', 'crow' },
+		default = 1
+	}
+
+	params:add {
+		name = 'arp randomness',
+		id = 'arp_randomness',
+		type = 'control',
+		controlspec = controlspec.new(0, 100, 'lin', 1, 0, '%'),
+		action = function(value)
+			k.arp_randomness = value / 100
+		end
+	}
+
+	params:add {
+		name = 'voice sel direction (1=fwd)',
+		id = 'voice_sel_direction',
+		type = 'control',
+		controlspec = controlspec.new(0, 1, 'lin', 0, 1),
 	}
 
 	params:add {
@@ -494,149 +541,6 @@ function init()
 			k:set_bend_targets()
 			k:bend(k.bend_amount)
 			send_pitch_volts()
-		end
-	}
-
-	params:add {
-		name = 'arp clock source',
-		id = 'arp_clock_source',
-		type = 'option',
-		options = { 'system', 'crow' },
-		default = 1
-	}
-
-	params:add {
-		name = 'arp clock div',
-		id = 'arp_clock_div',
-		type = 'number',
-		default = 2,
-		min = -3,
-		max = 5,
-		formatter = function(param)
-			local measures = -param:get() - 2
-			if measures >= 0 then
-				return string.format('%d', math.pow(2, measures))
-			else
-				return string.format('1/%d', math.pow(2, -measures))
-			end
-		end,
-		action = function(value)
-			reset_arp_clock()
-		end
-	}
-
-	params:add {
-		name = 'loop clock div',
-		id = 'loop_clock_div',
-		type = 'number',
-		default = 3,
-		min = -3,
-		max = 3,
-		formatter = function(param)
-			local measures = -param:get() - 2
-			if measures == -5 then -- 3 = 1/32 = no quantization of loop lengths
-				return 'free'
-			elseif measures >= 0 then
-				return string.format('%d', math.pow(2, measures))
-			else
-				return string.format('1/%d', math.pow(2, -measures))
-			end
-		end,
-		action = function(value)
-			reset_loop_clock()
-		end
-	}
-
-	params:add {
-		name = 'voice sel direction (1=fwd)',
-		id = 'voice_sel_direction',
-		type = 'control',
-		controlspec = controlspec.new(0, 1, 'lin', 0, 1),
-	}
-
-	params:add {
-		name = 'arp randomness',
-		id = 'arp_randomness',
-		type = 'control',
-		controlspec = controlspec.new(0, 100, 'lin', 1, 0, '%'),
-		action = function(value)
-			k.arp_randomness = value / 100
-		end
-	}
-
-	params:add_group('crow', 7)
-	
-	-- TODO: damp base + range are a way to avoid using an extra attenuator + offset,
-	-- but is that worth it?
-	params:add {
-		name = 'damp range',
-		id = 'damp_range',
-		type = 'control',
-		controlspec = controlspec.new(-10, 10, 'lin', 0, -5, 'v')
-	}
-	
-	params:add {
-		name = 'damp base',
-		id = 'damp_base',
-		type = 'control',
-		controlspec = controlspec.new(-10, 10, 'lin', 0, 0, 'v')
-	}
-	
-	params:add {
-		name = 'pitch slew',
-		id = 'pitch_slew',
-		type = 'control',
-		controlspec = controlspec.new(0, 0.1, 'lin', 0, 0, 's'),
-		action = function(value)
-			crow.output[1].slew = value
-		end
-	}
-	
-	params:add {
-		name = 'amp/damp slew',
-		id = 'amp_slew',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.05, 's'),
-		action = function(value)
-			crow.output[2].slew = value
-			crow.output[3].slew = value
-		end
-	}
-
-	params:add {
-		name = 'gate mode',
-		id = 'gate_mode',
-		type = 'option',
-		options = { 'legato', 'retrig' },
-		default = 2,
-		action = function(value)
-			k.retrig = value == 2
-			if not k.retrig then
-				crow.output[4].action = [[{
-					held { to(8, dyn { delay = 0 }, 'wait') },
-					to(0, 0)
-				}]]
-				crow.output[4].dyn.delay = params:get('gate_delay')
-				crow.output[4](false)
-			else
-				crow.output[4].action = [[{
-					to(0, dyn { delay = 0 }, 'now'),
-					held { to(8, 0) },
-					to(0, 0)
-				}]]
-				crow.output[4].dyn.delay = params:get('gate_delay')
-				crow.output[4](false)
-			end
-		end
-	}
-
-	params:add {
-		name = 'gate delay',
-		id = 'gate_delay',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 0.05, 'lin', 0, 0.001, 's'),
-		action = function(value)
-			crow.output[4].dyn.delay = value
 		end
 	}
 
@@ -749,6 +653,66 @@ function init()
 		action = function(value)
 			for v = 1, n_voices do
 				engine.pitchSlew(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'detune exp/lin',
+		id = 'detuneType',
+		type = 'control',
+		controlspec = controlspec.new(0, 1, 'lin', 0, 0.12),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.detuneType(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'harmonic fade size',
+		id = 'fadeSize',
+		type = 'control',
+		controlspec = controlspec.new(0.01, 1, 'lin', 0, 0.5),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.fadeSize(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'fm cutoff',
+		id = 'fmCutoff',
+		type = 'control',
+		controlspec = controlspec.new(32, 23000, 'exp', 0, 12000, 'Hz'),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.fmCutoff(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'hp cutoff',
+		id = 'hpCutoff',
+		type = 'control',
+		controlspec = controlspec.new(8, 12000, 'exp', 0, 8, 'Hz'),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.hpCutoff(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'lp cutoff',
+		id = 'lpCutoff',
+		type = 'control',
+		controlspec = controlspec.new(16, 23000, 'exp', 0, 23000, 'Hz'),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.lpCutoff(v, value)
 			end
 		end
 	}
@@ -885,66 +849,6 @@ function init()
 		end
 	end
 
-	params:add {
-		name = 'detune exp/lin',
-		id = 'detuneType',
-		type = 'control',
-		controlspec = controlspec.new(0, 1, 'lin', 0, 0.12),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.detuneType(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'harmonic fade size',
-		id = 'fadeSize',
-		type = 'control',
-		controlspec = controlspec.new(0.01, 1, 'lin', 0, 0.5),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.fadeSize(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'fm cutoff',
-		id = 'fmCutoff',
-		type = 'control',
-		controlspec = controlspec.new(32, 23000, 'exp', 0, 12000, 'Hz'),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.fmCutoff(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'hp cutoff',
-		id = 'hpCutoff',
-		type = 'control',
-		controlspec = controlspec.new(8, 12000, 'exp', 0, 8, 'Hz'),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.hpCutoff(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'lp cutoff',
-		id = 'lpCutoff',
-		type = 'control',
-		controlspec = controlspec.new(32, 23000, 'exp', 0, 23000, 'Hz'),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.lpCutoff(v, value)
-			end
-		end
-	}
-
 	for v = 1, n_voices do
 
 		params:add_separator('int voice ' .. v)
@@ -1045,6 +949,26 @@ function init()
 	-- ...and yeah, control from keyboard. you'll want that again
 
 	params:add {
+		name = 'base frequency (C)',
+		id = 'base_freq',
+		type = 'control',
+		controlspec = controlspec.new(130, 522, 'exp', 0, musicutil.note_num_to_freq(60), 'Hz'),
+		action = function(value)
+			engine.baseFreq(value)
+		end
+	}
+
+	params:add {
+		name = 'base freq reset',
+		id = 'base_freq_reset',
+		type = 'binary',
+		behavior = 'trigger',
+		action = function(value)
+			params:set('base_freq', musicutil.note_num_to_freq(60))
+		end
+	}
+
+	params:add {
 		type = 'file',
 		id = 'tuning_file',
 		name = 'tuning_file',
@@ -1055,9 +979,85 @@ function init()
 		end
 	}
 
+	params:add_group('crow', 7)
+
+	-- TODO: damp base + range are a way to avoid using an extra attenuator + offset,
+	-- but is that worth it?
+	params:add {
+		name = 'damp range',
+		id = 'damp_range',
+		type = 'control',
+		controlspec = controlspec.new(-10, 10, 'lin', 0, -5, 'v')
+	}
+
+	params:add {
+		name = 'damp base',
+		id = 'damp_base',
+		type = 'control',
+		controlspec = controlspec.new(-10, 10, 'lin', 0, 0, 'v')
+	}
+
+	params:add {
+		name = 'pitch slew',
+		id = 'pitch_slew',
+		type = 'control',
+		controlspec = controlspec.new(0, 0.1, 'lin', 0, 0, 's'),
+		action = function(value)
+			crow.output[1].slew = value
+		end
+	}
+
+	params:add {
+		name = 'amp/damp slew',
+		id = 'amp_slew',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.05, 's'),
+		action = function(value)
+			crow.output[2].slew = value
+			crow.output[3].slew = value
+		end
+	}
+
+	params:add {
+		name = 'gate mode',
+		id = 'gate_mode',
+		type = 'option',
+		options = { 'legato', 'retrig' },
+		default = 2,
+		action = function(value)
+			k.retrig = value == 2
+			if not k.retrig then
+				crow.output[4].action = [[{
+					held { to(8, dyn { delay = 0 }, 'wait') },
+					to(0, 0)
+				}]]
+				crow.output[4].dyn.delay = params:get('gate_delay')
+				crow.output[4](false)
+			else
+				crow.output[4].action = [[{
+					to(0, dyn { delay = 0 }, 'now'),
+					held { to(8, 0) },
+					to(0, 0)
+				}]]
+				crow.output[4].dyn.delay = params:get('gate_delay')
+				crow.output[4](false)
+			end
+		end
+	}
+
+	params:add {
+		name = 'gate delay',
+		id = 'gate_delay',
+		type = 'control',
+		controlspec = controlspec.new(0.001, 0.05, 'lin', 0, 0.001, 's'),
+		action = function(value)
+			crow.output[4].dyn.delay = value
+		end
+	}
+
 	-- TODO: global transpose, for working with oscillators that aren't tuned to C
 	-- TODO: quantize lock on/off: apply post-bend quantization to keyboard notes
-	
+
 	params:bang()
 
 	params:set('reverb', 1) -- off
@@ -1089,7 +1089,7 @@ function init()
 		end
 	}
 	redraw_metro:start()
-	
+
 	-- start at 0 / middle C
 	k.on_pitch()
 
