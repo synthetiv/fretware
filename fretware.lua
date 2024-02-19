@@ -1259,4 +1259,6 @@ function cleanup()
 	if redraw_metro ~= nil then
 		redraw_metro:stop()
 	end
+	touche.event = function() end
+	fbv.event = function() end
 end
