@@ -11,7 +11,7 @@ Keyboard = include 'lib/keyboard'
 k = Keyboard.new(1, 1, 16, 8)
 
 echo_rate = 1
-echo_div_dirty = true
+echo_div_dirty = false
 
 redraw_metro = nil
 
