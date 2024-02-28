@@ -301,7 +301,7 @@ function grid_redraw()
 		elseif voice.looping then
 			level = level * 0.75 + 0.25
 		end
-		level = 2 + math.floor(level * 14)
+		level = 2 + math.floor(level * 13)
 		g:led(1, 8 - v, level)
 		g:led(2, 8 - v, voice.control and (is_lead and 8 or 5) or 1)
 	end
