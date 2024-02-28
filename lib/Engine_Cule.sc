@@ -58,9 +58,7 @@ Engine_Cule : CroneEngine {
 			\sustain,
 			\release,
 			\lfoAFreq,
-			\lfoAAmount,
 			\lfoBFreq,
-			\lfoBAmount
 		];
 
 		// modulation sources
@@ -129,10 +127,8 @@ Engine_Cule : CroneEngine {
 				release = 0.3,
 				lfoAType = 0,
 				lfoAFreq = 0.9,
-				lfoAAmount = 1,
 				lfoBType = 0,
 				lfoBFreq = 1.1,
-				lfoBAmount = 1,
 				oscType = 1,
 				tuneA = 0,
 				tuneB = 0.3,
@@ -213,8 +209,7 @@ Engine_Cule : CroneEngine {
 			// TODO: LFO frequency randomization
 
 			lfoAFreq = lfoAFreq * 8.pow(modulation[\lfoAFreq]);
-			lfoAAmount = lfoAAmount + modulation[\lfoAAmount];
-			lfoA = lfoAAmount * Select.kr(lfoAType, [
+			lfoA = Select.kr(lfoAType, [
 				SinOsc.kr(lfoAFreq),
 				LFTri.kr(lfoAFreq),
 				LFSaw.kr(lfoAFreq),
@@ -223,8 +218,7 @@ Engine_Cule : CroneEngine {
 			]);
 
 			lfoBFreq = lfoBFreq * 8.pow(modulation[\lfoBFreq]);
-			lfoBAmount = lfoBAmount + modulation[\lfoBAmount];
-			lfoB = lfoBAmount * Select.kr(lfoBType, [
+			lfoB = Select.kr(lfoBType, [
 				SinOsc.kr(lfoBFreq),
 				LFTri.kr(lfoBFreq),
 				LFSaw.kr(lfoBFreq),
