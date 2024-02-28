@@ -72,6 +72,11 @@ editor = {
 			default = -1
 		},
 		{
+			name = 'lpgTone',
+			label = 'lpg tone',
+			default = 0.3
+		},
+		{
 			name = 'attack',
 			label = 'attack',
 			default = 0
@@ -122,6 +127,7 @@ dest_dials = {
 	release  = Dial.new(302, 50, 15),
 	lfoAFreq = Dial.new(322, 50, 15),
 	lfoBFreq = Dial.new(342, 50, 15),
+	lpgTone  = Dial.new(362, 50, 15),
 }
 
 source_dials = {}
@@ -669,6 +675,55 @@ function init()
 	}
 
 	params:add_separator('ALL int voices')
+
+	params:add {
+		name = 'lpg on/off',
+		id = 'lpgOn',
+		type = 'option',
+		options = { 'off', 'on' },
+		default = 2,
+		action = function(value)
+			for v = 1, n_voices do
+				engine.lpgOn(v, value - 1)
+			end
+		end
+	}
+
+	params:add {
+		name = 'lpg tone',
+		id = 'lpgTone',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0.3),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.lpgTone(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'lpg rq',
+		id = 'lpgRQ',
+		type = 'control',
+		controlspec = controlspec.new(0.2, 1.5, 'lin', 0, 0.9),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.lpgRQ(v, value)
+			end
+		end
+	}
+
+	params:add {
+		name = 'lpg curve',
+		id = 'lpgCurve',
+		type = 'control',
+		controlspec = controlspec.new(-4, 4, 'lin', 0, 3),
+		action = function(value)
+			for v = 1, n_voices do
+				engine.lpgCurve(v, value)
+			end
+		end
+	}
 
 	params:add {
 		name = 'amp mode',

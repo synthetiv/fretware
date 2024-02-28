@@ -53,6 +53,7 @@ Engine_Cule : CroneEngine {
 			\opMix,
 			\foldGain,
 			\foldBias,
+			\lpgTone,
 			\attack,
 			\decay,
 			\sustain,
@@ -121,6 +122,7 @@ Engine_Cule : CroneEngine {
 
 				tune = 0,
 				pitchSlew = 0.01,
+				lpgTone = 0.6,
 				attack = 0.01,
 				decay = 0.1,
 				sustain = 0.8,
@@ -236,6 +238,7 @@ Engine_Cule : CroneEngine {
 			opMix    = LinSelectX.kr(1 + modulation[\opMix],    [-1, opMix.lag(lag),    1 ]);
 			foldGain = LinSelectX.kr(1 + modulation[\foldGain], [-1, foldGain.lag(lag), 1 ]);
 			foldBias = LinSelectX.kr(1 + modulation[\foldBias], [-1, foldBias.lag(lag), 1 ]);
+			lpgTone  = LinSelectX.kr(1 + modulation[\lpgTone],  [-1, lpgTone.lag(lag),  1 ]);
 
 			// now we're done with the modulation matrix
 
@@ -292,6 +295,18 @@ Engine_Cule : CroneEngine {
 			voiceOutput = LeakDC.ar(voiceOutput);
 			// compensate for lost amplitude due to bias (a fully rectified wave is half the amplitude of the original)
 			voiceOutput = voiceOutput * foldBias.linlin(-1, 1, 1, 2);
+			// filter LPG-style
+			voiceOutput = Select.ar(
+				\lpgOn.kr(1),
+				[
+					voiceOutput,
+					RLPF.ar(
+						voiceOutput,
+						amp.lincurve(0, 1, lpgTone.lincurve(0, 1, 20, 20000, 4), lpgTone.lincurve(-1, 0, 20, 20000, 4), \lpgCurve.kr(3)).lag,
+						\lpgRQ.kr(0.9)
+					)
+				]
+			);
 			// scale by amplitude control value
 			voiceOutput = voiceOutput * amp;
 
