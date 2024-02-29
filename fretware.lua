@@ -924,6 +924,8 @@ function init()
 				controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 				action = function(value)
 					source_dials[dest.name][source]:set_value(value)
+					-- create a dead zone near 0.0
+					value = (value > 0 and 1 or -1) * (1 - math.min(1, (1 - math.abs(value)) * 1.1))
 					for v = 1, n_voices do
 						engine_command(v, value)
 					end
