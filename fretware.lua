@@ -778,18 +778,6 @@ function init()
 	}
 
 	params:add {
-		name = 'fm cutoff',
-		id = 'fmCutoff',
-		type = 'control',
-		controlspec = controlspec.new(32, 23000, 'exp', 0, 12000, 'Hz'),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.fmCutoff(v, value)
-			end
-		end
-	}
-
-	params:add {
 		name = 'hp cutoff',
 		id = 'hpCutoff',
 		type = 'control',
@@ -797,18 +785,6 @@ function init()
 		action = function(value)
 			for v = 1, n_voices do
 				engine.hpCutoff(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'lp cutoff',
-		id = 'lpCutoff',
-		type = 'control',
-		controlspec = controlspec.new(16, 23000, 'exp', 0, 23000, 'Hz'),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.lpCutoff(v, value)
 			end
 		end
 	}
@@ -1005,17 +981,6 @@ function init()
 				end
 			}
 		end
-
-		-- TODO: make this cooperate with the global FM cutoff param, and add hp + lp cutoffs
-		params:add {
-			name = 'fm cutoff',
-			id = 'fm_cutoff_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(32, 23000, 'exp', 0, 12000, 'Hz'),
-			action = function(value)
-				engine.fmCutoff(v, value)
-			end
-		}
 
 		params:add {
 			name = 'out level',

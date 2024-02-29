@@ -145,8 +145,6 @@ Engine_Cule : CroneEngine {
 				octave = 0,
 				detuneType = 0.2,
 				fadeSize = 0.5,
-				fmCutoff = 12000,
-				lpCutoff = 23000,
 				hpCutoff = 16,
 				outLevel = 0.2,
 
@@ -280,7 +278,7 @@ Engine_Cule : CroneEngine {
 				fbB.linexp(-1, 1, 0.01, 3)
 			);
 			fmMix = fmInput + (opB * fmIndex.linexp(-1, 1, 0.01, 10pi));
-			fmMix = LPF.ar(fmMix, fmCutoff).mod(2pi);
+			fmMix = fmMix.mod(2pi);
 			opA = this.harmonicOsc(
 				SinOsc,
 				hz / detuneExp - detuneLin,
@@ -314,7 +312,7 @@ Engine_Cule : CroneEngine {
 			Out.ar(outBus, voiceOutput);
 
 			// filter and write to main outs
-			voiceOutput = LPF.ar(HPF.ar(voiceOutput, hpCutoff.lag(lag)), lpCutoff.lag(lag));
+			voiceOutput = HPF.ar(voiceOutput, hpCutoff.lag(lag));
 			// TODO: stereo pan!
 			Out.ar(context.out_b, voiceOutput ! 2 * Lag.kr(outLevel, 0.05));
 		}).add;
