@@ -819,7 +819,7 @@ function init()
 				name = 'attack',
 				id = 'attack',
 				type = 'control',
-				controlspec = controlspec.new(0.001, 2, 'exp', 0, 0.01, 's'),
+				controlspec = controlspec.new(0.001, 2, 'exp', 0, 0.001, 's'),
 				action = function(value)
 					dest_dials.attack:set_value(params:get_raw('attack') * 2 - 1)
 					for v = 1, n_voices do
