@@ -72,11 +72,6 @@ editor = {
 			default = -1
 		},
 		{
-			name = 'lpgTone',
-			label = 'lpg tone',
-			default = 0.3
-		},
-		{
 			name = 'attack',
 			label = 'attack',
 			default = 0
@@ -105,7 +100,22 @@ editor = {
 			name = 'lfoBFreq',
 			label = 'lfo b freq',
 			default = 0
-		}
+		},
+		{
+			name = 'lpgTone',
+			label = 'lpg tone',
+			default = 0.3
+		},
+		{
+			name = 'pitch',
+			label = 'pitch',
+			mod_only = true,
+		},
+		{
+			name = 'amp',
+			label = 'amp',
+			mod_only = true,
+		},
 	},
 	source = 1,
 	dest = 1,
@@ -128,6 +138,8 @@ dest_dials = {
 	lfoAFreq = Dial.new(322, 50, 15),
 	lfoBFreq = Dial.new(342, 50, 15),
 	lpgTone  = Dial.new(362, 50, 15),
+	pitch    = Dial.new(382, 50, 15),
+	amp      = Dial.new(402, 50, 15)
 }
 
 source_dials = {}
@@ -791,8 +803,9 @@ function init()
 
 	for d = 1, #editor.dests do
 		local dest = editor.dests[d]
-		if dest.name ~= 'attack' and dest.name ~= 'decay' and dest.name ~= 'sustain' and dest.name ~= 'release' and dest.name ~= 'lfoAFreq' and dest.name ~= 'lfoBFreq' then
+		if dest.name ~= 'attack' and dest.name ~= 'decay' and dest.name ~= 'sustain' and dest.name ~= 'release' and dest.name ~= 'lfoAFreq' and dest.name ~= 'lfoBFreq' and not dest.mod_only then
 			local engine_command = engine[dest.name]
+			print(dest.name)
 			params:add {
 				name = dest.label,
 				id = dest.name,
@@ -859,21 +872,6 @@ function init()
 					dest_dials.release:set_value(params:get_raw('release') * 2 - 1)
 					for v = 1, n_voices do
 						engine.release(v, value)
-					end
-				end
-			}
-			params:add {
-				name = 'eg -> pitch',
-				id = 'eg_pitch',
-				type = 'control',
-				controlspec = controlspec.new(-0.2, 0.2, 'lin', 0, 0),
-				formatter = function(param)
-					local value = param:get()
-					return string.format('%.2f', value * 12)
-				end,
-				action = function(value)
-					for v = 1, n_voices do
-						engine.eg_pitch(v, value)
 					end
 				end
 			}
@@ -972,16 +970,18 @@ function init()
 
 		for d = 1, #editor.dests do
 			local param = editor.dests[d]
-			local engine_command = engine[param.name]
-			params:add {
-				name = param.label,
-				id = param.name .. '_' .. v,
-				type = 'control',
-				controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-				action = function(value)
-					engine_command(v, value + params:get(param.name))
-				end
-			}
+			if not param.mod_only then
+				local engine_command = engine[param.name]
+				params:add {
+					name = param.label,
+					id = param.name .. '_' .. v,
+					type = 'control',
+					controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+					action = function(value)
+						engine_command(v, value + params:get(param.name))
+					end
+				}
+			end
 		end
 
 		params:add {

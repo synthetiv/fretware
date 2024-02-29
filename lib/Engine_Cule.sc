@@ -252,7 +252,7 @@ Engine_Cule : CroneEngine {
 			// scaled version of amp that allows env to fully open the LPG filter
 			lpgOpenness = amp * Select.kr((ampMode == 2).asInteger, [1, 6.dbamp]).lag;
 
-			pitch = LinSelectX.kr(1 + modulation[\pitch], [-1, pitch, 1]) + tune;
+			pitch = pitch + modulation[\pitch] + tune;
 
 			// send control values to polls, both regularly (replyRate Hz) and immediately when gate goes high or when voice loops
 			highPriorityUpdate = Changed.kr(pitch, 0.04) + t_trig;
