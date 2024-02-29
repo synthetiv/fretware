@@ -34,12 +34,12 @@ editor = {
 		{
 			name = 'tuneA',
 			label = 'tune A',
-			default = 0
+			default = -0.335
 		},
 		{
 			name = 'tuneB',
 			label = 'tune B',
-			default = 0
+			default = -0.335
 		},
 		{
 			name = 'fmIndex',
