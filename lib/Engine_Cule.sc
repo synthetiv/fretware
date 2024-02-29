@@ -155,7 +155,7 @@ Engine_Cule : CroneEngine {
 			var bufferRate, bufferLength, bufferPhase, delayPhase,
 				loopStart, loopPhase, loopTrigger, loopOffset,
 				modulation = Dictionary.new,
-				adsr, eg, amp, lfoA, lfoB,
+				adsr, eg, amp, lpgOpenness, lfoA, lfoB,
 				hz, detuneLin, detuneExp,
 				fmInput, opB, fmMix, opA,
 				voiceOutput,
@@ -248,7 +248,9 @@ Engine_Cule : CroneEngine {
 				tip,
 				tip * EnvGen.kr(Env.asr(attack, 1, release), gate),
 				eg * -6.dbamp
-			]) * (1 + modulation[\amp])).max(0);
+			]) * (1 + modulation[\amp])).clip(0, 1);
+			// scaled version of amp that allows env to fully open the LPG filter
+			lpgOpenness = amp * Select.kr((ampMode == 2).asInteger, [1, 6.dbamp]).lag;
 
 			pitch = LinSelectX.kr(1 + modulation[\pitch], [-1, pitch, 1]) + tune;
 
@@ -294,17 +296,18 @@ Engine_Cule : CroneEngine {
 			// compensate for lost amplitude due to bias (a fully rectified wave is half the amplitude of the original)
 			voiceOutput = voiceOutput * foldBias.linlin(-1, 1, 1, 2);
 			// filter LPG-style
-			voiceOutput = Select.ar(
-				\lpgOn.kr(1),
-				[
+			voiceOutput = Select.ar(\lpgOn.kr(1), [
+				voiceOutput,
+				RLPF.ar(
 					voiceOutput,
-					RLPF.ar(
-						voiceOutput,
-						amp.lincurve(0, 1, lpgTone.lincurve(0, 1, 20, 20000, 4), lpgTone.lincurve(-1, 0, 20, 20000, 4), \lpgCurve.kr(3)).lag,
-						\lpgRQ.kr(0.9)
-					)
-				]
-			);
+					lpgOpenness.lincurve(
+						0, 1,
+						lpgTone.lincurve(0, 1, 20, 20000, 4), lpgTone.lincurve(-1, 0, 20, 20000, 4),
+						\lpgCurve.kr(3)
+					),
+					\lpgRQ.kr(0.9)
+				)
+			]);
 			// scale by amplitude control value
 			voiceOutput = voiceOutput * amp;
 
