@@ -45,6 +45,7 @@ Engine_Cule : CroneEngine {
 		parameterNames = [
 			\amp,
 			\pitch,
+			\pan,
 			\tuneA,
 			\tuneB,
 			\fmIndex,
@@ -140,6 +141,7 @@ Engine_Cule : CroneEngine {
 				opMix = 0,
 				foldGain = 0,
 				foldBias = 0,
+				pan = 0,
 				lag = 0.1,
 
 				octave = 0,
@@ -237,6 +239,7 @@ Engine_Cule : CroneEngine {
 			foldGain = LinSelectX.kr(1 + modulation[\foldGain], [-1, foldGain.lag(lag), 1 ]);
 			foldBias = LinSelectX.kr(1 + modulation[\foldBias], [-1, foldBias.lag(lag), 1 ]);
 			lpgTone  = LinSelectX.kr(1 + modulation[\lpgTone],  [-1, lpgTone.lag(lag),  1 ]);
+			pan      = LinSelectX.kr(1 + modulation[\pan],      [-1, pan.lag(lag),      1 ]);
 
 			// now we're done with the modulation matrix
 
@@ -317,7 +320,7 @@ Engine_Cule : CroneEngine {
 			// filter and write to main outs
 			voiceOutput = HPF.ar(voiceOutput, hpCutoff.lag(lag));
 			// TODO: stereo pan!
-			Out.ar(context.out_b, voiceOutput ! 2 * Lag.kr(outLevel, 0.05));
+			Out.ar(context.out_b, Pan2.ar(voiceOutput * Lag.kr(outLevel, 0.05), pan));
 		}).add;
 
 		// TODO: master bus FX like saturation, decimation...?

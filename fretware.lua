@@ -109,13 +109,18 @@ editor = {
 		{
 			name = 'pitch',
 			label = 'pitch',
-			mod_only = true,
+			mod_only = true
+		},
+		{
+			name = 'pan',
+			label = 'pan',
+			default = 0
 		},
 		{
 			name = 'amp',
 			label = 'amp',
-			mod_only = true,
-		},
+			mod_only = true
+		}
 	},
 	source = 1,
 	dest = 1,
@@ -139,7 +144,8 @@ dest_dials = {
 	lfoBFreq = Dial.new(342, 50, 15),
 	lpgTone  = Dial.new(362, 50, 15),
 	pitch    = Dial.new(382, 50, 15),
-	amp      = Dial.new(402, 50, 15)
+	pan      = Dial.new(402, 50, 15),
+	amp      = Dial.new(422, 50, 15)
 }
 
 source_dials = {}
