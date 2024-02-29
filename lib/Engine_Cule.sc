@@ -232,7 +232,7 @@ Engine_Cule : CroneEngine {
 			tuneB    = LinSelectX.kr(1 + modulation[\tuneB],    [-1, tuneB.lag(lag),    1 ]);
 			fmIndex  = LinSelectX.kr(1 + modulation[\fmIndex],  [-1, fmIndex.lag(lag),  1 ]);
 			fbB      = LinSelectX.kr(1 + modulation[\fbB],      [-1, fbB.lag(lag),      1 ]);
-			opDetune = LinSelectX.kr(1 + modulation[\opDetune], [-1, opDetune.lag(lag), 1 ]);
+			opDetune = LinSelectX.kr(1 + modulation[\opDetune], [-1, opDetune.cubed.lag(lag), 1 ]);
 			opMix    = LinSelectX.kr(1 + modulation[\opMix],    [-1, opMix.lag(lag),    1 ]);
 			foldGain = LinSelectX.kr(1 + modulation[\foldGain], [-1, foldGain.lag(lag), 1 ]);
 			foldBias = LinSelectX.kr(1 + modulation[\foldBias], [-1, foldBias.lag(lag), 1 ]);
@@ -270,11 +270,11 @@ Engine_Cule : CroneEngine {
 			fmInput = Mix(InFeedback.ar(synthOutBuses) * In.kr(fmBus, nVoices));
 
 			hz = 2.pow(pitch + octave) * In.kr(baseFreqBus);
-			detuneLin = opDetune * 10 * detuneType;
-			detuneExp = (opDetune / 10 * (1 - detuneType)).midiratio;
+			detuneLin = opDetune * 40 * detuneType;
+			detuneExp = (opDetune * 7 * (1 - detuneType)).midiratio;
 			opB = this.harmonicOsc(
 				SinOscFB,
-				hz * detuneExp + detuneLin,
+				hz / detuneExp - detuneLin,
 				tuneB,
 				fadeSize,
 				fbB.linexp(-1, 1, 0.01, 3)
@@ -283,7 +283,7 @@ Engine_Cule : CroneEngine {
 			fmMix = fmMix.mod(2pi);
 			opA = this.harmonicOsc(
 				SinOsc,
-				hz / detuneExp - detuneLin,
+				hz * detuneExp + detuneLin,
 				tuneA,
 				fadeSize,
 				fmMix
