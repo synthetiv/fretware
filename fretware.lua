@@ -702,18 +702,6 @@ function init()
 	}
 
 	params:add {
-		name = 'lpg tone',
-		id = 'lpgTone',
-		type = 'control',
-		controlspec = controlspec.new(-1, 1, 'lin', 0, 0.3),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.lpgTone(v, value)
-			end
-		end
-	}
-
-	params:add {
 		name = 'lpg rq',
 		id = 'lpgRQ',
 		type = 'control',
@@ -826,7 +814,7 @@ function init()
 
 		if source == 'eg' then
 			-- EG group gets extra parameters
-			params:add_group('eg', 5 + #editor.dests)
+			params:add_group('eg', 4 + #editor.dests)
 			params:add {
 				name = 'attack',
 				id = 'attack',
