@@ -1164,7 +1164,7 @@ function redraw()
 		screen.stroke()
 	end
 
-	screen.rect(0, 0, 30, 32)
+	screen.rect(0, 0, 30, 21)
 	screen.level(0)
 	screen.fill()
 
