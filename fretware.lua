@@ -416,6 +416,9 @@ end
 
 function init()
 
+	norns.enc.accel(1, false)
+	norns.enc.sens(1, 8)
+
 	k.on_pitch = function()
 		local pitch = k.active_pitch + k.octave
 		send_pitch_volts()
@@ -1188,13 +1191,10 @@ end
 
 function enc(n, d)
 	if n == 1 then
-		local source_name = editor.source_names[editor.source]
-		if source_name == 'lfoA' or source_name == 'lfoB' then
-			params:delta(source_name .. 'Freq', d)
-		else
-			-- TODO: some kind of global control over envelope?
-			-- envelope time skew, like -1 = zero attack + double decay, +1 = double attack + zero decay
-			-- or an overall rate scale
+		if d > 0 then
+			editor.source = editor.source % #editor.source_names + 1
+		elseif d < 0 then
+			editor.source = (editor.source - 2) % #editor.source_names + 1
 		end
 	elseif n == 2 then
 		if held_keys[2] then
@@ -1213,18 +1213,10 @@ end
 
 function key(n, z)
 	if n > 1 and z == 0 and util.time() - held_keys[n] < 0.2 then
-		if held_keys[1] then
-			if n == 2 then
-				editor.source = (editor.source - 2) % #editor.source_names + 1
-			elseif n == 3 then
-				editor.source = editor.source % #editor.source_names + 1
-			end
-		else
-			if n == 2 then
-				editor.dest = (editor.dest - 2) % (#editor.dests - 1) + 1
-			elseif n == 3 then
-				editor.dest = editor.dest % (#editor.dests - 1) + 1
-			end
+		if n == 2 then
+			editor.dest = (editor.dest - 2) % (#editor.dests - 1) + 1
+		elseif n == 3 then
+			editor.dest = editor.dest % (#editor.dests - 1) + 1
 		end
 	end
 	held_keys[n] = z == 1 and util.time() or false
