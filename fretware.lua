@@ -757,7 +757,7 @@ function init()
 		name = 'harmonic fade size',
 		id = 'fadeSize',
 		type = 'control',
-		controlspec = controlspec.new(0.01, 1, 'lin', 0, 0.5),
+		controlspec = controlspec.new(0.01, 1, 'lin', 0, 0.8),
 		action = function(value)
 			for v = 1, n_voices do
 				engine.fadeSize(v, value)
