@@ -68,6 +68,11 @@ editor = {
 			default = -1
 		},
 		{
+			name = 'lpgTone',
+			label = 'lpg tone',
+			default = 0.3
+		},
+		{
 			name = 'attack',
 			label = 'attack',
 			default = 0
@@ -98,11 +103,6 @@ editor = {
 			default = 0
 		},
 		{
-			name = 'lpgTone',
-			label = 'lpg tone',
-			default = 0.3
-		},
-		{
 			name = 'pitch',
 			label = 'pitch',
 			mod_only = true
@@ -131,16 +131,16 @@ dest_dials = {
 	opDetune = Dial.new(162, 50, 15),
 	opMix    = Dial.new(182, 50, 15),
 	foldGain = Dial.new(202, 50, 15),
+	lpgTone  = Dial.new(222, 50, 15),
 	attack   = Dial.new(242, 50, 15),
 	decay    = Dial.new(262, 50, 15),
 	sustain  = Dial.new(282, 50, 15),
 	release  = Dial.new(302, 50, 15),
 	lfoAFreq = Dial.new(322, 50, 15),
 	lfoBFreq = Dial.new(342, 50, 15),
-	lpgTone  = Dial.new(362, 50, 15),
-	pitch    = Dial.new(382, 50, 15),
-	pan      = Dial.new(402, 50, 15),
-	amp      = Dial.new(422, 50, 15)
+	pitch    = Dial.new(362, 50, 15),
+	pan      = Dial.new(382, 50, 15),
+	amp      = Dial.new(402, 50, 15)
 }
 
 source_dials = {}
