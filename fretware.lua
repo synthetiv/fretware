@@ -12,7 +12,9 @@ k = Keyboard.new(1, 1, 16, 8)
 
 echo_rate = 1
 echo_div_dirty = false
-echo_onepole_coeff = 0.1
+echo_rate_smoothed = 1
+echo_rate_smoothing = 0.1
+echo_drift_factor = 1
 
 redraw_metro = nil
 
@@ -20,6 +22,7 @@ g = grid.connect()
 
 -- TODO: connect to these devices by name
 touche = midi.connect(1) -- 'TOUCHE 1'
+uc4 = midi.connect(3) -- 'Faderfox UC4'
 
 editor = {
 	source_names = {
@@ -289,6 +292,17 @@ function touche.event(data)
 	end
 end
 
+function uc4.event(data)
+	local message = midi.to_msg(data)
+	if message.ch == 1 and message.type == 'note_on' then
+		if message.note == 2 then
+			params:delta('echo_resolution', -1)
+		elseif message.note == 3 then
+			params:delta('echo_resolution', 1)
+		end
+	end
+end
+
 -- TODO: debounce here
 function grid_redraw()
 	g:all(0)
@@ -445,7 +459,7 @@ function init()
 	softcut.level_input_cut(1, 1, 1)
 	softcut.level_input_cut(2, 1, 1)
 	softcut.rec(1, 1)
-	softcut.phase_quant(1, 0.125)
+	softcut.phase_quant(1, 0.5)
 	softcut.event_phase(function(voice, phase)
 		if voice == 1 then
 			if echo_div_dirty then
@@ -471,7 +485,6 @@ function init()
 		softcut.pre_level(scv, 0)
 		softcut.position(scv, ((scv - 1) * -echo_head_distance) % echo_loop_length + 1)
 		softcut.level_slew_time(scv, 0.001)
-		softcut.rate_slew_time(scv, 0.3)
 		softcut.play(scv, 1)
 		softcut.pre_filter_dry(scv, 1)
 		softcut.pre_filter_lp(scv, 0)
@@ -671,9 +684,16 @@ function init()
 		min = -5,
 		max = 1,
 		action = function(value)
-			echo_head_distance = math.pow(2, value)
+			local multiplier = math.pow(2, value)
+			softcut.phase_quant(1, multiplier * 0.5)
+			echo_head_distance = multiplier
 			-- reset other related params
 			echo_rate = echo_head_distance / params:get('echo_time')
+			echo_rate_smoothed = echo_rate
+			for scv = 1, 2 do
+				softcut.rate_slew_time(scv, 0.01)
+				softcut.rate(scv, echo_rate_smoothed * echo_drift_factor)
+			end
 			echo_div_dirty = true
 		end
 	}
@@ -1105,12 +1125,12 @@ function init()
 	reset_loop_clock()
 
 	clock.run(function()
-		local rate = echo_rate
 		while true do
-			rate = rate + (echo_rate - rate) * echo_onepole_coeff
-			rate = rate * math.pow(1.1, math.random() * params:get('echo_drift'))
+			echo_rate_smoothed = echo_rate_smoothed + (echo_rate - echo_rate_smoothed) * echo_rate_smoothing
+			echo_drift_factor = echo_drift_factor * math.pow(1.1, (math.random() - 0.5) * params:get('echo_drift'))
 			for scv = 1, 2 do
-				softcut.rate(scv, rate)
+				softcut.rate_slew_time(scv, 0.3)
+				softcut.rate(scv, echo_rate_smoothed * echo_drift_factor)
 			end
 			clock.sleep(0.05)
 		end
