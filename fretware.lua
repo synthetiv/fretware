@@ -68,11 +68,6 @@ editor = {
 			default = -1
 		},
 		{
-			name = 'foldBias',
-			label = 'fold bias',
-			default = -1
-		},
-		{
 			name = 'attack',
 			label = 'attack',
 			default = 0
@@ -136,7 +131,6 @@ dest_dials = {
 	opDetune = Dial.new(162, 50, 15),
 	opMix    = Dial.new(182, 50, 15),
 	foldGain = Dial.new(202, 50, 15),
-	foldBias = Dial.new(222, 50, 15),
 	attack   = Dial.new(242, 50, 15),
 	decay    = Dial.new(262, 50, 15),
 	sustain  = Dial.new(282, 50, 15),

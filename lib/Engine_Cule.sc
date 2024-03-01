@@ -52,7 +52,6 @@ Engine_Cule : CroneEngine {
 			\opDetune,
 			\opMix,
 			\foldGain,
-			\foldBias,
 			\lpgTone,
 			\attack,
 			\decay,
@@ -131,7 +130,6 @@ Engine_Cule : CroneEngine {
 				opDetune = 0,
 				opMix = 0,
 				foldGain = 0,
-				foldBias = 0,
 				pan = 0,
 				lag = 0.1,
 
@@ -228,7 +226,6 @@ Engine_Cule : CroneEngine {
 			opDetune = LinSelectX.kr(1 + modulation[\opDetune], [-1, opDetune.cubed.lag(lag), 1 ]);
 			opMix    = LinSelectX.kr(1 + modulation[\opMix],    [-1, opMix.lag(lag),    1 ]);
 			foldGain = LinSelectX.kr(1 + modulation[\foldGain], [-1, foldGain.lag(lag), 1 ]);
-			foldBias = LinSelectX.kr(1 + modulation[\foldBias], [-1, foldBias.lag(lag), 1 ]);
 			lpgTone  = LinSelectX.kr(1 + modulation[\lpgTone],  [-1, lpgTone.lag(lag),  1 ]);
 			pan      = LinSelectX.kr(1 + modulation[\pan],      [-1, pan.lag(lag),      1 ]);
 
@@ -280,9 +277,7 @@ Engine_Cule : CroneEngine {
 				fmMix
 			);
 			voiceOutput = LinXFade2.ar(opA, opB, opMix);
-			voiceOutput = (foldGain.linexp(-1, 1, 1, 27) * voiceOutput + foldBias.linlin(-1, 1, 0, 1)).fold2;
-			// compensate for DC offset introduced by fold bias
-			voiceOutput = LeakDC.ar(voiceOutput);
+			voiceOutput = (foldGain.linexp(-1, 1, 1, 27) * voiceOutput).fold2;
 			// filter LPG-style
 			voiceOutput = Select.ar(\lpgOn.kr(1), [
 				voiceOutput,
