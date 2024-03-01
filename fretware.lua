@@ -61,7 +61,7 @@ editor = {
 		{
 			name = 'foldGain',
 			label = 'fold gain',
-			default = -0.1
+			default = -1
 		},
 		{
 			name = 'foldBias',

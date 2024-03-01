@@ -280,12 +280,9 @@ Engine_Cule : CroneEngine {
 				fmMix
 			);
 			voiceOutput = LinXFade2.ar(opA, opB, opMix);
-			voiceOutput = SinOsc.ar(0, (foldGain.linexp(-1, 1, 0.1, 10pi) * voiceOutput +
-						foldBias.linlin(-1, 1, 0, pi / 2)).clip2(2pi));
+			voiceOutput = (foldGain.linexp(-1, 1, 1, 27) * voiceOutput + foldBias.linlin(-1, 1, 0, 1)).fold2;
 			// compensate for DC offset introduced by fold bias
 			voiceOutput = LeakDC.ar(voiceOutput);
-			// compensate for lost amplitude due to bias (a fully rectified wave is half the amplitude of the original)
-			voiceOutput = voiceOutput * foldBias.linlin(-1, 1, 1, 2);
 			// filter LPG-style
 			voiceOutput = Select.ar(\lpgOn.kr(1), [
 				voiceOutput,
