@@ -12,6 +12,7 @@ k = Keyboard.new(1, 1, 16, 8)
 
 echo_rate = 1
 echo_div_dirty = false
+echo_onepole_coeff = 0.1
 
 redraw_metro = nil
 
@@ -440,25 +441,6 @@ function init()
 	softcut.reset()
 	local echo_loop_length = 10
 	local echo_head_distance = 1
-	for scv = 1, 2 do
-		softcut.enable(scv, 1)
-		softcut.buffer(scv, 1)
-		softcut.rate(scv, 1)
-		softcut.loop_start(scv, 1)
-		softcut.loop_end(scv, 1 + echo_loop_length)
-		softcut.loop(scv, 1)
-		softcut.fade_time(scv, 0.01)
-		softcut.rec_level(scv, 1)
-		softcut.pre_level(scv, 0)
-		softcut.position(scv, ((scv - 1) * -echo_head_distance) % echo_loop_length + 1)
-		softcut.level_slew_time(scv, 0.001)
-		softcut.rate_slew_time(scv, 0.7)
-		softcut.play(scv, 1)
-		softcut.pre_filter_dry(scv, 1)
-		softcut.pre_filter_lp(scv, 0)
-		softcut.post_filter_dry(scv, 1)
-		softcut.post_filter_lp(scv, 0)
-	end
 	-- voice 1 = rec head
 	softcut.level_input_cut(1, 1, 1)
 	softcut.level_input_cut(2, 1, 1)
@@ -478,6 +460,25 @@ function init()
 	softcut.poll_start_phase()
 	-- voice 2 = play head
 	softcut.level(2, 0.8)
+	for scv = 1, 2 do
+		softcut.buffer(scv, 1)
+		softcut.rate(scv, 1)
+		softcut.loop_start(scv, 1)
+		softcut.loop_end(scv, 1 + echo_loop_length)
+		softcut.loop(scv, 1)
+		softcut.fade_time(scv, 0.01)
+		softcut.rec_level(scv, 1)
+		softcut.pre_level(scv, 0)
+		softcut.position(scv, ((scv - 1) * -echo_head_distance) % echo_loop_length + 1)
+		softcut.level_slew_time(scv, 0.001)
+		softcut.rate_slew_time(scv, 0.3)
+		softcut.play(scv, 1)
+		softcut.pre_filter_dry(scv, 1)
+		softcut.pre_filter_lp(scv, 0)
+		softcut.post_filter_dry(scv, 1)
+		softcut.post_filter_lp(scv, 0)
+		softcut.enable(scv, 1)
+	end
 
 	-- set up polls
 	for v = 1, n_voices do
@@ -1106,12 +1107,12 @@ function init()
 	clock.run(function()
 		local rate = echo_rate
 		while true do
-			rate = rate + (echo_rate - rate) * 0.2
+			rate = rate + (echo_rate - rate) * echo_onepole_coeff
 			rate = rate * math.pow(1.1, math.random() * params:get('echo_drift'))
 			for scv = 1, 2 do
 				softcut.rate(scv, rate)
 			end
-			clock.sleep(0.1)
+			clock.sleep(0.05)
 		end
 	end)
 
