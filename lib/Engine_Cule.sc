@@ -268,9 +268,9 @@ Engine_Cule : CroneEngine {
 				hz / detuneExp - detuneLin,
 				tuneB,
 				fadeSize,
-				fbB.lincurve(-1, 1, 0.01, pi, 3)
+				fbB.lincurve(-1, 1, 0, pi, 3)
 			);
-			fmMix = opB * fmIndex.linexp(-1, 1, 0.01, 10pi);
+			fmMix = opB * fmIndex.lincurve(-1, 1, 0, 10pi, 4);
 			fmMix = fmMix.mod(2pi);
 			opA = this.harmonicOsc(
 				SinOsc,
