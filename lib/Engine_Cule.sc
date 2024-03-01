@@ -31,7 +31,6 @@ Engine_Cule : CroneEngine {
 		arg uGen, hz, harmonic, fadeSize, uGenArg;
 		var whichRatio = harmonic.linlin(-1, 1, 0, nRatios - 1);
 		var whichOsc = (Fold.kr(whichRatio).linlin(0, 1, -1, 1) / fadeSize).clip2;
-		// TODO: try equal-power fade too
 		^LinXFade2.ar(
 			uGen.ar(hz * Select.kr(whichRatio + 1 / 2, fmRatios[0]), uGenArg),
 			uGen.ar(hz * Select.kr(whichRatio / 2, fmRatios[1]), uGenArg),
