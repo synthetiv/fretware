@@ -19,13 +19,10 @@ g = grid.connect()
 
 -- TODO: connect to these devices by name
 touche = midi.connect(1) -- 'TOUCHE 1'
-fbv = midi.connect(4) -- 'FBV Express Mk II 1'
 
 editor = {
 	source_names = {
 		'hand',
-		'foot',
-		'pitch',
 		'eg',
 		'lfoA',
 		'lfoB'
@@ -152,8 +149,6 @@ source_dials = {}
 for s = 1, #editor.dests do
 	source_dials[editor.dests[s].name] = {
 		hand  = Dial.new(82, 2, 11),
-		foot  = Dial.new(82, 2, 11),
-		pitch = Dial.new(82, 2, 11),
 		eg    = Dial.new(82, 2, 11),
 		lfoA  = Dial.new(82, 2, 11),
 		lfoB  = Dial.new(82, 2, 11),
@@ -181,7 +176,6 @@ lead_voice = 1
 
 tip = 0
 palm = 0
-foot = 0
 gate_in = false
 
 arp_clock = false
@@ -290,18 +284,6 @@ function touche.event(data)
 		elseif message.cc == 19 then
 			k:bend(math.min(1, message.val / 126))
 			send_pitch_volts()
-		end
-	end
-end
-
-function fbv.event(data)
-	local message = midi.to_msg(data)
-	if message.ch == 1 and message.type == 'cc' then
-		if message.cc == 13 then
-			foot = message.val / 127
-			control_engine_voices('foot', foot)
-		elseif message.cc == 17 and message.val == 127 then
-			voice_loop_button(selected_voices[lead_voice])
 		end
 	end
 end
@@ -993,21 +975,6 @@ function init()
 
 		params:add_group('v' .. v .. ' fm', n_voices)
 
-		for w = 1, n_voices do 
-			params:add {
-				name = 'voice ' .. w .. ' -> voice ' .. v,
-				id = 'voice' .. w .. '_' .. v,
-				type = 'taper',
-				min = 0,
-				max = 7,
-				k = 6,
-				default = 0,
-				action = function(value)
-					engine.voiceFM(v, w, value)
-				end
-			}
-		end
-
 		-- TODO: per-voice modulation routing, EG controls, LFO controls... cooperate with global controls
 	end
 
@@ -1204,24 +1171,16 @@ function redraw()
 	screen.move(2, 7)
 	screen.text('Hd')
 
-	screen.level('foot' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(18, 7)
-	screen.text('Ft')
-
-	screen.level('pitch' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(2, 18)
-	screen.text('Pt')
-
 	screen.level('eg' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(18, 18)
+	screen.move(18, 7)
 	screen.text('Eg')
 
 	screen.level('lfoA' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(2, 29)
+	screen.move(2, 18)
 	screen.text('La')
 
 	screen.level('lfoB' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(18, 29)
+	screen.move(18, 18)
 	screen.text('Lb')
 
 	screen.update()
@@ -1276,5 +1235,4 @@ function cleanup()
 		redraw_metro:stop()
 	end
 	touche.event = function() end
-	fbv.event = function() end
 end

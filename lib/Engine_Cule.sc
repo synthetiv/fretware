@@ -69,7 +69,6 @@ Engine_Cule : CroneEngine {
 			\tip,
 			\palm,
 			\hand,
-			\foot,
 			\eg,
 			\lfoA,
 			\lfoB
@@ -89,11 +88,6 @@ Engine_Cule : CroneEngine {
 			Bus.audio(context.server);
 		});
 
-		// voice-to-voice FM amounts, by destination voice, then source voice
-		fmBuses = Array.fill(nVoices, {
-			Bus.control(context.server, nVoices);
-		});
-
 		controlBuffers = Array.fill(nVoices, {
 			Buffer.alloc(context.server, context.server.sampleRate / context.server.options.blockSize * maxLoopTime * bufferRateScale, nRecordedModulators);
 		});
@@ -106,13 +100,11 @@ Engine_Cule : CroneEngine {
 			arg voiceIndex,
 				buffer,
 				outBus,
-				fmBus,
 				pitch = 0,
 				gate = 0,
 				t_trig = 0,
 				tip = 0,
 				palm = 0,
-				foot = 0,
 				ampMode = 0, // 0 = tip only; 1 = tip * AR; 2 = ADSR
 				delay = 0,
 				freeze = 0,
@@ -183,8 +175,8 @@ Engine_Cule : CroneEngine {
 			loopPhase = loopPhase - loopOffset;
 			// TODO: restore the ability for diff voices to have diff amp modes.
 			// that means making it possible to decouple a voice's parameters from the global ones
-			BufWr.kr([pitch, tip, palm, foot, gate, t_trig], buffer, bufferPhase);
-			# pitch, tip, palm, foot, gate, t_trig = BufRd.kr(nRecordedModulators, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
+			BufWr.kr([pitch, tip, palm, gate, t_trig], buffer, bufferPhase);
+			# pitch, tip, palm, gate, t_trig = BufRd.kr(nRecordedModulators, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
 
 			// build a dictionary of summed modulation signals to apply to parameters
 			parameterNames.do({ |paramName|
@@ -243,7 +235,7 @@ Engine_Cule : CroneEngine {
 
 			// now we're done with the modulation matrix
 
-			LocalOut.kr([pitch, tip, palm, tip - palm, foot, eg, lfoA, lfoB]);
+			LocalOut.kr([pitch, tip, palm, tip - palm, eg, lfoA, lfoB]);
 
 			// slew tip for direct control of amplitude -- otherwise there will be audible steppiness
 			tip = Lag.kr(tip, 0.05);
@@ -269,9 +261,6 @@ Engine_Cule : CroneEngine {
 			// if I try that, SC seems to just hang forever, no error message
 			pitch = Lag.kr(pitch, pitchSlew);
 
-			// calculate FM mix to feed to operator A
-			fmInput = Mix(InFeedback.ar(synthOutBuses) * In.kr(fmBus, nVoices));
-
 			hz = 2.pow(pitch + octave) * In.kr(baseFreqBus);
 			detuneLin = opDetune * 40 * detuneType;
 			detuneExp = (opDetune * 7 * (1 - detuneType)).midiratio;
@@ -282,7 +271,7 @@ Engine_Cule : CroneEngine {
 				fadeSize,
 				fbB.linexp(-1, 1, 0.01, 3)
 			);
-			fmMix = fmInput + (opB * fmIndex.linexp(-1, 1, 0.01, 10pi));
+			fmMix = opB * fmIndex.linexp(-1, 1, 0.01, 10pi);
 			fmMix = fmMix.mod(2pi);
 			opA = this.harmonicOsc(
 				SinOsc,
@@ -337,7 +326,6 @@ Engine_Cule : CroneEngine {
 				\buffer, controlBuffers[i],
 				\delay, i * 0.2,
 				\outBus, synthOutBuses[i],
-				\fmBus, fmBuses[i],
 			], context.og, \addToTail); // "output" group
 		});
 		polls = Array.fill(nVoices, {
@@ -392,12 +380,6 @@ Engine_Cule : CroneEngine {
 			var value = msg[2];
 			synth.set(\gate, value);
 			if(value == 1, { synth.set(\t_trig, 1); });
-		});
-
-		// TODO: is the NamedControl approach used for modulation within each voice better than this?
-		this.addCommand(\voiceFM, "iif", {
-			arg msg;
-			Bus.newFrom(fmBuses[msg[1] - 1], msg[2] - 1).set(msg[3]);
 		});
 
 		voiceDef.allControlNames.do({ |control|
