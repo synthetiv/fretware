@@ -158,7 +158,6 @@ held_keys = { false, false, false }
 voice_states = {}
 for v = 1, n_voices do
 	voice_states[v] = {
-		control = v == 1,
 		pitch = 0,
 		amp = 0,
 		looping = false,
@@ -168,9 +167,7 @@ for v = 1, n_voices do
 		loop_beat_sec = 0.25
 	}
 end
-selected_voices = { 1 }
-n_selected_voices = 1
-lead_voice = 1
+selected_voice = 1
 
 tip = 0
 palm = 0
@@ -219,31 +216,13 @@ function g.key(x, y, z)
 				voice_loop_button(v)
 			elseif x == 2 then
 				local voice = voice_states[v]
-				-- TODO: is this stuff useful now?
-				voice.control = not voice.control
-				if voice.control then
-					-- force SuperCollider to set delay to 0, to work around the
-					-- weird bug that sometimes makes delay something else
+				if selected_voice ~= v then
+					engine.tip(selected_voice, 0)
+					engine.palm(selected_voice, 0)
+					engine.gate(selected_voice, 0)
 					engine.delay(v, 0)
-					table.insert(selected_voices, v)
-					n_selected_voices = n_selected_voices + 1
-					lead_voice = n_selected_voices
+					selected_voice = v
 					send_pitch_volts()
-				else
-					local sv = 1
-					while sv <= n_selected_voices do
-						if selected_voices[sv] == v then
-							table.remove(selected_voices, sv)
-							n_selected_voices = n_selected_voices - 1
-							lead_voice = n_selected_voices
-							send_pitch_volts()
-						else
-							sv = sv + 1
-						end
-					end
-					engine.tip(v, 0)
-					engine.palm(v, 0)
-					engine.gate(v, 0)
 				end
 			end
 		end
@@ -259,9 +238,7 @@ end
 function send_pitch_volts()
 	-- TODO: this added offset for the quantizer really shouldn't be necessary; what's going on here?
 	crow.output[1].volts = k.bent_pitch + k.octave + (k.quantizing and 1/24 or 0)
-	if n_selected_voices > 0 then
-		engine.pitch(selected_voices[lead_voice], k.bent_pitch + k.octave)
-	end
+	engine.pitch(selected_voice, k.bent_pitch + k.octave)
 end
 
 function touche.event(data)
@@ -270,11 +247,11 @@ function touche.event(data)
 		-- back = 16, front = 17, left = 18, right = 19
 		if message.cc == 17 then
 			tip = message.val / 126
-			control_engine_voices('tip', tip) -- let SC do the scaling
+			engine.tip(selected_voice, tip) -- let SC do the scaling
 			crow.output[2].volts = 10 * math.sqrt(tip)
 		elseif message.cc == 16 then
 			palm = message.val / 126
-			control_engine_voices('palm', palm * palm)
+			engine.palm(selected_voice, palm * palm)
 			crow.output[3].volts = palm * params:get('damp_range') + params:get('damp_base')
 		elseif message.cc == 18 then
 			k:bend(-math.min(1, message.val / 126)) -- TODO: not sure why 126 is the max value I'm getting from Touche...
@@ -304,7 +281,6 @@ function grid_redraw()
 	for v = 1, n_voices do
 		local voice = voice_states[v]
 		local level = voice.amp
-		local is_lead = n_selected_voices > 1 and selected_voices[lead_voice] == v
 		if voice.loop_armed then
 			level = level * 0.5 + 0.5
 		elseif voice.looping then
@@ -312,7 +288,7 @@ function grid_redraw()
 		end
 		level = 2 + math.floor(level * 13)
 		g:led(1, 8 - v, level)
-		g:led(2, 8 - v, voice.control and (is_lead and 8 or 5) or 1)
+		g:led(2, 8 - v, selected_voice == v and 8 or 1)
 	end
 	g:refresh()
 end
@@ -342,17 +318,9 @@ function reset_arp_clock()
 	end
 	arp_clock = clock.run(function()
 		while true do
-			-- TODO: find a way to allow modulation to nudge clock pulses back & forth without losing sync... somehow...
 			local rate = math.pow(2, -params:get('arp_clock_div'))
 			clock.sync(rate)
 			if params:get('arp_clock_source') == 1 and k.arping and k.n_sustained_keys > 0 then
-				if n_selected_voices > 0 then
-					if math.random() < params:get('voice_sel_direction') then
-						lead_voice = lead_voice % n_selected_voices + 1
-					else
-						lead_voice = (lead_voice - 2) % n_selected_voices + 1
-					end
-				end
 				k:arp(true)
 				clock.sleep(clock.get_beat_sec() * rate / 2)
 				k:arp(false)
@@ -415,14 +383,6 @@ function reset_loop_clock()
 	end
 end
 
-function control_engine_voices(method, value)
-	for v = 1, n_voices do
-		if voice_states[v].control then
-			engine[method](v, value)
-		end
-	end
-end
-
 function init()
 
 	norns.enc.accel(1, false)
@@ -436,9 +396,7 @@ function init()
 
 	k.on_gate = function(gate)
 		crow.output[4](gate)
-		if n_selected_voices > 0 then
-			engine.gate(selected_voices[lead_voice], gate and 1 or 0)
-		end
+		engine.gate(selected_voice, gate and 1 or 0)
 	end
 
 	-- TODO: why doesn't crow.add() work anymore?

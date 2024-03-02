@@ -470,7 +470,6 @@ function Keyboard:draw()
 		self.voice_data[v].high = high + offset
 		self.voice_data[v].weight = weight
 		self.voice_data[v].amp = voice_states[v].amp
-		self.voice_data[v].control = voice_states[v].control
 	end
 
 	for x = self.x, self.x2 do
@@ -496,7 +495,7 @@ function Keyboard:draw()
 
 				for v = 1, n_voices do
 					local voice = self.voice_data[v]
-					local is_control = voice.control and 1 or 0
+					local is_control = selected_voice == v and 1 or 0
 					if p == voice.low then
 						level = led_blend(level, (1 - voice.weight) * ((is_control * 4) + (is_control * 3 + 16) * math.sqrt(voice.amp)))
 					elseif p == voice.high then
