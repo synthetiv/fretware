@@ -695,7 +695,7 @@ function init()
 		name = 'lpg rq',
 		id = 'lpgRQ',
 		type = 'control',
-		controlspec = controlspec.new(0.2, 1.5, 'lin', 0, 0.9),
+		controlspec = controlspec.new(0.2, 1.1, 'lin', 0, 0.9),
 		action = function(value)
 			for v = 1, n_voices do
 				engine.lpgRQ(v, value)
