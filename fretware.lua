@@ -167,12 +167,14 @@ for v = 1, n_voices do
 		loop_beat_sec = 0.25
 	}
 end
+
 selected_voice = 1
 
 tip = 0
 palm = 0
 gate_in = false
 
+arp_clock_source = -1
 arp_clock = false
 loop_clock = false
 loop_free = false
@@ -215,15 +217,7 @@ function g.key(x, y, z)
 			if x == 1 then
 				voice_loop_button(v)
 			elseif x == 2 then
-				local voice = voice_states[v]
-				if selected_voice ~= v then
-					engine.tip(selected_voice, 0)
-					engine.palm(selected_voice, 0)
-					engine.gate(selected_voice, 0)
-					engine.delay(v, 0)
-					selected_voice = v
-					send_pitch_volts()
-				end
+				select_voice(v)
 			end
 		end
 	else
@@ -300,7 +294,7 @@ function crow_init()
 
 	crow.input[1].change = function(gate)
 		gate_in = gate
-		if params:get('arp_clock_source') == 2 and k.arping and k.n_sustained_keys > 0 then
+		if arp_clock_source == 4 and k.arping and k.n_sustained_keys > 0 then
 			k:arp(gate)
 		end
 	end
@@ -320,7 +314,7 @@ function reset_arp_clock()
 		while true do
 			local rate = math.pow(2, -params:get('arp_clock_div'))
 			clock.sync(rate)
-			if params:get('arp_clock_source') == 1 and k.arping and k.n_sustained_keys > 0 then
+			if arp_clock_source == 1 and k.arping and k.n_sustained_keys > 0 then
 				k:arp(true)
 				clock.sleep(clock.get_beat_sec() * rate / 2)
 				k:arp(false)
@@ -380,6 +374,41 @@ function reset_loop_clock()
 				end
 			end
 		end)
+	end
+end
+
+function select_voice(v)
+	if selected_voice == v then
+		return
+	end
+	engine.tip(selected_voice, 0)
+	engine.palm(selected_voice, 0)
+	engine.gate(selected_voice, 0)
+	engine.delay(v, 0)
+	selected_voice = v
+	send_pitch_volts()
+	set_voice_lfo_poll()
+end
+
+function lfo_arp_callback(gate)
+	if k.arping and k.n_sustained_keys > 0 then
+		k:arp(gate)
+	end
+end
+
+function set_voice_lfo_poll()
+	if lfoA_poll then
+		lfoA_poll:stop()
+	end
+	if lfoB_poll then
+		lfoB_poll:stop()
+	end
+	if arp_clock_source == 2 then
+		lfoA_poll = poll.set('lfoA_gate_' .. selected_voice, lfo_arp_callback)
+		lfoA_poll:start()
+	elseif arp_clock_source == 3 then
+		lfoB_poll = poll.set('lfoA_gate_' .. selected_voice, lfo_arp_callback)
+		lfoB_poll:start()
 	end
 end
 
@@ -463,15 +492,6 @@ function init()
 			voice_states[v].pitch = value
 		end)
 		pitch_poll:start()
-		-- and two more for the LFOs-as-gates
-		local lfoA_poll = poll.set('lfoA_gate_' .. v, function(value)
-			-- TODO
-		end);
-		lfoA_poll:start()
-		local lfoB_poll = poll.set('lfoB_gate_' .. v, function(value)
-			-- TODO
-		end);
-		lfoB_poll:start()
 	end
 
 	params:add {
@@ -520,8 +540,12 @@ function init()
 		name = 'arp clock source',
 		id = 'arp_clock_source',
 		type = 'option',
-		options = { 'system', 'crow' },
-		default = 1
+		options = { 'system', 'lfoA', 'lfoB', 'crow' },
+		default = 1,
+		action = function(value)
+			arp_clock_source = value
+			set_voice_lfo_poll()
+		end
 	}
 
 	params:add {
@@ -532,13 +556,6 @@ function init()
 		action = function(value)
 			k.arp_randomness = value / 100
 		end
-	}
-
-	params:add {
-		name = 'voice sel direction (1=fwd)',
-		id = 'voice_sel_direction',
-		type = 'control',
-		controlspec = controlspec.new(0, 1, 'lin', 0, 1),
 	}
 
 	params:add {
@@ -1109,6 +1126,8 @@ function init()
 		end
 	}
 	redraw_metro:start()
+
+	select_voice(1)
 
 	-- start at 0 / middle C
 	k.on_pitch()
