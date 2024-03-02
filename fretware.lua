@@ -505,6 +505,15 @@ function init()
 			voice_states[v].pitch = value
 		end)
 		pitch_poll:start()
+		-- and two more for the LFOs-as-gates
+		local lfoA_poll = poll.set('lfoA_gate_' .. v, function(value)
+			-- TODO
+		end);
+		lfoA_poll:start()
+		local lfoB_poll = poll.set('lfoB_gate_' .. v, function(value)
+			-- TODO
+		end);
+		lfoB_poll:start()
 	end
 
 	params:add {

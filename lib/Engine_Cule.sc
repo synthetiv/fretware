@@ -19,7 +19,8 @@ Engine_Cule : CroneEngine {
 	var synthOutBuses;
 	var fmBuses;
 	var polls;
-	var replyFunc;
+	var voiceStateReplyFunc;
+	var lfoGateReplyFunc;
 
 	*new { arg context, doneCallback;
 		^super.new(context, doneCallback);
@@ -139,14 +140,13 @@ Engine_Cule : CroneEngine {
 				hpCutoff = 16,
 				outLevel = 0.2,
 
-				egGateTrig = 0,
-				trigLength = 0.01,
 				replyRate = 10;
 
 			var bufferRate, bufferLength, bufferPhase, delayPhase,
 				loopStart, loopPhase, loopTrigger, loopOffset,
 				modulation = Dictionary.new,
 				adsr, eg, amp, lpgOpenness, lfoA, lfoB,
+				lfoAHigh, lfoBHigh,
 				hz, detuneLin, detuneExp,
 				fmInput, opB, fmMix, opA,
 				voiceOutput,
@@ -172,7 +172,7 @@ Engine_Cule : CroneEngine {
 			loopPhase = loopPhase - loopOffset;
 			// TODO: restore the ability for diff voices to have diff amp modes.
 			// that means making it possible to decouple a voice's parameters from the global ones
-			BufWr.kr([pitch, tip, palm, gate, t_trig], buffer, bufferPhase);
+			BufWr.kr([pitch, tip, palm, gate, Trig.kr(t_trig, 0.01)], buffer, bufferPhase);
 			# pitch, tip, palm, gate, t_trig = BufRd.kr(nRecordedModulators, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
 
 			// build a dictionary of summed modulation signals to apply to parameters
@@ -182,20 +182,15 @@ Engine_Cule : CroneEngine {
 				}));
 			});
 
-			// maybe replace gate with trig
-			gate = Select.kr(egGateTrig, [
-				gate,
-				Trig.kr(t_trig, trigLength),
+			attack = attack * 8.pow(modulation[\attack]);
+			decay = decay * 8.pow(modulation[\decay]);
+			sustain = (sustain + modulation[\sustain]).clip;
+			release = release * 8.pow(modulation[\decay]);
+			eg = Select.kr(\egType.kr(2), [
+				EnvGen.kr(Env.adsr(attack, decay, sustain, release), gate),
+				EnvGen.kr(Env.asr(attack, 1, release), gate),
+				EnvGen.kr(Env.perc(attack, release), t_trig)
 			]);
-
-			// TODO: modulate env times!
-			adsr = Env.adsr(
-				attack * 8.pow(modulation[\attack]),
-				decay * 8.pow(modulation[\decay]),
-				(sustain + modulation[\sustain]).clip,
-				release * 8.pow(modulation[\decay])
-			);
-			eg = EnvGen.kr(adsr, gate);
 
 			// TODO: LFO frequency randomization
 
@@ -207,6 +202,8 @@ Engine_Cule : CroneEngine {
 				LFNoise1.kr(lfoAFreq),
 				LFNoise0.kr(lfoAFreq)
 			]);
+			lfoAHigh = lfoA > 0;
+			SendReply.kr(Changed.kr(lfoAHigh).abs, '/lfoGate', [voiceIndex, 0, lfoAHigh]);
 
 			lfoBFreq = lfoBFreq * 8.pow(modulation[\lfoBFreq]);
 			lfoB = Select.kr(lfoBType, [
@@ -216,6 +213,8 @@ Engine_Cule : CroneEngine {
 				LFNoise1.kr(lfoBFreq),
 				LFNoise0.kr(lfoBFreq)
 			]);
+			lfoBHigh = lfoB > 0;
+			SendReply.kr(Changed.kr(lfoBHigh).abs, '/lfoGate', [voiceIndex, 1, lfoBHigh]);
 
 			// this weird-looking LinSelectX pattern scales modulation signals so that
 			// final parameter values (base + modulation) can always reach [-1, 1]
@@ -237,7 +236,7 @@ Engine_Cule : CroneEngine {
 			tip = Lag.kr(tip, 0.05);
 			amp = (Select.kr(ampMode, [
 				tip,
-				tip * EnvGen.kr(Env.asr(attack, 1, release), gate),
+				tip * eg,
 				eg * -6.dbamp
 			]) * (1 + modulation[\amp])).clip(0, 1);
 			// scaled version of amp that allows env to fully open the LPG filter
@@ -319,16 +318,20 @@ Engine_Cule : CroneEngine {
 				\outBus, synthOutBuses[i],
 			], context.og, \addToTail); // "output" group
 		});
+
 		polls = Array.fill(nVoices, {
 			arg i;
 			i = i + 1;
 			[
 				this.addPoll(("instant_pitch_" ++ i).asSymbol, periodic: false),
 				this.addPoll(("pitch_" ++ i).asSymbol, periodic: false),
-				this.addPoll(("amp_" ++ i).asSymbol, periodic: false)
+				this.addPoll(("amp_" ++ i).asSymbol, periodic: false),
+				this.addPoll(("lfoA_gate_" ++ i).asSymbol, periodic: false),
+				this.addPoll(("lfoB_gate_" ++ i).asSymbol, periodic: false)
 			];
 		});
-		replyFunc = OSCFunc({
+
+		voiceStateReplyFunc = OSCFunc({
 			arg msg;
 			// msg looks like [ '/voiceState', ??, -1, voiceIndex, amp, pitch, highPriorityUpdate ]
 			polls[msg[3]][2].update(msg[4]);
@@ -338,6 +341,12 @@ Engine_Cule : CroneEngine {
 				polls[msg[3]][1].update(msg[5]);
 			});
 		}, path: '/voiceState', srcID: context.server.addr);
+
+		lfoGateReplyFunc = OSCFunc({
+			arg msg;
+			// msg looks like [ '/lfoGate', ??, -1, voiceIndex, lfoIndex, state ]
+			polls[msg[3]][msg[4] + 3].update(msg[5]);
+		}, path: '/lfoGate', srcID: context.server.addr);
 
 		this.addCommand(\baseFreq, "f", {
 			arg msg;
@@ -369,8 +378,7 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			var synth = voiceSynths[msg[1] - 1];
 			var value = msg[2];
-			synth.set(\gate, value);
-			if(value == 1, { synth.set(\t_trig, 1); });
+			synth.set(\gate, value, \t_trig, value);
 		});
 
 		voiceDef.allControlNames.do({ |control|
@@ -387,6 +395,7 @@ Engine_Cule : CroneEngine {
 	free {
 		voiceSynths.do({ |synth| synth.free });
 		controlBuffers.do({ |buffer| buffer.free });
-		// replyFunc.free;
+		voiceStateReplyFunc.free;
+		lfoGateReplyFunc.free;
 	}
 }
