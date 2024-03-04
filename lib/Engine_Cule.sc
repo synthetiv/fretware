@@ -165,8 +165,6 @@ Engine_Cule : CroneEngine {
 			loopTrigger = Trig.kr(BinaryOpUGen.new('==', loopPhase, loopStart));
 			loopOffset = Latch.kr(bufferLength - (loopLength * bufferRate), loopTrigger) * loopPosition;
 			loopPhase = loopPhase - loopOffset;
-			// TODO: restore the ability for diff voices to have diff amp modes.
-			// that means making it possible to decouple a voice's parameters from the global ones
 			t_trig = Trig.kr(t_trig, 0.01);
 			BufWr.kr([pitch, tip, palm, gate, t_trig], buffer, bufferPhase);
 			# pitch, tip, palm, gate, t_trig = Select.kr(freeze, [
