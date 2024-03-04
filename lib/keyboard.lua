@@ -319,7 +319,7 @@ function Keyboard:note(x, y, z)
 			table.insert(self.sustained_keys, key_id)
 			self:set_active_key(key_id)
 			-- set gate high if we're in retrig mode, or if this is the first note held
-			if (self.retrig and not self.gliding) or self.n_sustained_keys == 1 then
+			if not self.arping and ((self.retrig and not self.gliding) or self.n_sustained_keys == 1) then
 				self.on_gate(true)
 			end
 		else
