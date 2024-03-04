@@ -6,6 +6,7 @@ Engine_Cule : CroneEngine {
 	classvar maxLoopTime = 32;
 
 	var voiceDef;
+	var replyDef;
 
 	var parameterNames;
 	var modulatorNames;
@@ -16,7 +17,8 @@ Engine_Cule : CroneEngine {
 	var baseFreqBus;
 	var controlBuffers;
 	var voiceSynths;
-	var synthOutBuses;
+	var replySynth;
+	var voiceStateBuses;
 	var fmBuses;
 	var polls;
 	var voiceStateReplyFunc;
@@ -82,9 +84,9 @@ Engine_Cule : CroneEngine {
 
 		baseFreqBus = Bus.control(context.server);
 
-		// direct outs from audio synths, to be mixed by each synth into their own FM inputs
-		synthOutBuses = Array.fill(nVoices, {
-			Bus.audio(context.server);
+		// control-rate outputs for pitch, amp, trigger, and LFO states, to feed polls
+		voiceStateBuses = Array.fill(nVoices, {
+			Bus.control(context.server, 5);
 		});
 
 		controlBuffers = Array.fill(nVoices, {
@@ -98,7 +100,6 @@ Engine_Cule : CroneEngine {
 
 			arg voiceIndex,
 				buffer,
-				outBus,
 				pitch = 0,
 				gate = 0,
 				t_trig = 0,
@@ -138,15 +139,12 @@ Engine_Cule : CroneEngine {
 				detuneType = 0.2,
 				fadeSize = 0.5,
 				hpCutoff = 16,
-				outLevel = 0.2,
-
-				replyRate = 10;
+				outLevel = 0.2;
 
 			var bufferRate, bufferLength, bufferPhase, delayPhase,
 				loopStart, loopPhase, loopTrigger, loopOffset,
 				modulation = Dictionary.new,
 				adsr, eg, amp, lpgOpenness, lfoA, lfoB,
-				lfoAHigh, lfoBHigh,
 				hz, detuneLin, detuneExp,
 				fmInput, opB, fmMix, opA,
 				voiceOutput,
@@ -202,8 +200,6 @@ Engine_Cule : CroneEngine {
 				LFNoise1.kr(lfoAFreq),
 				LFNoise0.kr(lfoAFreq)
 			]);
-			lfoAHigh = lfoA > 0;
-			SendReply.kr(Changed.kr(lfoAHigh).abs, '/lfoGate', [voiceIndex, 0, lfoAHigh]);
 
 			lfoBFreq = lfoBFreq * 8.pow(modulation[\lfoBFreq]);
 			lfoB = Select.kr(lfoBType, [
@@ -213,8 +209,6 @@ Engine_Cule : CroneEngine {
 				LFNoise1.kr(lfoBFreq),
 				LFNoise0.kr(lfoBFreq)
 			]);
-			lfoBHigh = lfoB > 0;
-			SendReply.kr(Changed.kr(lfoBHigh).abs, '/lfoGate', [voiceIndex, 1, lfoBHigh]);
 
 			// this weird-looking LinSelectX pattern scales modulation signals so that
 			// final parameter values (base + modulation) can always reach [-1, 1]
@@ -244,13 +238,8 @@ Engine_Cule : CroneEngine {
 
 			pitch = pitch + modulation[\pitch] + tune;
 
-			// send control values to polls, both regularly (replyRate Hz) and immediately when gate goes high or when voice loops
-			highPriorityUpdate = Changed.kr(pitch, 0.04) + t_trig;
-			SendReply.kr(
-				trig: Impulse.kr(replyRate) + highPriorityUpdate,
-				cmdName: '/voiceState',
-				values: [voiceIndex, amp, pitch, highPriorityUpdate]
-			);
+			// send control values to bus for polling
+			Out.kr(\voiceStateBus.ir, [amp, pitch, t_trig, lfoA > 0, lfoB > 0]);
 
 			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
 			// if I try that, SC seems to just hang forever, no error message
@@ -293,13 +282,22 @@ Engine_Cule : CroneEngine {
 			// scale by amplitude control value
 			voiceOutput = voiceOutput * amp;
 
-			// write to bus for FM
-			Out.ar(outBus, voiceOutput);
-
 			// filter and write to main outs
 			voiceOutput = HPF.ar(voiceOutput, hpCutoff.lag(lag));
 			// TODO: stereo pan!
 			Out.ar(context.out_b, Pan2.ar(voiceOutput * Lag.kr(outLevel, 0.05), pan));
+		}).add;
+
+		replyDef = SynthDef.new(\reply, {
+			arg selectedVoice = 0,
+				pollingLFO = 0;
+			nVoices.do({ |v|
+				var isSelected = BinaryOpUGen('==', selectedVoice, v);
+				var state = In.kr(voiceStateBuses[v], 5);
+				SendReply.kr(Impulse.kr(\replyRate.ir(10)) + state[2], '/voiceState', [v, state[0], state[1], state[2]]);
+				SendReply.kr(Changed.kr(state[3]).abs * isSelected * BinaryOpUGen('==', pollingLFO, 1), '/lfoGate', [v, 0, state[3]]);
+				SendReply.kr(Changed.kr(state[4]).abs * isSelected * BinaryOpUGen('==', pollingLFO, 2), '/lfoGate', [v, 1, state[4]]);
+			});
 		}).add;
 
 		// TODO: master bus FX like saturation, decimation...?
@@ -315,9 +313,11 @@ Engine_Cule : CroneEngine {
 				\voiceIndex, i,
 				\buffer, controlBuffers[i],
 				\delay, i * 0.2,
-				\outBus, synthOutBuses[i],
+				\voiceStateBus, voiceStateBuses[i],
 			], context.og, \addToTail); // "output" group
 		});
+
+		replySynth = Synth.new(\reply, [ \replyRate, 10 ], context.og, \addToTail);
 
 		polls = Array.fill(nVoices, {
 			arg i;
@@ -347,6 +347,16 @@ Engine_Cule : CroneEngine {
 			// msg looks like [ '/lfoGate', ??, -1, voiceIndex, lfoIndex, state ]
 			polls[msg[3]][msg[4] + 3].update(msg[5]);
 		}, path: '/lfoGate', srcID: context.server.addr);
+
+		this.addCommand(\select_voice, "i", {
+			arg msg;
+			replySynth.set(\selectedVoice, msg[1] - 1);
+		});
+
+		this.addCommand(\poll_lfo, "i", {
+			arg msg;
+			replySynth.set(\pollingLFO, msg[1]);
+		});
 
 		this.addCommand(\baseFreq, "f", {
 			arg msg;
@@ -393,6 +403,7 @@ Engine_Cule : CroneEngine {
 	}
 
 	free {
+		replySynth.free;
 		voiceSynths.do({ |synth| synth.free });
 		controlBuffers.do({ |buffer| buffer.free });
 		voiceStateReplyFunc.free;

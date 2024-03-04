@@ -385,30 +385,14 @@ function select_voice(v)
 	engine.palm(selected_voice, 0)
 	engine.gate(selected_voice, 0)
 	engine.delay(v, 0)
+	engine.select_voice(v)
 	selected_voice = v
 	send_pitch_volts()
-	set_voice_lfo_poll()
 end
 
 function lfo_arp_callback(gate)
 	if k.arping and k.n_sustained_keys > 0 then
 		k:arp(gate)
-	end
-end
-
-function set_voice_lfo_poll()
-	if lfoA_poll then
-		lfoA_poll:stop()
-	end
-	if lfoB_poll then
-		lfoB_poll:stop()
-	end
-	if arp_clock_source == 2 then
-		lfoA_poll = poll.set('lfoA_gate_' .. selected_voice, lfo_arp_callback)
-		lfoA_poll:start()
-	elseif arp_clock_source == 3 then
-		lfoB_poll = poll.set('lfoA_gate_' .. selected_voice, lfo_arp_callback)
-		lfoB_poll:start()
 	end
 end
 
@@ -492,6 +476,19 @@ function init()
 			voice_states[v].pitch = value
 		end)
 		pitch_poll:start()
+		-- and polls for LFO updates, which will only fire when a voice is selected and an LFO is used as an arp clock
+		local lfoA_poll = poll.set('lfoA_gate_' .. v, function(gate)
+			if k.arping and k.n_sustained_keys > 0 and v == selected_voice and arp_clock_source == 2 then
+				k:arp(gate)
+			end
+		end)
+		lfoA_poll:start()
+		local lfoB_poll = poll.set('lfoB_gate_' .. v, function(gate)
+			if k.arping and k.n_sustained_keys > 0 and v == selected_voice and arp_clock_source == 3 then
+				k:arp(gate)
+			end
+		end)
+		lfoB_poll:start()
 	end
 
 	params:add {
@@ -541,10 +538,10 @@ function init()
 		id = 'arp_clock_source',
 		type = 'option',
 		options = { 'system', 'lfoA', 'lfoB', 'crow' },
-		default = 1,
+		default = 2,
 		action = function(value)
 			arp_clock_source = value
-			set_voice_lfo_poll()
+			engine.poll_lfo(arp_clock_source - 1)
 		end
 	}
 
