@@ -384,7 +384,6 @@ function select_voice(v)
 	engine.tip(selected_voice, 0)
 	engine.palm(selected_voice, 0)
 	engine.gate(selected_voice, 0)
-	engine.delay(v, 0)
 	engine.select_voice(v)
 	selected_voice = v
 	send_pitch_volts()

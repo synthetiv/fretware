@@ -106,7 +106,6 @@ Engine_Cule : CroneEngine {
 				tip = 0,
 				palm = 0,
 				ampMode = 0, // 0 = tip only; 1 = tip * AR; 2 = ADSR
-				delay = 0,
 				freeze = 0,
 				t_loopReset = 0,
 				loopLength = 0.3,
@@ -141,7 +140,7 @@ Engine_Cule : CroneEngine {
 				hpCutoff = 16,
 				outLevel = 0.2;
 
-			var bufferRate, bufferLength, bufferPhase, delayPhase,
+			var bufferRate, bufferLength, bufferPhase,
 				loopStart, loopPhase, loopTrigger, loopOffset,
 				modulation = Dictionary.new,
 				adsr, eg, amp, lpgOpenness, lfoA, lfoB,
@@ -159,8 +158,6 @@ Engine_Cule : CroneEngine {
 			bufferRate = ControlRate.ir * bufferRateScale;
 			bufferLength = BufFrames.kr(buffer);
 			bufferPhase = Phasor.kr(rate: bufferRateScale * (1 - freeze), end: bufferLength);
-			// delay must be at least 1 frame, or we'll be writing to + reading from the same point
-			delayPhase = bufferPhase - (delay * bufferRate).max(1);
 			loopStart = bufferPhase - (loopLength * bufferRate).min(bufferLength);
 			loopPhase = Phasor.kr(Trig.kr(freeze) + t_loopReset, bufferRateScale * loopRateScale, loopStart, bufferPhase, loopStart);
 			// TODO: confirm that this is really firing when it's supposed to (i.e. when loopPhase
@@ -170,8 +167,12 @@ Engine_Cule : CroneEngine {
 			loopPhase = loopPhase - loopOffset;
 			// TODO: restore the ability for diff voices to have diff amp modes.
 			// that means making it possible to decouple a voice's parameters from the global ones
-			BufWr.kr([pitch, tip, palm, gate, Trig.kr(t_trig, 0.01)], buffer, bufferPhase);
-			# pitch, tip, palm, gate, t_trig = BufRd.kr(nRecordedModulators, buffer, Select.kr(freeze, [delayPhase, loopPhase]), interpolation: 1);
+			t_trig = Trig.kr(t_trig, 0.01);
+			BufWr.kr([pitch, tip, palm, gate, t_trig], buffer, bufferPhase);
+			# pitch, tip, palm, gate, t_trig = Select.kr(freeze, [
+				[pitch, tip, palm, gate, t_trig],
+				BufRd.kr(nRecordedModulators, buffer, loopPhase, interpolation: 1)
+			]);
 
 			// build a dictionary of summed modulation signals to apply to parameters
 			parameterNames.do({ |paramName|
@@ -312,7 +313,6 @@ Engine_Cule : CroneEngine {
 			Synth.new(\line, [
 				\voiceIndex, i,
 				\buffer, controlBuffers[i],
-				\delay, i * 0.2,
 				\voiceStateBus, voiceStateBuses[i],
 			], context.og, \addToTail); // "output" group
 		});
