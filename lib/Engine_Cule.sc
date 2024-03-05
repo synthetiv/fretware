@@ -405,8 +405,6 @@ Engine_Cule : CroneEngine {
 			voiceSynths[msg[1] - 1].set(\freeze, 0);
 		});
 
-		// TODO: is this two-parameter thing useful?
-		// could I instead use two NamedControls with the same name, at control and trigger rates?
 		this.addCommand(\gate, "ii", {
 			arg msg;
 			var synth = voiceSynths[msg[1] - 1];
