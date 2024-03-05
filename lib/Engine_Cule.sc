@@ -21,7 +21,8 @@ Engine_Cule : CroneEngine {
 	var voiceStateBuses;
 	var fmBuses;
 	var polls;
-	var voiceStateReplyFunc;
+	var voiceAmpReplyFunc;
+	var voicePitchReplyFunc;
 	var lfoGateReplyFunc;
 
 	*new { arg context, doneCallback;
@@ -289,13 +290,25 @@ Engine_Cule : CroneEngine {
 
 		replyDef = SynthDef.new(\reply, {
 			arg selectedVoice = 0,
-				pollingLFO = 0;
+				pollingLFO = 0,
+				replyRate = 15;
+			var replyTrig = Impulse.kr(replyRate);
 			nVoices.do({ |v|
 				var isSelected = BinaryOpUGen('==', selectedVoice, v);
-				var state = In.kr(voiceStateBuses[v], 5);
-				SendReply.kr(Impulse.kr(\replyRate.ir(10)) + state[2], '/voiceState', [v, state[0], state[1], state[2]]);
-				SendReply.kr(Changed.kr(state[3]).abs * isSelected * BinaryOpUGen('==', pollingLFO, 1), '/lfoGate', [v, 0, state[3]]);
-				SendReply.kr(Changed.kr(state[4]).abs * isSelected * BinaryOpUGen('==', pollingLFO, 2), '/lfoGate', [v, 1, state[4]]);
+				var amp, pitch, trig, lfoA, lfoB, pitchTrig;
+				# amp, pitch, trig, lfoA, lfoB = In.kr(voiceStateBuses[v], 5);
+
+				// what's important is peak amplitude, not exact current amplitude at poll time
+				amp = Peak.kr(amp, replyTrig);
+				SendReply.kr(Peak.kr(Changed.kr(amp), replyTrig) * replyTrig, '/voiceAmp', [v, amp]);
+
+				// respond quickly to triggers, which may change pitch in a meaningful way, even if the change is small
+				pitchTrig = replyTrig + trig;
+				SendReply.kr(Peak.kr(Changed.kr(pitch), pitchTrig) * pitchTrig, '/voicePitch', [v, pitch, trig]);
+
+				// respond immediately to all LFO changes
+				SendReply.kr(Changed.kr(lfoA) * isSelected * BinaryOpUGen('==', pollingLFO, 1), '/lfoGate', [v, 0, lfoA]);
+				SendReply.kr(Changed.kr(lfoB) * isSelected * BinaryOpUGen('==', pollingLFO, 2), '/lfoGate', [v, 1, lfoB]);
 			});
 		}).add;
 
@@ -315,35 +328,42 @@ Engine_Cule : CroneEngine {
 			], context.og, \addToTail); // "output" group
 		});
 
-		replySynth = Synth.new(\reply, [ \replyRate, 10 ], context.og, \addToTail);
+		replySynth = Synth.new(\reply, [], context.og, \addToTail);
 
 		polls = Array.fill(nVoices, {
 			arg i;
 			i = i + 1;
-			[
-				this.addPoll(("instant_pitch_" ++ i).asSymbol, periodic: false),
-				this.addPoll(("pitch_" ++ i).asSymbol, periodic: false),
-				this.addPoll(("amp_" ++ i).asSymbol, periodic: false),
-				this.addPoll(("lfoA_gate_" ++ i).asSymbol, periodic: false),
-				this.addPoll(("lfoB_gate_" ++ i).asSymbol, periodic: false)
+			Dictionary[
+				\instantPitch -> this.addPoll(("instant_pitch_" ++ i).asSymbol, periodic: false),
+				\pitch -> this.addPoll(("pitch_" ++ i).asSymbol, periodic: false),
+				\amp -> this.addPoll(("amp_" ++ i).asSymbol, periodic: false),
+				\lfos -> [
+					this.addPoll(("lfoA_gate_" ++ i).asSymbol, periodic: false),
+					this.addPoll(("lfoB_gate_" ++ i).asSymbol, periodic: false)
+				]
 			];
 		});
 
-		voiceStateReplyFunc = OSCFunc({
+		voiceAmpReplyFunc = OSCFunc({
 			arg msg;
-			// msg looks like [ '/voiceState', ??, -1, voiceIndex, amp, pitch, highPriorityUpdate ]
-			polls[msg[3]][2].update(msg[4]);
-			if(msg[6] == 1, {
-				polls[msg[3]][0].update(msg[5]);
+			// msg looks like [ '/voiceAmp', ??, -1, voiceIndex, amp ]
+			polls[msg[3]][\amp].update(msg[4]);
+		}, path: '/voiceAmp', srcID: context.server.addr);
+
+		voicePitchReplyFunc = OSCFunc({
+			arg msg;
+			// msg looks like [ '/voicePitch', ??, -1, voiceIndex, pitch, triggeredChange ]
+			if(msg[5] == 1, {
+				polls[msg[3]][\instantPitch].update(msg[4]);
 			}, {
-				polls[msg[3]][1].update(msg[5]);
+				polls[msg[3]][\pitch].update(msg[4]);
 			});
-		}, path: '/voiceState', srcID: context.server.addr);
+		}, path: '/voicePitch', srcID: context.server.addr);
 
 		lfoGateReplyFunc = OSCFunc({
 			arg msg;
 			// msg looks like [ '/lfoGate', ??, -1, voiceIndex, lfoIndex, state ]
-			polls[msg[3]][msg[4] + 3].update(msg[5]);
+			polls[msg[3]][\lfos][msg[4]].update(msg[5]);
 		}, path: '/lfoGate', srcID: context.server.addr);
 
 		this.addCommand(\select_voice, "i", {
@@ -354,6 +374,11 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\poll_lfo, "i", {
 			arg msg;
 			replySynth.set(\pollingLFO, msg[1]);
+		});
+
+		this.addCommand(\poll_rate, "f", {
+			arg msg;
+			replySynth.set(\replyRate, msg[1]);
 		});
 
 		this.addCommand(\baseFreq, "f", {
@@ -404,7 +429,8 @@ Engine_Cule : CroneEngine {
 		replySynth.free;
 		voiceSynths.do({ |synth| synth.free });
 		controlBuffers.do({ |buffer| buffer.free });
-		voiceStateReplyFunc.free;
+		voiceAmpReplyFunc.free;
+		voicePitchReplyFunc.free;
 		lfoGateReplyFunc.free;
 	}
 }
