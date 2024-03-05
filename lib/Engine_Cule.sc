@@ -190,8 +190,6 @@ Engine_Cule : CroneEngine {
 				EnvGen.kr(Env.perc(attack, release), t_trig)
 			]);
 
-			// TODO: LFO frequency randomization
-
 			lfoAFreq = lfoAFreq * 8.pow(modulation[\lfoAFreq]);
 			lfoA = Select.kr(lfoAType, [
 				SinOsc.kr(lfoAFreq),
@@ -284,7 +282,6 @@ Engine_Cule : CroneEngine {
 
 			// filter and write to main outs
 			voiceOutput = HPF.ar(voiceOutput, hpCutoff.lag(lag));
-			// TODO: stereo pan!
 			Out.ar(context.out_b, Pan2.ar(voiceOutput * Lag.kr(outLevel, 0.05), pan));
 		}).add;
 
