@@ -971,8 +971,6 @@ function init()
 			end
 		}
 
-		params:add_group('v' .. v .. ' fm', n_voices)
-
 		-- TODO: per-voice modulation routing, EG controls, LFO controls... cooperate with global controls
 	end
 
