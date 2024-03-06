@@ -42,8 +42,9 @@ function Keyboard.new(x, y, width, height)
 		height = height,
 		x2 = x + width - 1,
 		y2 = y + height - 1,
-		x_center = 8,
+		x_center = 8, -- coordinates of the center pitch (0)
 		y_center = 6,
+		row_offset = 5, -- each row's pitch is a fourth higher than the last
 		arping = false,
 		gliding = false,
 		held_keys = {}, -- map of key names/ids to boolean states
@@ -109,7 +110,7 @@ function Keyboard:get_key_id_coords(id)
 end
 
 function Keyboard:get_key_pitch_id(x, y)
-	return (x - self.x_center) + (self.y_center - y) * 5
+	return (x - self.x_center) + (self.y_center - y) * self.row_offset + self.scale.length * self.octave
 end
 
 function Keyboard:get_key_id_pitch_id(id)
@@ -124,6 +125,29 @@ end
 function Keyboard:get_pitch_id_value(p)
 	-- TODO: root note shouldn't have to be 0
 	return (self.scale.values[p + self.scale.center_pitch_id] or 0)
+end
+
+function Keyboard:get_key_neighbor(x, y, d)
+	if d > 0 then
+		while d > self.row_offset or x + d > self.width do
+			y = y - 1
+			d = d - self.row_offset
+		end
+		x = x + d
+	else
+		while d < -self.row_offset or x + d <= 0 do
+			y = y + 1
+			d = d + self.row_offset
+		end
+		x = x + d
+	end
+	return x, y
+end
+
+function Keyboard:get_key_id_neighbor(id, d)
+	local x, y = self:get_key_id_coords(id)
+	x, y = self:get_key_neighbor(x, y, d)
+	return self:get_key_id(x, y)
 end
 
 function Keyboard:key(x, y, z)
@@ -158,6 +182,8 @@ function Keyboard:key(x, y, z)
 					self.arping = false
 				end
 			end
+		elseif x == self.x2 - 3 then
+			self.held_keys.octave_jump = z == 1
 		elseif x > self.x2 - 2 then
 			-- octave up/down
 			local d = 0
@@ -170,22 +196,10 @@ function Keyboard:key(x, y, z)
 			end
 			if self.held_keys.up and self.held_keys.down then
 				-- if both keys are pressed together, reset octave
-				self.octave = 0
-				if not self.arping or self.n_sustained_keys == 0 then
-					self.on_pitch()
-					if self.n_sustained_keys > 0 and self.retrig and not self.gliding then
-						self.on_gate(true)
-					end
-				end
+				self:shift_octave(-self.octave)
 			elseif z == 1 then
 				-- otherwise, jump up or down
-				self.octave = util.clamp(self.octave + d, -5, 5)
-				if not self.arping or self.n_sustained_keys == 0 then
-					self.on_pitch()
-					if self.n_sustained_keys > 0 and self.retrig and not self.gliding then
-						self.on_gate(true)
-					end
-				end
+				self:shift_octave(d)
 			end
 		end
 	else
@@ -224,7 +238,6 @@ function Keyboard:maybe_release_sustained_keys()
 	end
 end
 
-
 function Keyboard:find_sustained_key(key_id)
 	for k = 1, self.n_sustained_keys do
 		local index = (self.arp_index + k - 2) % self.n_sustained_keys + 1
@@ -233,6 +246,56 @@ function Keyboard:find_sustained_key(key_id)
 		end
 	end
 	return false
+end
+
+function Keyboard:shift_octave(od)
+	-- change octave, clamping to +/-5
+	local o = self.octave
+	self.octave = util.clamp(self.octave + od, -5, 5)
+	-- clamp od if octave was clamped above
+	od = self.octave - o
+	local held_keys = self.held_keys
+	-- move bent pitch, if appropriate
+	-- this needs to happen BEFORE we move sustained_keys around,
+	-- so we can know if all sustained keys were held before the shift happened
+	if self.gliding then
+		-- always move if jump is on
+		local move_bent_pitch = held_keys.octave_jump
+		-- or if ALL sustained keys are being held
+		if not move_bent_pitch and self.n_sustained_keys > 0 then
+			move_bent_pitch = true
+			local k = 1
+			while move_bent_pitch and k <= self.n_sustained_keys do
+				move_bent_pitch = move_bent_pitch and held_keys[self.sustained_keys[k]]
+				k = k + 1
+			end
+		end
+		if move_bent_pitch then
+			self.bent_pitch = self.bent_pitch + od
+		end
+	end
+	-- when jump is engaged, all key IDs remain the same so that pitches change.
+	-- when not engaged, sustained (but not held) keys must be shifted so that pitches remain the same
+	if not held_keys.octave_jump then
+		local sustained_keys = self.sustained_keys
+		-- how far must keys be shifted so that their pitches remain the same?
+		local d = -od * self.scale.length
+		for i = 1, self.n_sustained_keys do
+			if not held_keys[sustained_keys[i]] then
+				sustained_keys[i] = self:get_key_id_neighbor(sustained_keys[i], d)
+			end
+		end
+		if not held_keys[self.active_key] then
+			self:set_active_key(self:get_key_id_neighbor(self.active_key, d))
+		end
+	end
+	-- recalculate active pitch with new octave
+	if not self.arping or self.n_sustained_keys == 0 then
+		self:set_active_key(self.active_key)
+		if self.n_sustained_keys > 0 and self.retrig and not self.gliding then
+			self.on_gate(true)
+		end
+	end
 end
 
 function Keyboard:set_bend_targets()
@@ -305,6 +368,7 @@ function Keyboard:note(x, y, z)
 			if self.editing_sustained_key_index then
 				self.sustained_keys[self.editing_sustained_key_index] = key_id
 				self.editing_sustained_key_index = false
+				self:set_bend_targets()
 				return
 			elseif not self.held_keys.shift and sustained_key_index then
 				self.editing_sustained_key_index = sustained_key_index
@@ -457,9 +521,12 @@ function Keyboard:draw()
 	g:led(self.x + 2, self.y2, self.held_keys.latch and 7 or 2)
 	g:led(self.x + 3, self.y2, self.arping and 7 or 2)
 	g:led(self.x + 5, self.y2, self.gliding and 7 or 2)
+	g:led(self.x2 - 3, self.y2, self.held_keys.octave_jump and 7 or 2)
+	g:led(self.x2 - 1, self.y2, math.min(15, math.max(0, (self.held_keys.down and 7 or 2) - math.min(self.octave, 0))))
+	g:led(self.x2, self.y2, math.min(15, math.max(0, (self.held_keys.up and 7 or 2) + math.max(self.octave, 0))))
 
 	-- TODO: remind me why this exists again...
-	local offset = -self.scale.center_pitch_id - self.scale.length * self.octave
+	local offset = -self.scale.center_pitch_id
 
 	for v = 1, n_voices do
 		local low, high, weight = self.scale:get_nearest_pitch_id(voice_states[v].pitch, true)
@@ -469,39 +536,29 @@ function Keyboard:draw()
 		self.voice_data[v].amp = voice_states[v].amp
 	end
 
-	for x = self.x, self.x2 do
-		for y = self.y, self.y2 do
-			if y == self.y2 then
-				if x == self.x2 - 1 then
-					local down_level = self.held_keys.down and 7 or 2
-					g:led(x, y, math.min(15, math.max(0, down_level - math.min(self.octave, 0))))
-				elseif x == self.x2 then
-					local up_level = self.held_keys.up and 7 or 2
-					g:led(x, y, math.min(15, math.max(0, up_level + math.max(self.octave, 0))))
-				end
-			else
-				local key_id = self:get_key_id(x, y)
-				local p = self:get_key_pitch_id(x, y)
-				local level = 0
-				-- highlight sustained keys
-				if self:is_key_sustained(key_id) then
-					level = led_blend(level, 6)
-				end
-
-				local pitch = self:get_key_id_pitch_value(key_id)
-
-				for v = 1, n_voices do
-					local voice = self.voice_data[v]
-					local is_control = selected_voice == v and 1 or 0
-					if p == voice.low then
-						level = led_blend(level, (1 - voice.weight) * ((is_control * 4) + (is_control * 3 + 16) * math.sqrt(voice.amp)))
-					elseif p == voice.high then
-						level = led_blend(level, voice.weight * ((is_control * 4) + (is_control * 3 + 16) * math.sqrt(voice.amp)))
-					end
-				end
-
-				g:led(x, y, math.min(15, math.ceil(level)))
+	for x = self.x + 2, self.x2 do
+		for y = self.y, self.y2 - 1 do
+			local key_id = self:get_key_id(x, y)
+			local p = self:get_key_pitch_id(x, y)
+			local level = 0
+			-- highlight sustained keys
+			if self:is_key_sustained(key_id) then
+				level = led_blend(level, 6)
 			end
+
+			local pitch = self:get_key_id_pitch_value(key_id)
+
+			for v = 1, n_voices do
+				local voice = self.voice_data[v]
+				local is_control = selected_voice == v and 1 or 0
+				if p == voice.low then
+					level = led_blend(level, (1 - voice.weight) * ((is_control * 4) + (is_control * 3 + 16) * math.sqrt(voice.amp)))
+				elseif p == voice.high then
+					level = led_blend(level, voice.weight * ((is_control * 4) + (is_control * 3 + 16) * math.sqrt(voice.amp)))
+				end
+			end
+
+			g:led(x, y, math.min(15, math.ceil(level)))
 		end
 	end
 end

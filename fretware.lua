@@ -231,8 +231,8 @@ end
 
 function send_pitch_volts()
 	-- TODO: this added offset for the quantizer really shouldn't be necessary; what's going on here?
-	crow.output[1].volts = k.bent_pitch + k.octave + (k.quantizing and 1/24 or 0)
-	engine.pitch(selected_voice, k.bent_pitch + k.octave)
+	crow.output[1].volts = k.bent_pitch + (k.quantizing and 1/24 or 0)
+	engine.pitch(selected_voice, k.bent_pitch)
 end
 
 function touche.event(data)
@@ -401,7 +401,7 @@ function init()
 	norns.enc.sens(1, 8)
 
 	k.on_pitch = function()
-		local pitch = k.active_pitch + k.octave
+		local pitch = k.active_pitch
 		send_pitch_volts()
 		grid_redraw()
 	end
