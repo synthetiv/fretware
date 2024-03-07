@@ -1006,7 +1006,6 @@ function init()
 		path = '/home/we/dust/data/fretwork/scales/12tet.scl',
 		action = function(value)
 			k.scale:read_scala_file(value)
-			k.scale:apply_edits()
 		end
 	}
 

@@ -124,7 +124,7 @@ end
 
 function Keyboard:get_pitch_id_value(p)
 	-- TODO: root note shouldn't have to be 0
-	return (self.scale.values[p + self.scale.center_pitch_id] or 0)
+	return self.scale:get(p)
 end
 
 function Keyboard:get_key_neighbor(x, y, d)
@@ -525,13 +525,10 @@ function Keyboard:draw()
 	g:led(self.x2 - 1, self.y2, math.min(15, math.max(0, (self.held_keys.down and 7 or 2) - math.min(self.octave, 0))))
 	g:led(self.x2, self.y2, math.min(15, math.max(0, (self.held_keys.up and 7 or 2) + math.max(self.octave, 0))))
 
-	-- TODO: remind me why this exists again...
-	local offset = -self.scale.center_pitch_id
-
 	for v = 1, n_voices do
 		local low, high, weight = self.scale:get_nearest_pitch_id(voice_states[v].pitch, true)
-		self.voice_data[v].low = low + offset
-		self.voice_data[v].high = high + offset
+		self.voice_data[v].low = low
+		self.voice_data[v].high = high
 		self.voice_data[v].weight = weight
 		self.voice_data[v].amp = voice_states[v].amp
 	end
