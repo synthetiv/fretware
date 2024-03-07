@@ -393,12 +393,12 @@ function init()
 		send_pitch_volts()
 	end
 
-	k.on_voice_octave = function(v, d)
+	k.on_voice_shift = function(v, d)
 		local voice = voice_states[v]
 		if d == 0 then
 			voice.shift = 0
 		else
-			voice.shift = voice.shift + d * k.scale.span
+			voice.shift = voice.shift + d
 		end
 		engine.shift(v, voice.shift)
 	end

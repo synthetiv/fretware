@@ -411,7 +411,7 @@ Engine_Cule : CroneEngine {
 		voiceDef.allControlNames.do({ |control|
 			var controlName = control.name;
 			if(controlName !== \gate, {
-				var signature = if([ \ampMode, \shift ].includes(controlName), "ii", "if");
+				var signature = if([ \ampMode ].includes(controlName), "ii", "if");
 				this.addCommand(controlName, signature, { |msg|
 					voiceSynths[msg[1] - 1].set(controlName, msg[2]);
 				});
