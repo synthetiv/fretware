@@ -401,9 +401,6 @@ function Keyboard:arp(gate)
 end
 
 function Keyboard:bend(amount)
-	-- if not self.gliding then
-	-- 	amount = math.sin(amount * math.pi / 2)
-	-- end
 	-- TODO: document/explain the logic here
 	if not self.gliding or self.n_sustained_keys <= 1 then
 		local delta = amount - self.bend_amount
