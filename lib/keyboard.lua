@@ -47,7 +47,9 @@ function Keyboard.new(x, y, width, height)
 		row_offset = 5, -- each row's pitch is a fourth higher than the last
 		arping = false,
 		gliding = false,
-		held_keys = {}, -- map of key names/ids to boolean states
+		held_keys = { -- map of key names/ids to boolean states
+			voices = {}
+		},
 		sustained_keys = {}, -- stack of sustained key IDs
 		n_sustained_keys = 0,
 		editing_sustained_key_index = false,
@@ -72,7 +74,10 @@ function Keyboard.new(x, y, width, height)
 		glide_max_target = 0,
 		scale = Scale.new(et12, 12),
 		voice_data = {},
+		selected_voice = 1,
 		-- overridable callbacks
+		on_select_voice = function() end,
+		on_voice_octave = function() end,
 		on_pitch = function() end,
 		on_gate = function() end,
 		on_arp = function() end
@@ -194,12 +199,31 @@ function Keyboard:key(x, y, z)
 				self.held_keys.up = z == 1
 				d = 1
 			end
-			if self.held_keys.up and self.held_keys.down then
-				-- if both keys are pressed together, reset octave
-				self:shift_octave(-self.octave)
-			elseif z == 1 then
-				-- otherwise, jump up or down
-				self:shift_octave(d)
+			if z == 1 then
+				-- if both keys are pressed together, reset octave to 0
+				local do_octave_reset = self.held_keys.up and self.held_keys.down
+				-- if voice key(s) are held, change voice octave(s)
+				local changed_voice_octave = false
+				for v = 1, n_voices do
+					if self.held_keys.voices[v] then
+						self.on_voice_octave(v, do_octave_reset and 0 or d)
+						changed_voice_octave = true
+					end
+				end
+				-- otherwise, change keyboard octave
+				if not changed_voice_octave then
+					self:shift_octave(do_octave_reset and -self.octave or d)
+				end
+			end
+		end
+	elseif x <= self.x + 1 then
+		if x == self.x then
+			-- voice loop keys -- ignore. these are handled by fretware.lua
+		else
+			local v = self.y2 - y
+			self.held_keys.voices[v] = z == 1
+			if z == 1 then
+				self:select_voice(v)
 			end
 		end
 	else
@@ -515,6 +539,15 @@ function Keyboard:is_key_sustained(key_id)
 	return false
 end
 
+function Keyboard:select_voice(v)
+	if self.selected_voice == v then
+		return
+	end
+	local old_voice = self.selected_voice
+	self.selected_voice = v
+	self.on_select_voice(v, old_voice)
+end
+
 function Keyboard:draw()
 	-- TODO: blink editing_sustained_key_index
 	g:led(self.x, self.y2, self.held_keys.shift and 15 or 6)
@@ -531,6 +564,7 @@ function Keyboard:draw()
 		self.voice_data[v].high = high
 		self.voice_data[v].weight = weight
 		self.voice_data[v].amp = voice_states[v].amp
+		g:led(2, 8 - v, self.selected_voice == v and 8 or 1)
 	end
 
 	for x = self.x + 2, self.x2 do

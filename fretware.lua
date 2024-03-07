@@ -211,14 +211,10 @@ function voice_loop_button(v)
 end
 
 function g.key(x, y, z)
-	if y < 8 and x <= 2 then
+	if y < 8 and x == 1 then
 		if z == 1 then
 			local v = 8 - y
-			if x == 1 then
-				voice_loop_button(v)
-			elseif x == 2 then
-				select_voice(v)
-			end
+			voice_loop_button(v)
 		end
 	else
 		k:key(x, y, z)
@@ -232,7 +228,7 @@ end
 function send_pitch_volts()
 	-- TODO: this added offset for the quantizer really shouldn't be necessary; what's going on here?
 	crow.output[1].volts = k.bent_pitch + (k.quantizing and 1/24 or 0)
-	engine.pitch(selected_voice, k.bent_pitch)
+	engine.pitch(k.selected_voice, k.bent_pitch)
 end
 
 function touche.event(data)
@@ -241,11 +237,11 @@ function touche.event(data)
 		-- back = 16, front = 17, left = 18, right = 19
 		if message.cc == 17 then
 			tip = message.val / 126
-			engine.tip(selected_voice, tip) -- let SC do the scaling
+			engine.tip(k.selected_voice, tip) -- let SC do the scaling
 			crow.output[2].volts = 10 * math.sqrt(tip)
 		elseif message.cc == 16 then
 			palm = message.val / 126
-			engine.palm(selected_voice, palm * palm)
+			engine.palm(k.selected_voice, palm * palm)
 			crow.output[3].volts = palm * params:get('damp_range') + params:get('damp_base')
 		elseif message.cc == 18 then
 			k:bend(-math.min(1, message.val / 126)) -- TODO: not sure why 126 is the max value I'm getting from Touche...
@@ -282,7 +278,6 @@ function grid_redraw()
 		end
 		level = 2 + math.floor(level * 13)
 		g:led(1, 8 - v, level)
-		g:led(2, 8 - v, selected_voice == v and 8 or 1)
 	end
 	g:refresh()
 end
@@ -377,18 +372,6 @@ function reset_loop_clock()
 	end
 end
 
-function select_voice(v)
-	if selected_voice == v then
-		return
-	end
-	engine.tip(selected_voice, 0)
-	engine.palm(selected_voice, 0)
-	engine.gate(selected_voice, 0)
-	engine.select_voice(v)
-	selected_voice = v
-	send_pitch_volts()
-end
-
 function lfo_arp_callback(gate)
 	if k.arping and k.n_sustained_keys > 0 then
 		k:arp(gate)
@@ -399,6 +382,22 @@ function init()
 
 	norns.enc.accel(1, false)
 	norns.enc.sens(1, 8)
+
+	k.on_select_voice = function(v, old_v)
+		engine.tip(old_v, 0)
+		engine.palm(old_v, 0)
+		engine.gate(old_v, 0)
+		engine.select_voice(v)
+		send_pitch_volts()
+	end
+
+	k.on_voice_octave = function(v, d)
+		if d == 0 then
+			params:set('octave_' .. v, 0)
+		else
+			params:delta('octave_' .. v, d)
+		end
+	end
 
 	k.on_pitch = function()
 		local pitch = k.active_pitch
@@ -1120,7 +1119,7 @@ function init()
 	}
 	redraw_metro:start()
 
-	select_voice(1)
+	k:select_voice(1)
 
 	-- start at 0 / middle C
 	k.on_pitch()
