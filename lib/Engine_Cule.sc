@@ -113,7 +113,7 @@ Engine_Cule : CroneEngine {
 				loopPosition = 0,
 				loopRateScale = 1,
 
-				tune = 0,
+				shift = 0,
 				pitchSlew = 0.01,
 				lpgTone = 0.6,
 				attack = 0.01,
@@ -135,7 +135,6 @@ Engine_Cule : CroneEngine {
 				pan = 0,
 				lag = 0.1,
 
-				octave = 0,
 				detuneType = 0.2,
 				fadeSize = 0.5,
 				hpCutoff = 16,
@@ -234,7 +233,7 @@ Engine_Cule : CroneEngine {
 			// scaled version of amp that allows env to fully open the LPG filter
 			lpgOpenness = amp * Select.kr((ampMode == 2).asInteger, [1, 6.dbamp]).lag;
 
-			pitch = pitch + modulation[\pitch] + tune;
+			pitch = pitch + modulation[\pitch] + shift;
 
 			// send control values to bus for polling
 			Out.kr(\voiceStateBus.ir, [amp, pitch, t_trig, lfoA > 0, lfoB > 0]);
@@ -243,7 +242,7 @@ Engine_Cule : CroneEngine {
 			// if I try that, SC seems to just hang forever, no error message
 			pitch = Lag.kr(pitch, pitchSlew);
 
-			hz = 2.pow(pitch + octave) * In.kr(baseFreqBus);
+			hz = 2.pow(pitch) * In.kr(baseFreqBus);
 			detuneLin = opDetune * 40 * detuneType;
 			detuneExp = (opDetune * 7 * (1 - detuneType)).midiratio;
 			opB = this.harmonicOsc(
@@ -412,7 +411,7 @@ Engine_Cule : CroneEngine {
 		voiceDef.allControlNames.do({ |control|
 			var controlName = control.name;
 			if(controlName !== \gate, {
-				var signature = if([ \amp_mode, \octave ].includes(controlName), "ii", "if");
+				var signature = if([ \ampMode, \shift ].includes(controlName), "ii", "if");
 				this.addCommand(controlName, signature, { |msg|
 					voiceSynths[msg[1] - 1].set(controlName, msg[2]);
 				});
