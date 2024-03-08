@@ -48,7 +48,7 @@ function Keyboard.new(x, y, width, height)
 		arping = false,
 		gliding = false,
 		held_keys = { -- map of key names/ids to boolean states
-			voices = {}
+			voice_loops = {}
 		},
 		sustained_keys = {}, -- stack of sustained key IDs
 		n_sustained_keys = 0,
@@ -205,7 +205,7 @@ function Keyboard:key(x, y, z)
 				-- if voice key(s) are held, change voice octave(s)
 				local changed_voice_octave = false
 				for v = 1, n_voices do
-					if self.held_keys.voices[v] then
+					if self.held_keys.voice_loops[v] then
 						self.on_voice_octave(v, do_octave_reset and 0 or d)
 						changed_voice_octave = true
 					end
@@ -217,18 +217,49 @@ function Keyboard:key(x, y, z)
 			end
 		end
 	elseif x <= self.x + 1 then
+		local v = self.y2 - y
 		if x == self.x then
-			-- voice loop keys -- ignore. these are handled by fretware.lua
+			-- voice loop keys
+			self.held_keys.voice_loops[v] = z == 1
+			-- cheating a little here by calling functions from fretware.lua. TODO: clean up?
+			if z == 1 and not voice_states[v].looping then
+				if voice.loop_armed then
+					play_voice_loop(v)
+				else
+					self:select_voice(v)
+					record_voice_loop(v)
+				end
+			end
 		else
-			local v = self.y2 - y
-			self.held_keys.voices[v] = z == 1
+			-- voice select keys
 			if z == 1 then
 				self:select_voice(v)
 			end
 		end
 	else
+		if z == 1 and x == self.x2 and y == self.y then
+			-- loop delete key
+			-- TODO: offload this logic to fretware.lua?
+			if self:has_loop_key_held() then
+				for v = 1, n_voices do
+					if self.held_keys.voice_loops[v] then
+						clear_loop(v)
+					end
+				end
+				return
+			end
+		end
 		self:note(x, y, z)
 	end
+end
+
+function Keyboard:has_loop_key_held()
+	for v = 1, n_voices do
+		if self.held_keys.voice_loops[v] then
+			return true
+		end
+	end
+	return false
 end
 
 function Keyboard:maybe_release_sustained_keys()
@@ -591,6 +622,10 @@ function Keyboard:draw()
 
 			g:led(x, y, math.min(15, math.ceil(level)))
 		end
+	end
+
+	if self:has_loop_key_held() then
+		g:led(self.x2, self.y, 7)
 	end
 end
 

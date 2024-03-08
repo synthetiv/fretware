@@ -179,46 +179,39 @@ arp_clock = false
 loop_clock = false
 loop_free = false
 
--- handle grid key or footswitch press for looping
-function voice_loop_button(v)
-	local voice = voice_states[v]
-	if voice.looping then
-		-- stop looping
-		engine.clearLoop(v)
-		voice.looping = false
-		if voice.loop_clock then
-			clock.cancel(voice.loop_clock)
-		end
-		-- update amp mode, if needed (when a voice is looping, amp_mode param has no effect)
-		engine.ampMode(v, params:get('amp_mode') - 1)
-	elseif not voice.loop_armed then
-		-- get ready to loop (set loop start time here)
-		if loop_free then
-			voice.loop_armed = util.time()
-		else
-			voice.loop_armed_next = true
-		end
+function clear_voice_loop(v)
+	-- stop looping (clear loop)
+	engine.clearLoop(v)
+	voice.looping = false
+	if voice.loop_clock then
+		clock.cancel(voice.loop_clock)
+	end
+	-- update amp mode, if needed (when a voice is looping, amp_mode param has no effect)
+	engine.ampMode(v, params:get('amp_mode') - 1)
+end
+
+function record_voice_loop(v)
+	-- start recording (set loop start time here)
+	if loop_free then
+		voice.loop_armed = util.time()
 	else
-		-- start looping
-		if loop_free then
-			engine.setLoop(v, util.time() - voice.loop_armed)
-			voice.looping = true
-			voice.loop_armed = false
-		else
-			voice.looping_next = true
-		end
+		voice.loop_armed_next = true
+	end
+end
+
+function play_voice_loop(v)
+	-- stop recording, start looping
+	if loop_free then
+		engine.setLoop(v, util.time() - voice.loop_armed)
+		voice.looping = true
+		voice.loop_armed = false
+	else
+		voice.looping_next = true
 	end
 end
 
 function g.key(x, y, z)
-	if y < 8 and x == 1 then
-		if z == 1 then
-			local v = 8 - y
-			voice_loop_button(v)
-		end
-	else
-		k:key(x, y, z)
-	end
+	k:key(x, y, z)
 	-- TODO: sync the whole note stack with TT
 	-- I think you'll need to trigger events from the keyboard class, and... urgh...
 	-- it's more information than you can easily send to TT
