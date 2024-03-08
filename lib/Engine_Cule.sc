@@ -147,6 +147,7 @@ Engine_Cule : CroneEngine {
 				adsr, eg, amp, lpgOpenness, lfoA, lfoB,
 				hz, detuneLin, detuneExp,
 				fmInput, opB, fmMix, opA,
+				lpgCutoff,
 				voiceOutput,
 				highPriorityUpdate;
 
@@ -265,17 +266,16 @@ Engine_Cule : CroneEngine {
 			voiceOutput = LinXFade2.ar(opA, opB, opMix);
 			voiceOutput = (foldGain.linexp(-1, 1, 1, 27) * voiceOutput).fold2;
 			// filter LPG-style
+			lpgCutoff = lpgOpenness.lincurve(
+				0, 1,
+				lpgTone.lincurve(0, 1, 20, 20000, 4), lpgTone.lincurve(-1, 0, 20, 20000, 4),
+				\lpgCurve.kr(3)
+			);
+
 			voiceOutput = Select.ar(\lpgOn.kr(1), [
 				voiceOutput,
-				RLPF.ar(
-					voiceOutput,
-					lpgOpenness.lincurve(
-						0, 1,
-						lpgTone.lincurve(0, 1, 20, 20000, 4), lpgTone.lincurve(-1, 0, 20, 20000, 4),
-						\lpgCurve.kr(3)
-					),
-					\lpgRQ.kr(0.9)
-				)
+				RLPF.ar(voiceOutput, lpgCutoff, \lpgRQ.kr(0.9))
+				LPF.ar(voiceOutput, lpgCutoff)
 			]);
 			// scale by amplitude control value
 			voiceOutput = voiceOutput * amp;
