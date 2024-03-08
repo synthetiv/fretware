@@ -160,6 +160,7 @@ for v = 1, n_voices do
 	voice_states[v] = {
 		pitch = 0,
 		amp = 0,
+		shift = 0,
 		looping = false,
 		looping_next = false,
 		loop_armed = false,
@@ -167,8 +168,6 @@ for v = 1, n_voices do
 		loop_beat_sec = 0.25
 	}
 end
-
-selected_voice = 1
 
 tip = 0
 palm = 0
@@ -186,6 +185,9 @@ function clear_voice_loop(v)
 	if voice.loop_clock then
 		clock.cancel(voice.loop_clock)
 	end
+	-- clear pitch shift, because it only confuses things when loop isn't engaged
+	voice.shift = 0
+	engine.shift(v, 0)
 	-- update amp mode, if needed (when a voice is looping, amp_mode param has no effect)
 	engine.ampMode(v, params:get('amp_mode') - 1)
 end
@@ -384,12 +386,14 @@ function init()
 		send_pitch_volts()
 	end
 
-	k.on_voice_octave = function(v, d)
+	k.on_voice_shift = function(v, d)
+		local voice = voice_states[v]
 		if d == 0 then
-			params:set('octave_' .. v, 0)
+			voice.shift = 0
 		else
-			params:delta('octave_' .. v, d)
+			voice.shift = voice.shift + d
 		end
+		engine.shift(v, voice.shift)
 	end
 
 	k.on_pitch = function()
@@ -400,7 +404,7 @@ function init()
 
 	k.on_gate = function(gate)
 		crow.output[4](gate)
-		engine.gate(selected_voice, gate and 1 or 0)
+		engine.gate(k.selected_voice, gate and 1 or 0)
 	end
 
 	-- TODO: why doesn't crow.add() work anymore?
@@ -469,13 +473,13 @@ function init()
 		pitch_poll:start()
 		-- and polls for LFO updates, which will only fire when a voice is selected and an LFO is used as an arp clock
 		local lfoA_poll = poll.set('lfoA_gate_' .. v, function(gate)
-			if k.arping and k.n_sustained_keys > 0 and v == selected_voice and arp_clock_source == 2 then
+			if k.arping and k.n_sustained_keys > 0 and v == k.selected_voice and arp_clock_source == 2 then
 				k:arp(gate)
 			end
 		end)
 		lfoA_poll:start()
 		local lfoB_poll = poll.set('lfoB_gate_' .. v, function(gate)
-			if k.arping and k.n_sustained_keys > 0 and v == selected_voice and arp_clock_source == 3 then
+			if k.arping and k.n_sustained_keys > 0 and v == k.selected_voice and arp_clock_source == 3 then
 				k:arp(gate)
 			end
 		end)
@@ -909,28 +913,6 @@ function init()
 			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.loopPosition(v, value)
-			end
-		}
-
-		params:add {
-			name = 'tune',
-			id = 'tune_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(-12, 12, 'lin', 0, 0, 'st'),
-			action = function(value)
-				engine.tune(v, value / 12)
-			end
-		}
-
-		params:add {
-			name = 'octave',
-			id = 'octave_' .. v,
-			type = 'number',
-			min = -5,
-			max = 5,
-			default = 0,
-			action = function(value)
-				engine.octave(v, value)
 			end
 		}
 

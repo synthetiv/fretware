@@ -203,15 +203,15 @@ function Keyboard:key(x, y, z)
 				-- if both keys are pressed together, reset octave to 0
 				local do_octave_reset = self.held_keys.up and self.held_keys.down
 				-- if voice key(s) are held, change voice octave(s)
-				local changed_voice_octave = false
+				local shifted_voice = false
 				for v = 1, n_voices do
 					if self.held_keys.voice_loops[v] then
-						self.on_voice_octave(v, do_octave_reset and 0 or d)
-						changed_voice_octave = true
+						self.on_voice_shift(v, do_octave_reset and 0 or d * self.scale.span)
+						shifted_voice = true
 					end
 				end
 				-- otherwise, change keyboard octave
-				if not changed_voice_octave then
+				if not shifted_voice then
 					self:shift_octave(do_octave_reset and -self.octave or d)
 				end
 			end
@@ -612,7 +612,7 @@ function Keyboard:draw()
 
 			for v = 1, n_voices do
 				local voice = self.voice_data[v]
-				local is_control = selected_voice == v and 1 or 0
+				local is_control = self.selected_voice == v and 1 or 0
 				if p == voice.low then
 					level = led_blend(level, (1 - voice.weight) * ((is_control * 4) + (is_control * 3 + 16) * math.sqrt(voice.amp)))
 				elseif p == voice.high then
