@@ -180,6 +180,7 @@ loop_free = false
 
 function clear_voice_loop(v)
 	-- stop looping (clear loop)
+	local voice = voice_states[v]
 	engine.clearLoop(v)
 	voice.looping = false
 	if voice.loop_clock then
@@ -194,6 +195,7 @@ end
 
 function record_voice_loop(v)
 	-- start recording (set loop start time here)
+	local voice = voice_states[v]
 	if loop_free then
 		voice.loop_armed = util.time()
 	else
@@ -203,6 +205,7 @@ end
 
 function play_voice_loop(v)
 	-- stop recording, start looping
+	local voice = voice_states[v]
 	if loop_free then
 		engine.setLoop(v, util.time() - voice.loop_armed)
 		voice.looping = true
@@ -379,6 +382,12 @@ function init()
 	norns.enc.sens(1, 8)
 
 	k.on_select_voice = function(v, old_v)
+		-- if any other voice is recording, stop recording & start looping it
+		for ov = 1, n_voices do
+			if ov ~= v and voice_states[ov].loop_armed then
+				play_voice_loop(ov)
+			end
+		end
 		engine.tip(old_v, 0)
 		engine.palm(old_v, 0)
 		engine.gate(old_v, 0)

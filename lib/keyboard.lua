@@ -221,8 +221,9 @@ function Keyboard:key(x, y, z)
 		if x == self.x then
 			-- voice loop keys
 			self.held_keys.voice_loops[v] = z == 1
+			local voice = voice_states[v]
 			-- cheating a little here by calling functions from fretware.lua. TODO: clean up?
-			if z == 1 and not voice_states[v].looping then
+			if z == 1 and not voice.looping then
 				if voice.loop_armed then
 					play_voice_loop(v)
 				else
@@ -243,7 +244,7 @@ function Keyboard:key(x, y, z)
 			if self:has_loop_key_held() then
 				for v = 1, n_voices do
 					if self.held_keys.voice_loops[v] then
-						clear_loop(v)
+						clear_voice_loop(v)
 					end
 				end
 				return
