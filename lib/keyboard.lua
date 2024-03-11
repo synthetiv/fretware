@@ -584,13 +584,15 @@ function Keyboard:draw()
 	g:led(self.x2 - 1, self.y2, math.min(15, math.max(0, (self.held_keys.down and 7 or 2) - math.min(self.octave, 0))))
 	g:led(self.x2, self.y2, math.min(15, math.max(0, (self.held_keys.up and 7 or 2) + math.max(self.octave, 0))))
 
+	local has_voice_key_held = false
+
 	for v = 1, n_voices do
 		local low, high, weight = self.scale:get_nearest_pitch_id(voice_states[v].pitch, true)
 		self.voice_data[v].low = low
 		self.voice_data[v].high = high
 		self.voice_data[v].weight = weight
 		self.voice_data[v].amp = voice_states[v].amp
-		-- TODO: when a voice loop key is held, dim other voices and brighten that voice
+		has_voice_key_held = has_voice_key_held or self.held_keys.voice_loops[v]
 		g:led(2, 8 - v, self.selected_voice == v and 8 or 2)
 	end
 
@@ -609,10 +611,19 @@ function Keyboard:draw()
 			for v = 1, n_voices do
 				local voice = self.voice_data[v]
 				local is_control = self.selected_voice == v and 1 or 0
-				if p == voice.low then
-					level = led_blend(level, (1 - voice.weight) * ((is_control * 4) + (is_control * 3 + 16) * math.sqrt(voice.amp)))
-				elseif p == voice.high then
-					level = led_blend(level, voice.weight * ((is_control * 4) + (is_control * 3 + 16) * math.sqrt(voice.amp)))
+				if p == voice.low or p == voice.high then
+					local voice_level = ((is_control * 4) + (is_control * 3 + 16) * math.sqrt(voice.amp))
+					-- when any voice's loop key is held, dim OTHER voices
+					if has_voice_key_held and not self.held_keys.voice_loops[v] then
+						voice_level = voice_level * 0.1
+					end
+					-- scale levels of high + low approximations of this voice's pitch by weight
+					if p == voice.low then
+						voice_level = (1 - voice.weight) * voice_level
+					elseif p == voice.high then
+						voice_level = voice.weight * voice_level
+					end
+					level = led_blend(level, voice_level)
 				end
 			end
 
