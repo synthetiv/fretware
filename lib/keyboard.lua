@@ -588,7 +588,8 @@ function Keyboard:draw()
 		self.voice_data[v].high = high
 		self.voice_data[v].weight = weight
 		self.voice_data[v].amp = voice_states[v].amp
-		g:led(2, 8 - v, self.selected_voice == v and 8 or 1)
+		-- TODO: when a voice loop key is held, dim other voices and brighten that voice
+		g:led(2, 8 - v, self.selected_voice == v and 8 or 2)
 	end
 
 	for x = self.x + 2, self.x2 do

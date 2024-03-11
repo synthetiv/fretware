@@ -17,6 +17,7 @@ echo_rate_smoothing = 0.1
 echo_drift_factor = 1
 
 redraw_metro = nil
+blink = true
 
 g = grid.connect()
 
@@ -273,11 +274,11 @@ function grid_redraw()
 		local voice = voice_states[v]
 		local level = voice.amp
 		if voice.loop_armed then
-			level = level * 0.5 + 0.5
+			level = level * 0.5 + (blink and 0.5 or 0)
 		elseif voice.looping then
 			level = level * 0.75 + 0.25
 		end
-		level = 2 + math.floor(level * 13)
+		level = math.floor(level * 15)
 		g:led(1, 8 - v, level)
 	end
 	g:refresh()
@@ -1095,7 +1096,8 @@ function init()
 
 	redraw_metro = metro.init {
 		time = 1 / 30,
-		event = function()
+		event = function(n)
+			blink = (n % 7 < 3)
 			for p = 1, #editor.dests do
 				local dial = dest_dials[editor.dests[p].name]
 				dial.x = math.floor(dial.x + (((p - editor.dest) * 20 + 82) - dial.x) * 0.6)
