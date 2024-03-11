@@ -202,12 +202,14 @@ function Keyboard:key(x, y, z)
 			if z == 1 then
 				-- if both keys are pressed together, reset octave to 0
 				local do_octave_reset = self.held_keys.up and self.held_keys.down
-				-- if voice key(s) are held, change voice octave(s)
 				local shifted_voice = false
-				for v = 1, n_voices do
-					if self.held_keys.voice_loops[v] then
-						self.on_voice_shift(v, do_octave_reset and 0 or d * self.scale.span)
-						shifted_voice = true
+				if not self.held_keys.octave_scroll then
+					-- if scroll is off and voice key(s) are held, change voice octave(s)
+					for v = 1, n_voices do
+						if self.held_keys.voice_loops[v] then
+							self.on_voice_shift(v, do_octave_reset and 0 or d * self.scale.span)
+							shifted_voice = true
+						end
 					end
 				end
 				-- otherwise, change keyboard octave
