@@ -240,27 +240,19 @@ function Keyboard:key(x, y, z)
 	else
 		if z == 1 and x == self.x2 and y == self.y then
 			-- loop delete key
-			-- TODO: offload this logic to fretware.lua?
-			if self:has_loop_key_held() then
-				for v = 1, n_voices do
-					if self.held_keys.voice_loops[v] then
-						clear_voice_loop(v)
-					end
+			local has_voice_key_held = false
+			for v = 1, n_voices do
+				if self.held_keys.voice_loops[v] then
+					has_voice_key_held = true
+					clear_voice_loop(v)
 				end
+			end
+			if has_voice_key_held then
 				return
 			end
 		end
 		self:note(x, y, z)
 	end
-end
-
-function Keyboard:has_loop_key_held()
-	for v = 1, n_voices do
-		if self.held_keys.voice_loops[v] then
-			return true
-		end
-	end
-	return false
 end
 
 function Keyboard:maybe_release_sustained_keys()
@@ -625,8 +617,11 @@ function Keyboard:draw()
 		end
 	end
 
-	if self:has_loop_key_held() then
-		g:led(self.x2, self.y, 7)
+	-- voice loop delete key
+	for v = 1, n_voices do
+		if self.held_keys.voice_loops[v] and voice_states[v].looping then
+			g:led(self.x2, self.y, 7)
+		end
 	end
 end
 

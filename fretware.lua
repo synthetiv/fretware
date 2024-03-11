@@ -181,6 +181,9 @@ loop_free = false
 function clear_voice_loop(v)
 	-- stop looping (clear loop)
 	local voice = voice_states[v]
+	if not voice.looping then
+		return
+	end
 	engine.clearLoop(v)
 	voice.looping = false
 	if voice.loop_clock then
