@@ -680,10 +680,10 @@ function init()
 	params:add_separator('ALL int voices')
 
 	params:add {
-		name = 'lpg type',
+		name = 'lpg on',
 		id = 'lpgOn',
 		type = 'option',
-		options = { 'none', 'rlpf', 'lpf' },
+		options = { 'off', 'on' },
 		default = 2,
 		action = function(value)
 			for v = 1, n_voices do

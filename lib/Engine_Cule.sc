@@ -267,14 +267,13 @@ Engine_Cule : CroneEngine {
 			// filter LPG-style
 			lpgCutoff = lpgOpenness.lincurve(
 				0, 1,
-				lpgTone.lincurve(0, 1, 20, 20000, 4), lpgTone.lincurve(-1, 0, 20, 20000, 4),
+				lpgTone.lincurve(0, 1, \lpgMin.kr(20), \lpgMax.kr(20000), 4), lpgTone.lincurve(-1, 0, \lpgMin.kr(20), \lpgMax.kr(20000), 4),
 				\lpgCurve.kr(3)
 			);
 
 			voiceOutput = Select.ar(\lpgOn.kr(1), [
 				voiceOutput,
-				RLPF.ar(voiceOutput, lpgCutoff, \lpgRQ.kr(0.9)),
-				LPF.ar(voiceOutput, lpgCutoff)
+				RLPF.ar(voiceOutput, lpgCutoff, \lpgRQ.kr(0.9))
 			]);
 			// scale by amplitude control value
 			voiceOutput = voiceOutput * amp;
