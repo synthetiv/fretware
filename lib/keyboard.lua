@@ -188,7 +188,7 @@ function Keyboard:key(x, y, z)
 				end
 			end
 		elseif x == self.x2 - 3 then
-			self.held_keys.octave_jump = z == 1
+			self.held_keys.octave_scroll = z == 1
 		elseif x > self.x2 - 2 then
 			-- octave up/down
 			local d = 0
@@ -315,8 +315,8 @@ function Keyboard:shift_octave(od)
 	-- this needs to happen BEFORE we move sustained_keys around,
 	-- so we can know if all sustained keys were held before the shift happened
 	if self.gliding then
-		-- always move if jump is on
-		local move_bent_pitch = held_keys.octave_jump
+		-- always move if scroll is off
+		local move_bent_pitch = not held_keys.octave_scroll
 		-- or if ALL sustained keys are being held
 		if not move_bent_pitch and self.n_sustained_keys > 0 then
 			move_bent_pitch = true
@@ -330,9 +330,9 @@ function Keyboard:shift_octave(od)
 			self.bent_pitch = self.bent_pitch + od
 		end
 	end
-	-- when jump is engaged, all key IDs remain the same so that pitches change.
-	-- when not engaged, sustained (but not held) keys must be shifted so that pitches remain the same
-	if not held_keys.octave_jump then
+	-- when scroll is not engaged, all key IDs remain the same so that pitches change.
+	-- when engaged, sustained (but not held) keys must be shifted so that pitches remain the same
+	if held_keys.octave_scroll then
 		local sustained_keys = self.sustained_keys
 		-- how far must keys be shifted so that their pitches remain the same?
 		local d = -od * self.scale.length
@@ -586,7 +586,7 @@ function Keyboard:draw()
 	g:led(self.x + 2, self.y2, self.held_keys.latch and 7 or 2)
 	g:led(self.x + 3, self.y2, self.arping and 7 or 2)
 	g:led(self.x + 5, self.y2, self.gliding and 7 or 2)
-	g:led(self.x2 - 3, self.y2, self.held_keys.octave_jump and 7 or 2)
+	g:led(self.x2 - 3, self.y2, self.held_keys.octave_scroll and 7 or 2)
 	g:led(self.x2 - 1, self.y2, math.min(15, math.max(0, (self.held_keys.down and 7 or 2) - math.min(self.octave, 0))))
 	g:led(self.x2, self.y2, math.min(15, math.max(0, (self.held_keys.up and 7 or 2) + math.max(self.octave, 0))))
 
