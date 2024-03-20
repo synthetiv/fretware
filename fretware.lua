@@ -697,13 +697,13 @@ function init()
 	}
 
 	params:add {
-		name = 'lpg rq',
-		id = 'lpgRQ',
+		name = 'lpg q',
+		id = 'lpgQ',
 		type = 'control',
-		controlspec = controlspec.new(0.2, 1.1, 'lin', 0, 0.9),
+		controlspec = controlspec.new(0.9, 5, 'lin', 0, 1.1),
 		action = function(value)
 			for v = 1, n_voices do
-				engine.lpgRQ(v, value)
+				engine.lpgQ(v, value)
 			end
 		end
 	}
