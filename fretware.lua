@@ -737,18 +737,6 @@ function init()
 	}
 
 	params:add {
-		name = 'pitch lag',
-		id = 'pitch_lag',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.01, 's'),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.pitchSlew(v, value)
-			end
-		end
-	}
-
-	params:add {
 		name = 'detune exp/lin',
 		id = 'detuneType',
 		type = 'control',
