@@ -68,8 +68,6 @@ Engine_Cule : CroneEngine {
 		// modulation sources
 		modulatorNames = [
 			\pitch,
-			\tip,
-			\palm,
 			\hand,
 			\eg,
 			\lfoA,
