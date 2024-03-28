@@ -441,8 +441,6 @@ function init()
 				local new_position = phase - (echo_head_distance * div)
 				new_position = (new_position - 1) % echo_loop_length + 1
 				softcut.position(2, new_position)
-				softcut.phase_offset(1, phase) -- TODO: does this work/help?
-				print('set voice 1 phase offset', phase)
 				echo_div_dirty = false
 			end
 		end
