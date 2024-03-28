@@ -432,6 +432,7 @@ function init()
 	softcut.level_input_cut(1, 1, 1)
 	softcut.level_input_cut(2, 1, 1)
 	softcut.rec(1, 1)
+	softcut.rec_level(1, 1)
 	softcut.phase_quant(1, 0.5)
 	softcut.event_phase(function(voice, phase)
 		if voice == 1 then
@@ -440,6 +441,8 @@ function init()
 				local new_position = phase - (echo_head_distance * div)
 				new_position = (new_position - 1) % echo_loop_length + 1
 				softcut.position(2, new_position)
+				softcut.phase_offset(1, phase) -- TODO: does this work/help?
+				print('set voice 1 phase offset', phase)
 				echo_div_dirty = false
 			end
 		end
@@ -454,7 +457,6 @@ function init()
 		softcut.loop_end(scv, 1 + echo_loop_length)
 		softcut.loop(scv, 1)
 		softcut.fade_time(scv, 0.01)
-		softcut.rec_level(scv, 1)
 		softcut.pre_level(scv, 0)
 		softcut.position(scv, ((scv - 1) * -echo_head_distance) % echo_loop_length + 1)
 		softcut.level_slew_time(scv, 0.001)
@@ -605,7 +607,7 @@ function init()
 		name = 'echo time div',
 		id = 'echo_time_div',
 		type = 'number',
-		min = -2,
+		min = -4,
 		max = 4,
 		default = 0,
 		formatter = function(param)
@@ -650,8 +652,8 @@ function init()
 		id = 'echo_resolution',
 		type = 'number',
 		default = 0,
-		min = -5,
-		max = 1,
+		min = -7,
+		max = 2,
 		action = function(value)
 			local multiplier = math.pow(2, value)
 			softcut.phase_quant(1, multiplier * 0.5)
