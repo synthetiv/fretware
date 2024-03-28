@@ -591,20 +591,6 @@ function init()
 	params:add_separator('echo')
 
 	params:add {
-		name = 'echo send',
-		id = 'echo_send',
-		type = 'taper',
-		min = 0,
-		max = 1,
-		k = 2,
-		default = 0.2,
-		action = function(value)
-			softcut.level_input_cut(1, 1, value)
-			softcut.level_input_cut(2, 1, value)
-		end
-	}
-
-	params:add {
 		name = 'echo time',
 		id = 'echo_time',
 		type = 'control',
@@ -1078,6 +1064,8 @@ function init()
 	params:bang()
 
 	params:set('reverb', 1) -- off
+	params:set('cut_input_eng', 0.6) -- some echo
+	params:set('input_level', 0) -- monitor off (ext. echo fully wet)
 
 	reset_arp_clock()
 	reset_loop_clock()
