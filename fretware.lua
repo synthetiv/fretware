@@ -499,67 +499,38 @@ function init()
 		lfoB_poll:start()
 	end
 
-	params:add {
-		name = 'loop clock div',
-		id = 'loop_clock_div',
-		type = 'number',
-		default = 3,
-		min = -3,
-		max = 3,
-		formatter = function(param)
-			local measures = -param:get() - 2
-			if measures == -5 then -- 3 = 1/32 = no quantization of loop lengths
-				return 'free'
-			elseif measures >= 0 then
-				return string.format('%d', math.pow(2, measures))
-			else
-				return string.format('1/%d', math.pow(2, -measures))
-			end
-		end,
-		action = function(value)
-			reset_loop_clock()
-		end
-	}
+	params:add_group('tuning', 4)
+
+	-- TODO: add params for tt and crow transposition
+	-- ...and yeah, control from keyboard. you'll want that again
 
 	params:add {
-		name = 'arp clock div',
-		id = 'arp_clock_div',
-		type = 'number',
-		default = 2,
-		min = -3,
-		max = 5,
-		formatter = function(param)
-			local measures = -param:get() - 2
-			if measures >= 0 then
-				return string.format('%d', math.pow(2, measures))
-			else
-				return string.format('1/%d', math.pow(2, -measures))
-			end
-		end,
-		action = function(value)
-			reset_arp_clock()
-		end
-	}
-
-	params:add {
-		name = 'arp clock source',
-		id = 'arp_clock_source',
-		type = 'option',
-		options = { 'system', 'lfoA', 'lfoB', 'crow' },
-		default = 2,
-		action = function(value)
-			arp_clock_source = value
-			engine.poll_lfo(arp_clock_source - 1)
-		end
-	}
-
-	params:add {
-		name = 'arp randomness',
-		id = 'arp_randomness',
+		name = 'base frequency (C)',
+		id = 'base_freq',
 		type = 'control',
-		controlspec = controlspec.new(0, 100, 'lin', 1, 0, '%'),
+		controlspec = controlspec.new(130, 522, 'exp', 0, musicutil.note_num_to_freq(60), 'Hz'),
 		action = function(value)
-			k.arp_randomness = value / 100
+			engine.baseFreq(value)
+		end
+	}
+
+	params:add {
+		name = 'base freq reset',
+		id = 'base_freq_reset',
+		type = 'binary',
+		behavior = 'trigger',
+		action = function(value)
+			params:set('base_freq', musicutil.note_num_to_freq(60))
+		end
+	}
+
+	params:add {
+		type = 'file',
+		id = 'tuning_file',
+		name = 'tuning_file',
+		path = '/home/we/dust/data/fretwork/scales/12tet.scl',
+		action = function(value)
+			k.scale:read_scala_file(value)
 		end
 	}
 
@@ -588,7 +559,7 @@ function init()
 		end
 	}
 
-	params:add_separator('echo')
+	params:add_group('echo', 6)
 
 	params:add {
 		name = 'echo time',
@@ -664,6 +635,72 @@ function init()
 				softcut.rate(scv, echo_rate_smoothed * echo_drift_factor)
 			end
 			echo_div_dirty = true
+		end
+	}
+
+	params:add_group('clock/arp', 4)
+
+	params:add {
+		name = 'loop clock div',
+		id = 'loop_clock_div',
+		type = 'number',
+		default = 3,
+		min = -3,
+		max = 3,
+		formatter = function(param)
+			local measures = -param:get() - 2
+			if measures == -5 then -- 3 = 1/32 = no quantization of loop lengths
+				return 'free'
+			elseif measures >= 0 then
+				return string.format('%d', math.pow(2, measures))
+			else
+				return string.format('1/%d', math.pow(2, -measures))
+			end
+		end,
+		action = function(value)
+			reset_loop_clock()
+		end
+	}
+
+	params:add {
+		name = 'arp clock div',
+		id = 'arp_clock_div',
+		type = 'number',
+		default = 2,
+		min = -3,
+		max = 5,
+		formatter = function(param)
+			local measures = -param:get() - 2
+			if measures >= 0 then
+				return string.format('%d', math.pow(2, measures))
+			else
+				return string.format('1/%d', math.pow(2, -measures))
+			end
+		end,
+		action = function(value)
+			reset_arp_clock()
+		end
+	}
+
+	params:add {
+		name = 'arp clock source',
+		id = 'arp_clock_source',
+		type = 'option',
+		options = { 'system', 'lfoA', 'lfoB', 'crow' },
+		default = 2,
+		action = function(value)
+			arp_clock_source = value
+			engine.poll_lfo(arp_clock_source - 1)
+		end
+	}
+
+	params:add {
+		name = 'arp randomness',
+		id = 'arp_randomness',
+		type = 'control',
+		controlspec = controlspec.new(0, 100, 'lin', 1, 0, '%'),
+		action = function(value)
+			k.arp_randomness = value / 100
 		end
 	}
 
@@ -935,42 +972,7 @@ function init()
 		-- TODO: per-voice modulation routing, EG controls, LFO controls... cooperate with global controls
 	end
 
-	params:add_separator('etc')
-
-	-- TODO: add params for tt and crow transposition
-	-- ...and yeah, control from keyboard. you'll want that again
-
-	params:add {
-		name = 'base frequency (C)',
-		id = 'base_freq',
-		type = 'control',
-		controlspec = controlspec.new(130, 522, 'exp', 0, musicutil.note_num_to_freq(60), 'Hz'),
-		action = function(value)
-			engine.baseFreq(value)
-		end
-	}
-
-	params:add {
-		name = 'base freq reset',
-		id = 'base_freq_reset',
-		type = 'binary',
-		behavior = 'trigger',
-		action = function(value)
-			params:set('base_freq', musicutil.note_num_to_freq(60))
-		end
-	}
-
-	params:add {
-		type = 'file',
-		id = 'tuning_file',
-		name = 'tuning_file',
-		path = '/home/we/dust/data/fretwork/scales/12tet.scl',
-		action = function(value)
-			k.scale:read_scala_file(value)
-		end
-	}
-
-	params:add_group('crow', 7)
+	params:add_group('crow', 6)
 
 	-- TODO: damp base + range are a way to avoid using an extra attenuator + offset,
 	-- but is that worth it?
