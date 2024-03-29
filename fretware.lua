@@ -1053,7 +1053,8 @@ function init()
 
 	params:set('reverb', 1) -- off
 	params:set('cut_input_eng', 0.6) -- some echo
-	params:set('input_level', 0) -- monitor off (ext. echo fully wet)
+	params:set('input_level', 0) -- input at unity
+	params:set('monitor_level', -inf) -- monitor off (ext. echo fully wet)
 
 	reset_arp_clock()
 	reset_loop_clock()
