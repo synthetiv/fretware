@@ -239,11 +239,11 @@ function touche.event(data)
 		-- back = 16, front = 17, left = 18, right = 19
 		if message.cc == 17 then
 			tip = message.val / 126
-			engine.tip(k.selected_voice, tip) -- let SC do the scaling
+			engine.tip(k.selected_voice, tip * tip)
 			crow.output[2].volts = 10 * math.sqrt(tip)
 		elseif message.cc == 16 then
 			palm = message.val / 126
-			engine.palm(k.selected_voice, palm * palm)
+			engine.palm(k.selected_voice, palm * palm * palm)
 			crow.output[3].volts = palm * params:get('damp_range') + params:get('damp_base')
 		elseif message.cc == 18 then
 			k:bend(-math.min(1, message.val / 126)) -- TODO: not sure why 126 is the max value I'm getting from Touche...
