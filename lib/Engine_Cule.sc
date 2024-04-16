@@ -42,6 +42,18 @@ Engine_Cule : CroneEngine {
 		);
 	}
 
+	// helper function to rungle two sources
+	rungle {
+		arg clock, sig;
+		var buffer = LocalBuf(8);
+		var pos = Stepper.kr(clock, 0, 0, 7);
+		var r1 = BufRd.kr(1, buffer, (pos + 5) % 8, 0, 0);
+		var r2 = BufRd.kr(1, buffer, (pos + 6) % 8, 0, 0);
+		var r3 = BufRd.kr(1, buffer, (pos + 7) % 8, 0, 0);
+		BufWr.kr(sig >= 0, buffer, pos);
+		^(((r1 << 0) + (r2 << 1) + (r3 << 2)) / 7).lag(0.001);
+	}
+
 	alloc {
 
 		// modulatable parameters for audio synths
@@ -73,7 +85,10 @@ Engine_Cule : CroneEngine {
 			\hand,
 			\eg,
 			\lfoA,
-			\lfoB
+			\lfoB,
+			\runglerA,
+			\runglerB,
+			\lfoSH
 		];
 
 		// frequency ratios used by the two FM operators of each voice
@@ -87,7 +102,7 @@ Engine_Cule : CroneEngine {
 
 		// control-rate outputs for pitch, amp, trigger, and LFO states, to feed polls
 		voiceStateBuses = Array.fill(nVoices, {
-			Bus.control(context.server, 5);
+			Bus.control(context.server, 6);
 		});
 
 		controlBuffers = Array.fill(nVoices, {
@@ -120,9 +135,7 @@ Engine_Cule : CroneEngine {
 				decay = 0.1,
 				sustain = 0.8,
 				release = 0.3,
-				lfoAType = 0,
 				lfoAFreq = 0.9,
-				lfoBType = 0,
 				lfoBFreq = 1.1,
 				oscType = 1,
 				tuneA = 0,
@@ -143,7 +156,8 @@ Engine_Cule : CroneEngine {
 			var bufferRate, bufferLength, bufferPhase,
 				loopStart, loopPhase, loopTrigger, loopOffset,
 				modulation = Dictionary.new,
-				adsr, eg, amp, lpgOpenness, lfoA, lfoB,
+				adsr, eg, amp, lpgOpenness,
+				runglerA, runglerB, lfoA, lfoB, lfoEqual, lfoSH,
 				hz, detuneLin, detuneExp,
 				fmInput, opB, fmMix, opA,
 				lpgCutoff,
@@ -183,7 +197,7 @@ Engine_Cule : CroneEngine {
 			attack = attack * 8.pow(modulation[\attack]);
 			decay = decay * 8.pow(modulation[\decay]);
 			sustain = (sustain + modulation[\sustain]).clip;
-			release = release * 8.pow(modulation[\decay]);
+			release = release * 8.pow(modulation[\release]);
 			eg = Select.kr(\egType.kr(2), [
 				EnvGen.kr(Env.adsr(attack, decay, sustain, release), gate),
 				EnvGen.kr(Env.asr(attack, 1, release), gate),
@@ -191,22 +205,14 @@ Engine_Cule : CroneEngine {
 			]);
 
 			lfoAFreq = lfoAFreq * 8.pow(modulation[\lfoAFreq]);
-			lfoA = Select.kr(lfoAType, [
-				SinOsc.kr(lfoAFreq),
-				LFTri.kr(lfoAFreq),
-				LFSaw.kr(lfoAFreq),
-				LFNoise1.kr(lfoAFreq),
-				LFNoise0.kr(lfoAFreq)
-			]);
-
+			lfoA = LFTri.kr(lfoAFreq);
 			lfoBFreq = lfoBFreq * 8.pow(modulation[\lfoBFreq]);
-			lfoB = Select.kr(lfoBType, [
-				SinOsc.kr(lfoBFreq),
-				LFTri.kr(lfoBFreq),
-				LFSaw.kr(lfoBFreq),
-				LFNoise1.kr(lfoBFreq),
-				LFNoise0.kr(lfoBFreq)
-			]);
+			lfoB = LFTri.kr(lfoBFreq);
+			runglerA = this.rungle(lfoA, lfoB);
+			runglerB = this.rungle(lfoB, lfoA);
+			// TODO: is this doing what I think it is? is it double triggering for some reason?
+			lfoEqual = BinaryOpUGen('>=', lfoA, lfoB);
+			lfoSH = Latch.kr(lfoA, lfoEqual);
 
 			// this weird-looking LinSelectX pattern scales modulation signals so that
 			// final parameter values (base + modulation) can always reach [-1, 1]
@@ -222,7 +228,7 @@ Engine_Cule : CroneEngine {
 
 			// now we're done with the modulation matrix
 
-			LocalOut.kr([pitch, tip, palm, tip - palm, eg, lfoA, lfoB]);
+			LocalOut.kr([pitch, tip, palm, tip - palm, eg, lfoA, lfoB, runglerA, runglerB, lfoSH]);
 
 			// slew tip for direct control of amplitude -- otherwise there will be audible steppiness
 			tip = Lag.kr(tip, 0.05);
@@ -237,7 +243,7 @@ Engine_Cule : CroneEngine {
 			pitch = pitch + (modulation[\pitch] / 4) + shift;
 
 			// send control values to bus for polling
-			Out.kr(\voiceStateBus.ir, [amp, pitch, t_trig, lfoA > 0, lfoB > 0]);
+			Out.kr(\voiceStateBus.ir, [amp, pitch, t_trig, lfoA > 0, lfoB > 0, lfoEqual]);
 
 			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
 			// if I try that, SC seems to just hang forever, no error message
@@ -290,8 +296,8 @@ Engine_Cule : CroneEngine {
 			var replyTrig = Impulse.kr(replyRate);
 			nVoices.do({ |v|
 				var isSelected = BinaryOpUGen('==', selectedVoice, v);
-				var amp, pitch, trig, lfoA, lfoB, pitchTrig;
-				# amp, pitch, trig, lfoA, lfoB = In.kr(voiceStateBuses[v], 5);
+				var amp, pitch, trig, lfoA, lfoB, lfoEqual, pitchTrig;
+				# amp, pitch, trig, lfoA, lfoB, lfoEqual = In.kr(voiceStateBuses[v], 6);
 
 				// what's important is peak amplitude, not exact current amplitude at poll time
 				amp = Peak.kr(amp, replyTrig);
@@ -304,6 +310,7 @@ Engine_Cule : CroneEngine {
 				// respond immediately to all LFO changes
 				SendReply.kr(Changed.kr(lfoA) * isSelected * BinaryOpUGen('==', pollingLFO, 1), '/lfoGate', [v, 0, lfoA]);
 				SendReply.kr(Changed.kr(lfoB) * isSelected * BinaryOpUGen('==', pollingLFO, 2), '/lfoGate', [v, 1, lfoB]);
+				SendReply.kr(Changed.kr(lfoEqual) * isSelected * BinaryOpUGen('==', pollingLFO, 3), '/lfoGate', [v, 2, lfoEqual]);
 			});
 		}).add;
 
@@ -334,7 +341,8 @@ Engine_Cule : CroneEngine {
 				\amp -> this.addPoll(("amp_" ++ i).asSymbol, periodic: false),
 				\lfos -> [
 					this.addPoll(("lfoA_gate_" ++ i).asSymbol, periodic: false),
-					this.addPoll(("lfoB_gate_" ++ i).asSymbol, periodic: false)
+					this.addPoll(("lfoB_gate_" ++ i).asSymbol, periodic: false),
+					this.addPoll(("lfoEqual_gate_" ++ i).asSymbol, periodic: false)
 				]
 			];
 		});

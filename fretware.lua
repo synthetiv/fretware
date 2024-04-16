@@ -30,7 +30,10 @@ editor = {
 		'hand',
 		'eg',
 		'lfoA',
-		'lfoB'
+		'lfoB',
+		'runglerA',
+		'runglerB',
+		'lfoSH'
 	},
 	dests = {
 		{
@@ -151,6 +154,9 @@ for s = 1, #editor.dests do
 		eg    = Dial.new(82, 2, 11),
 		lfoA  = Dial.new(82, 2, 11),
 		lfoB  = Dial.new(82, 2, 11),
+		runglerA = Dial.new(82, 2, 11),
+		runglerB = Dial.new(82, 2, 11),
+		lfoSH = Dial.new(82, 2, 11),
 	}
 end
 
@@ -374,12 +380,6 @@ function reset_loop_clock()
 	end
 end
 
-function lfo_arp_callback(gate)
-	if k.arping and k.n_sustained_keys > 0 then
-		k:arp(gate)
-	end
-end
-
 function init()
 
 	norns.enc.accel(1, false)
@@ -486,17 +486,26 @@ function init()
 		pitch_poll:start()
 		-- and polls for LFO updates, which will only fire when a voice is selected and an LFO is used as an arp clock
 		local lfoA_poll = poll.set('lfoA_gate_' .. v, function(gate)
+			print('lfo A poll', v)
 			if k.arping and k.n_sustained_keys > 0 and v == k.selected_voice and arp_clock_source == 2 then
 				k:arp(gate)
 			end
 		end)
 		lfoA_poll:start()
 		local lfoB_poll = poll.set('lfoB_gate_' .. v, function(gate)
+			print('lfo B poll', v)
 			if k.arping and k.n_sustained_keys > 0 and v == k.selected_voice and arp_clock_source == 3 then
 				k:arp(gate)
 			end
 		end)
 		lfoB_poll:start()
+		local lfoEqual_poll = poll.set('lfoEqual_gate_' .. v, function(gate)
+			print('lfo equal poll', v)
+			if k.arping and k.n_sustained_keys > 0 and v == k.selected_voice and arp_clock_source == 4 then
+				k:arp(gate)
+			end
+		end)
+		lfoEqual_poll:start()
 	end
 
 	params:add_group('tuning', 4)
@@ -686,7 +695,7 @@ function init()
 		name = 'arp clock source',
 		id = 'arp_clock_source',
 		type = 'option',
-		options = { 'system', 'lfoA', 'lfoB', 'crow' },
+		options = { 'system', 'lfoA', 'lfoB', 'lfoEqual', 'crow' },
 		default = 2,
 		action = function(value)
 			arp_clock_source = value
@@ -871,25 +880,11 @@ function init()
 			}
 		elseif source == 'lfoA' or source == 'lfoB' then
 			-- LFOs have extra parameters too
-			params:add_group(source, 2 + #editor.dests)
+			params:add_group(source, 1 + #editor.dests)
 			local type_command = engine[source .. 'Type']
 			local freq_param = source .. 'Freq'
 			local freq_command = engine[freq_param]
 			local dest_dial = dest_dials[freq_param]
-			params:add {
-				name = source .. ' type',
-				id = source .. 'Type',
-				type = 'option',
-				options = { 'sine', 'tri', 'saw', 'rand', 's+h' },
-				-- TODO: why does lfo B still default to sine??
-				default = source == 'lfoA' and 1 or 4,
-				action = function(value)
-					print(source, 'type', value)
-					for v = 1, n_voices do
-						type_command(v, value - 1)
-					end
-				end
-			}
 			params:add {
 				name = source .. ' freq',
 				id = freq_param,
@@ -1125,7 +1120,7 @@ function redraw()
 		screen.stroke()
 	end
 
-	screen.rect(0, 0, 30, 21)
+	screen.rect(0, 0, 30, 43)
 	screen.level(0)
 	screen.fill()
 
@@ -1147,6 +1142,18 @@ function redraw()
 	screen.move(18, 18)
 	screen.text('Lb')
 
+	screen.level('runglerA' == editor.source_names[editor.source] and 15 or 3)
+	screen.move(2, 29)
+	screen.text('Ra')
+
+	screen.level('runglerB' == editor.source_names[editor.source] and 15 or 3)
+	screen.move(18, 29)
+	screen.text('Rb')
+
+	screen.level('lfoSH' == editor.source_names[editor.source] and 15 or 3)
+	screen.move(2, 40)
+	screen.text('Ls')
+
 	screen.update()
 end
 
@@ -1161,13 +1168,19 @@ function enc(n, d)
 		if held_keys[2] then
 			params:delta(editor.source_names[editor.source] .. '_' .. editor.dests[editor.dest].name, d)
 		else
-			params:delta(editor.dests[editor.dest].name, d)
+			local name = editor.dests[editor.dest].name
+			if name ~= 'pitch' then
+				params:delta(name, d)
+			end
 		end
 	elseif n == 3 then
 		if held_keys[3] then
 			params:delta(editor.source_names[editor.source] .. '_' .. editor.dests[editor.dest % #editor.dests + 1].name, d)
 		else
-			params:delta(editor.dests[editor.dest % #editor.dests + 1].name, d)
+			local name = editor.dests[editor.dest % #editor.dests + 1].name
+			if name ~= 'pitch' then
+				params:delta(name, d)
+			end
 		end
 	end
 end
