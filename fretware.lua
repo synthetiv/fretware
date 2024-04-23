@@ -172,7 +172,10 @@ for v = 1, n_voices do
 		looping_next = false,
 		loop_armed = false,
 		loop_armed_next = false,
-		loop_beat_sec = 0.25
+		loop_beat_sec = 0.25,
+		lfoA_gate = false,
+		lfoB_gate = false,
+		lfoEqual_gate = false
 	}
 end
 
@@ -486,18 +489,21 @@ function init()
 		pitch_poll:start()
 		-- and polls for LFO updates, which will only fire when a voice is selected and an LFO is used as an arp clock
 		local lfoA_poll = poll.set('lfoA_gate_' .. v, function(gate)
+			voice_states[v].lfoA_gate = gate > 0
 			if k.arping and k.n_sustained_keys > 0 and v == k.selected_voice and arp_clock_source == 2 then
 				k:arp(gate)
 			end
 		end)
 		lfoA_poll:start()
 		local lfoB_poll = poll.set('lfoB_gate_' .. v, function(gate)
+			voice_states[v].lfoB_gate = gate > 0
 			if k.arping and k.n_sustained_keys > 0 and v == k.selected_voice and arp_clock_source == 3 then
 				k:arp(gate)
 			end
 		end)
 		lfoB_poll:start()
 		local lfoEqual_poll = poll.set('lfoEqual_gate_' .. v, function(gate)
+			voice_states[v].lfoEqual_gate = gate > 0
 			if k.arping and k.n_sustained_keys > 0 and v == k.selected_voice and arp_clock_source == 4 then
 				k:arp(gate)
 			end
@@ -696,7 +702,6 @@ function init()
 		default = 2,
 		action = function(value)
 			arp_clock_source = value
-			engine.poll_lfo(arp_clock_source - 1)
 		end
 	}
 
@@ -1122,6 +1127,8 @@ function redraw()
 	screen.fill()
 
 	-- TODO: icons
+	
+	local voice = voice_states[k.selected_voice]
 
 	screen.level('hand' == editor.source_names[editor.source] and 15 or 3)
 	screen.move(2, 7)
@@ -1134,10 +1141,14 @@ function redraw()
 	screen.level('lfoA' == editor.source_names[editor.source] and 15 or 3)
 	screen.move(2, 18)
 	screen.text('La')
+	screen.level(voice.lfoA_gate and 15 or 3)
+	screen.text('.')
 
 	screen.level('lfoB' == editor.source_names[editor.source] and 15 or 3)
 	screen.move(18, 18)
 	screen.text('Lb')
+	screen.level(voice.lfoB_gate and 15 or 3)
+	screen.text('.')
 
 	screen.level('runglerA' == editor.source_names[editor.source] and 15 or 3)
 	screen.move(2, 29)
@@ -1150,6 +1161,8 @@ function redraw()
 	screen.level('lfoSH' == editor.source_names[editor.source] and 15 or 3)
 	screen.move(2, 40)
 	screen.text('Ls')
+	screen.level(voice.lfoEqual_gate and 15 or 3)
+	screen.text('.')
 
 	screen.update()
 end

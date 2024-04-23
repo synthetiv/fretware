@@ -291,7 +291,6 @@ Engine_Cule : CroneEngine {
 
 		replyDef = SynthDef.new(\reply, {
 			arg selectedVoice = 0,
-				pollingLFO = 0,
 				replyRate = 15;
 			var replyTrig = Impulse.kr(replyRate);
 			nVoices.do({ |v|
@@ -308,9 +307,9 @@ Engine_Cule : CroneEngine {
 				SendReply.kr(Peak.kr(Changed.kr(pitch), pitchTrig) * pitchTrig, '/voicePitch', [v, pitch, trig]);
 
 				// respond immediately to all LFO changes
-				SendReply.kr(Changed.kr(lfoA) * isSelected * BinaryOpUGen('==', pollingLFO, 1), '/lfoGate', [v, 0, lfoA]);
-				SendReply.kr(Changed.kr(lfoB) * isSelected * BinaryOpUGen('==', pollingLFO, 2), '/lfoGate', [v, 1, lfoB]);
-				SendReply.kr(Changed.kr(lfoEqual) * isSelected * BinaryOpUGen('==', pollingLFO, 3), '/lfoGate', [v, 2, lfoEqual]);
+				SendReply.kr(Changed.kr(lfoA) * isSelected, '/lfoGate', [v, 0, lfoA]);
+				SendReply.kr(Changed.kr(lfoB) * isSelected, '/lfoGate', [v, 1, lfoB]);
+				SendReply.kr(Changed.kr(lfoEqual) * isSelected, '/lfoGate', [v, 2, lfoEqual]);
 			});
 		}).add;
 
@@ -372,11 +371,6 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\select_voice, "i", {
 			arg msg;
 			replySynth.set(\selectedVoice, msg[1] - 1);
-		});
-
-		this.addCommand(\poll_lfo, "i", {
-			arg msg;
-			replySynth.set(\pollingLFO, msg[1]);
 		});
 
 		this.addCommand(\poll_rate, "f", {
