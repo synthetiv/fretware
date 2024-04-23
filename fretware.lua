@@ -486,21 +486,18 @@ function init()
 		pitch_poll:start()
 		-- and polls for LFO updates, which will only fire when a voice is selected and an LFO is used as an arp clock
 		local lfoA_poll = poll.set('lfoA_gate_' .. v, function(gate)
-			print('lfo A poll', v)
 			if k.arping and k.n_sustained_keys > 0 and v == k.selected_voice and arp_clock_source == 2 then
 				k:arp(gate)
 			end
 		end)
 		lfoA_poll:start()
 		local lfoB_poll = poll.set('lfoB_gate_' .. v, function(gate)
-			print('lfo B poll', v)
 			if k.arping and k.n_sustained_keys > 0 and v == k.selected_voice and arp_clock_source == 3 then
 				k:arp(gate)
 			end
 		end)
 		lfoB_poll:start()
 		local lfoEqual_poll = poll.set('lfoEqual_gate_' .. v, function(gate)
-			print('lfo equal poll', v)
 			if k.arping and k.n_sustained_keys > 0 and v == k.selected_voice and arp_clock_source == 4 then
 				k:arp(gate)
 			end
