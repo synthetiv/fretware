@@ -210,7 +210,6 @@ Engine_Cule : CroneEngine {
 			lfoB = LFTri.kr(lfoBFreq);
 			runglerA = this.rungle(lfoA, lfoB);
 			runglerB = this.rungle(lfoB, lfoA);
-			// TODO: is this doing what I think it is? is it double triggering for some reason?
 			lfoEqual = BinaryOpUGen('>=', lfoA, lfoB);
 			lfoSH = Latch.kr(lfoA, lfoEqual);
 
