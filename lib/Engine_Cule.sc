@@ -1,6 +1,7 @@
 Engine_Cule : CroneEngine {
 
 	classvar nVoices = 7;
+	classvar nPatches = 4;
 	classvar nRecordedModulators = 6;
 	classvar bufferRateScale = 0.5;
 	classvar maxLoopTime = 32;
@@ -10,6 +11,8 @@ Engine_Cule : CroneEngine {
 
 	var parameterNames;
 	var modulatorNames;
+	var voiceArgs;
+	var patchArgs;
 
 	var fmRatios;
 	var nRatios;
@@ -17,9 +20,9 @@ Engine_Cule : CroneEngine {
 	var baseFreqBus;
 	var controlBuffers;
 	var voiceSynths;
+	var patches;
 	var replySynth;
 	var voiceStateBuses;
-	var fmBuses;
 	var polls;
 	var voiceAmpReplyFunc;
 	var voicePitchReplyFunc;
@@ -91,6 +94,24 @@ Engine_Cule : CroneEngine {
 			\lfoSH
 		];
 
+		// non-patch, single-voice-specific args
+		voiceArgs = [
+			\voiceIndex,
+			\buffer,
+			\pitch,
+			\gate,
+			\t_trig,
+			\tip,
+			\palm,
+			\freeze,
+			\t_loopReset,
+			\loopLength,
+			\loopPosition,
+			\loopRateScale,
+			\shift,
+			\outLevel,
+		];
+
 		// frequency ratios used by the two FM operators of each voice
 		// declared as one array, but stored as two arrays, one with odd and one with even
 		// members of the original; this allows operators to crossfade between two ratios
@@ -137,7 +158,6 @@ Engine_Cule : CroneEngine {
 				release = 0.3,
 				lfoAFreq = 0.9,
 				lfoBFreq = 1.1,
-				oscType = 1,
 				tuneA = 0,
 				tuneB = 0.3,
 				fmIndex = 0,
@@ -288,6 +308,11 @@ Engine_Cule : CroneEngine {
 			Out.ar(context.out_b, Pan2.ar(voiceOutput * Lag.kr(outLevel, 0.05), pan));
 		}).add;
 
+		patchArgs = voiceDef.allControlNames.collect({ |control| control.name }).difference(voiceArgs);
+		// TODO: is something being mapped here that shouldn't be? is that why I get no audio?
+		"------------------ patch args ------------------------".postln;
+		patchArgs.do({ | name | name.postln; });
+
 		replyDef = SynthDef.new(\reply, {
 			arg selectedVoice = 0,
 				replyRate = 15;
@@ -320,13 +345,23 @@ Engine_Cule : CroneEngine {
 
 		voiceSynths = Array.fill(nVoices, {
 			arg i;
-			("creating voice #" ++ i).postln;
 			Synth.new(\line, [
 				\voiceIndex, i,
 				\buffer, controlBuffers[i],
 				\voiceStateBus, voiceStateBuses[i],
 			], context.og, \addToTail); // "output" group
 		});
+
+		patches = Array.fill(nPatches, {
+			var patch = Dictionary.new;
+			patchArgs.do({
+				arg name;
+				patch.put(name, Bus.control);
+			});
+			patch;
+		});
+
+		// voiceSynths.do({ |voice, v| this.setVoicePatch(v, 0); });
 
 		replySynth = Synth.new(\reply, [], context.og, \addToTail);
 
@@ -366,6 +401,11 @@ Engine_Cule : CroneEngine {
 			// msg looks like [ '/lfoGate', ??, -1, voiceIndex, lfoIndex, state ]
 			polls[msg[3]][\lfos][msg[4]].update(msg[5]);
 		}, path: '/lfoGate', srcID: context.server.addr);
+
+		this.addCommand(\voice_patch, "ii", {
+			arg msg;
+			this.setVoicePatch(msg[1] - 1, msg[2] - 1);
+		});
 
 		this.addCommand(\select_voice, "i", {
 			arg msg;
@@ -408,14 +448,34 @@ Engine_Cule : CroneEngine {
 			synth.set(\gate, value, \t_trig, value);
 		});
 
-		voiceDef.allControlNames.do({ |control|
-			var controlName = control.name;
-			if(controlName !== \gate, {
-				var signature = if([ \ampMode ].includes(controlName), "ii", "if");
-				this.addCommand(controlName, signature, { |msg|
-					voiceSynths[msg[1] - 1].set(controlName, msg[2]);
+		patchArgs.do({
+			arg name;
+			var signature = if([ \ampMode ].includes(name), "ii", "if");
+			this.addCommand(name, signature, { |msg|
+				patches[msg[1] - 1][name].set(msg[2]);
+			});
+		});
+
+		voiceDef.allControlNames.do({
+			arg control;
+			var name = control.name;
+			if(name !== \gate && patchArgs.includes(name).not, {
+				this.addCommand(name, "if", { |msg|
+					voiceSynths[msg[1] - 1].set(name, msg[2]);
 				});
 			});
+		});
+	}
+
+	// TODO: why does this seem to do nothing??
+	setVoicePatch {
+		arg v, p;
+		var synth = voiceSynths[v];
+		[ "setVoicePatch", v, synth, p ].postln;
+		patchArgs.do({
+			arg name;
+			// [ name, patches[p][name] ].postln;
+			synth.map(name, patches[p][name]);
 		});
 	}
 
@@ -423,6 +483,7 @@ Engine_Cule : CroneEngine {
 		replySynth.free;
 		voiceSynths.do({ |synth| synth.free });
 		controlBuffers.do({ |buffer| buffer.free });
+		patches.do({ |patch| patch.do({ |bus| bus.free }) });
 		voiceAmpReplyFunc.free;
 		voicePitchReplyFunc.free;
 		lfoGateReplyFunc.free;

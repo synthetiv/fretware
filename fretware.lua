@@ -6,6 +6,7 @@ musicutil = require 'musicutil'
 Dial = include 'lib/dial'
 
 n_voices = 7
+n_patches = 4
 
 Keyboard = include 'lib/keyboard'
 k = Keyboard.new(1, 1, 16, 8)
@@ -81,12 +82,12 @@ editor = {
 			label = 'attack',
 			default = 0
 		},
-		{
+		{ -- not mapped to UC4
 			name = 'decay',
 			label = 'decay',
 			default = 0
 		},
-		{
+		{ -- not mapped to UC4
 			name = 'sustain',
 			label = 'sustain',
 			default = 0
@@ -106,17 +107,17 @@ editor = {
 			label = 'lfo b freq',
 			default = 0
 		},
-		{
+		{ -- not mapped to UC4
 			name = 'pitch',
 			label = 'pitch',
 			mod_only = true
 		},
-		{
+		{ -- not mapped to UC4
 			name = 'pan',
 			label = 'pan',
 			default = 0
 		},
-		{
+		{ -- not mapped to UC4
 			name = 'amp',
 			label = 'amp',
 			mod_only = true
@@ -175,7 +176,8 @@ for v = 1, n_voices do
 		loop_beat_sec = 0.25,
 		lfoA_gate = false,
 		lfoB_gate = false,
-		lfoEqual_gate = false
+		lfoEqual_gate = false,
+		patch = 1
 	}
 end
 
@@ -718,258 +720,203 @@ function init()
 		end
 	}
 
-	params:add_separator('ALL int voices')
-
-	params:add {
-		name = 'lpg on',
-		id = 'lpgOn',
-		type = 'option',
-		options = { 'off', 'on' },
-		default = 2,
-		action = function(value)
-			for v = 1, n_voices do
-				engine.lpgOn(v, value - 1)
-			end
-		end
-	}
-
-	params:add {
-		name = 'lpg q',
-		id = 'lpgQ',
-		type = 'control',
-		controlspec = controlspec.new(0.9, 5, 'lin', 0, 1.1),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.lpgQ(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'lpg curve',
-		id = 'lpgCurve',
-		type = 'control',
-		controlspec = controlspec.new(-4, 4, 'lin', 0, 3),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.lpgCurve(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'amp mode',
-		id = 'amp_mode',
-		type = 'option',
-		options = { 'tip', 'tip*ar', 'adsr' },
-		default = 1,
-		action = function(value)
-			for v = 1, n_voices do
-				-- looping voices get to keep their original amp mode
-				if not voice_states[v].looping then
-					engine.ampMode(v, value - 1)
-				end
-			end
-		end
-	}
-
-	params:add {
-		name = 'detune exp/lin',
-		id = 'detuneType',
-		type = 'control',
-		controlspec = controlspec.new(0, 1, 'lin', 0, 0.12),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.detuneType(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'harmonic fade size',
-		id = 'fadeSize',
-		type = 'control',
-		controlspec = controlspec.new(0.01, 1, 'lin', 0, 0.8),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.fadeSize(v, value)
-			end
-		end
-	}
-
-	params:add {
-		name = 'hp cutoff',
-		id = 'hpCutoff',
-		type = 'control',
-		controlspec = controlspec.new(8, 12000, 'exp', 0, 8, 'Hz'),
-		action = function(value)
-			for v = 1, n_voices do
-				engine.hpCutoff(v, value)
-			end
-		end
-	}
-
-	for d = 1, #editor.dests do
-		local dest = editor.dests[d]
-		if dest.name ~= 'attack' and dest.name ~= 'decay' and dest.name ~= 'sustain' and dest.name ~= 'release' and dest.name ~= 'lfoAFreq' and dest.name ~= 'lfoBFreq' and not dest.mod_only then
-			local engine_command = engine[dest.name]
-			print(dest.name)
-			params:add {
-				name = dest.label,
-				id = dest.name,
-				type = 'control',
-				controlspec = controlspec.new(-1, 1, 'lin', 0, dest.default),
-				action = function(value)
-					dest_dials[dest.name]:set_value(value)
-					for v = 1, n_voices do
-						engine_command(v, value + params:get(dest.name .. '_' .. v))
-					end
-				end
-			}
-		end
-	end
-
-	for s = 1, #editor.source_names do
-		local source = editor.source_names[s]
-
-		if source == 'eg' then
-			-- EG group gets extra parameters
-			params:add_group('eg', 4 + #editor.dests)
-			params:add {
-				name = 'attack',
-				id = 'attack',
-				type = 'control',
-				controlspec = controlspec.new(0.001, 2, 'exp', 0, 0.001, 's'),
-				action = function(value)
-					dest_dials.attack:set_value(params:get_raw('attack') * 2 - 1)
-					for v = 1, n_voices do
-						engine.attack(v, value)
-					end
-				end
-			}
-			params:add {
-				name = 'decay',
-				id = 'decay',
-				type = 'control',
-				controlspec = controlspec.new(0.001, 6, 'exp', 0, 0.1, 's'),
-				action = function(value)
-					dest_dials.decay:set_value(params:get_raw('decay') * 2 - 1)
-					for v = 1, n_voices do
-						engine.decay(v, value)
-					end
-				end
-			}
-			params:add {
-				name = 'sustain',
-				id = 'sustain',
-				type = 'control',
-				controlspec = controlspec.new(0, 1, 'lin', 0, 0.8),
-				action = function(value)
-					dest_dials.sustain:set_value(params:get_raw('sustain') * 2 - 1)
-					for v = 1, n_voices do
-						engine.sustain(v, value)
-					end
-				end
-			}
-			params:add {
-				name = 'release',
-				id = 'release',
-				type = 'control',
-				controlspec = controlspec.new(0.001, 6, 'exp', 0, 0.3, 's'),
-				action = function(value)
-					dest_dials.release:set_value(params:get_raw('release') * 2 - 1)
-					for v = 1, n_voices do
-						engine.release(v, value)
-					end
-				end
-			}
-		elseif source == 'lfoA' or source == 'lfoB' then
-			-- LFOs have extra parameters too
-			params:add_group(source, 1 + #editor.dests)
-			local type_command = engine[source .. 'Type']
-			local freq_param = source .. 'Freq'
-			local freq_command = engine[freq_param]
-			local dest_dial = dest_dials[freq_param]
-			params:add {
-				name = source .. ' freq',
-				id = freq_param,
-				type = 'control',
-				controlspec = controlspec.new(0.01, 16, 'exp', 0, source == 'lfoA' and 4.3 or 0.7, 'Hz'),
-				action = function(value, param)
-					dest_dial:set_value(params:get_raw(freq_param) * 2 - 1)
-					for v = 1, n_voices do
-						freq_command(v, value)
-					end
-				end
-			}
-		else
-			params:add_group(source, #editor.dests)
-		end
-
-		for d = 1, #editor.dests do
-			local dest = editor.dests[d]
-			local engine_command = engine[source .. '_' .. dest.name]
-			params:add {
-				name = source .. ' -> ' .. dest.label,
-				id = source .. '_' .. dest.name,
-				type = 'control',
-				controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-				action = function(value)
-					source_dials[dest.name][source]:set_value(value)
-					-- create a dead zone near 0.0
-					value = (value > 0 and 1 or -1) * (1 - math.min(1, (1 - math.abs(value)) * 1.1))
-					for v = 1, n_voices do
-						engine_command(v, value)
-					end
-				end
-			}
-		end
-	end
-
 	for v = 1, n_voices do
+		params:add {
+			name = 'voice ' .. v .. ' patch',
+			id = 'voice_' .. v .. '_patch',
+			type = 'number',
+			default = 1,
+			min = 1,
+			max = n_patches,
+			action = function(value)
+				-- TODO: if this is the selected voice, update dial values
+				engine.voice_patch(v, value)
+				voice_states[v].patch = value
+			end
+		}
+	end
 
-		params:add_separator('int voice ' .. v)
+	for p = 1, 4 do
+
+		params:add_separator('patch ' .. p)
 
 		params:add {
-			name = 'loop position',
-			id = 'loopPosition_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
+			name = 'lpg on',
+			id = 'lpgOn_' .. p,
+			type = 'option',
+			options = { 'off', 'on' },
+			default = 2,
 			action = function(value)
-				engine.loopPosition(v, value)
+				engine.lpgOn(p, value - 1)
+			end
+		}
+
+		params:add {
+			name = 'lpg q',
+			id = 'lpgQ_' .. p,
+			type = 'control',
+			controlspec = controlspec.new(0.9, 5, 'lin', 0, 1.1),
+			action = function(value)
+				engine.lpgQ(p, value)
+			end
+		}
+
+		params:add {
+			name = 'lpg curve',
+			id = 'lpgCurve_' .. p,
+			type = 'control',
+			controlspec = controlspec.new(-4, 4, 'lin', 0, 3),
+			action = function(value)
+				engine.lpgCurve(p, value)
+			end
+		}
+
+		params:add {
+			name = 'amp mode',
+			id = 'amp_mode_' .. p,
+			type = 'option',
+			options = { 'tip', 'tip*ar', 'adsr' },
+			default = 1,
+			action = function(value)
+				engine.ampMode(p, value - 1)
+			end
+		}
+
+		params:add {
+			name = 'detune exp/lin',
+			id = 'detuneType_' .. p,
+			type = 'control',
+			controlspec = controlspec.new(0, 1, 'lin', 0, 0.12),
+			action = function(value)
+				engine.detuneType(p, value)
+			end
+		}
+
+		params:add {
+			name = 'harmonic fade size',
+			id = 'fadeSize_' .. p,
+			type = 'control',
+			controlspec = controlspec.new(0.01, 1, 'lin', 0, 0.8),
+			action = function(value)
+				engine.fadeSize(p, value)
+			end
+		}
+
+		params:add {
+			name = 'hp cutoff',
+			id = 'hpCutoff_' .. p,
+			type = 'control',
+			controlspec = controlspec.new(8, 12000, 'exp', 0, 8, 'Hz'),
+			action = function(value)
+				engine.hpCutoff(p, value)
 			end
 		}
 
 		for d = 1, #editor.dests do
-			local param = editor.dests[d]
-			if not param.mod_only then
-				local engine_command = engine[param.name]
+			local dest = editor.dests[d]
+			if dest.name ~= 'attack' and dest.name ~= 'decay' and dest.name ~= 'sustain' and dest.name ~= 'release' and dest.name ~= 'lfoAFreq' and dest.name ~= 'lfoBFreq' and not dest.mod_only then
+				local engine_command = engine[dest.name]
+				print(dest.name)
 				params:add {
-					name = param.label,
-					id = param.name .. '_' .. v,
+					name = dest.label,
+					id = dest.name .. '_' .. p,
 					type = 'control',
-					controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+					controlspec = controlspec.new(-1, 1, 'lin', 0, dest.default),
 					action = function(value)
-						engine_command(v, value + params:get(param.name))
+						dest_dials[dest.name]:set_value(value)
+						engine_command(p, value)
 					end
 				}
 			end
 		end
 
-		params:add {
-			name = 'out level',
-			id = 'outLevel_' .. v,
-			type = 'taper',
-			min = 0,
-			max = 0.5,
-			k = 2,
-			default = 0.2,
-			action = function(value)
-				engine.outLevel(v, value)
-			end
-		}
+		for s = 1, #editor.source_names do
+			local source = editor.source_names[s]
 
-		-- TODO: per-voice modulation routing, EG controls, LFO controls... cooperate with global controls
+			if source == 'eg' then
+				-- EG group gets extra parameters
+				params:add_group('eg_' .. p, 4 + #editor.dests)
+				local attack_param = 'attack_' .. p
+				local decay_param = 'decay_' .. p
+				local sustain_param = 'sustain_' .. p
+				local release_param = 'release_' .. p
+				params:add {
+					name = 'attack',
+					id = attack_param,
+					type = 'control',
+					controlspec = controlspec.new(0.001, 2, 'exp', 0, 0.001, 's'),
+					action = function(value)
+						dest_dials.attack:set_value(params:get_raw(attack_param) * 2 - 1)
+						engine.attack(p, value)
+					end
+				}
+				params:add {
+					name = 'decay',
+					id = decay_param,
+					type = 'control',
+					controlspec = controlspec.new(0.001, 6, 'exp', 0, 0.1, 's'),
+					action = function(value)
+						dest_dials.decay:set_value(params:get_raw(decay_param) * 2 - 1)
+						engine.decay(p, value)
+					end
+				}
+				params:add {
+					name = 'sustain',
+					id = sustain_param,
+					type = 'control',
+					controlspec = controlspec.new(0, 1, 'lin', 0, 0.8),
+					action = function(value)
+						dest_dials.sustain:set_value(params:get_raw(sustain_param) * 2 - 1)
+						engine.sustain(p, value)
+					end
+				}
+				params:add {
+					name = 'release',
+					id = release_param,
+					type = 'control',
+					controlspec = controlspec.new(0.001, 6, 'exp', 0, 0.3, 's'),
+					action = function(value)
+						dest_dials.release:set_value(params:get_raw(release_param) * 2 - 1)
+						engine.release(p, value)
+					end
+				}
+			elseif source == 'lfoA' or source == 'lfoB' then
+				-- LFOs have extra parameters too
+				params:add_group(source .. '_' .. p, 1 + #editor.dests)
+				local freq_param = source .. 'Freq' .. '_' .. p
+				local freq_command = engine[source .. 'Freq']
+				local dest_dial = dest_dials[source .. 'Freq']
+				params:add {
+					name = source .. ' freq',
+					id = freq_param,
+					type = 'control',
+					controlspec = controlspec.new(0.01, 16, 'exp', 0, source == 'lfoA' and 4.3 or 0.7, 'Hz'),
+					action = function(value, param)
+						dest_dial:set_value(params:get_raw(freq_param) * 2 - 1)
+						freq_command(p, value)
+					end
+				}
+			else
+				params:add_group(source .. '_' .. p, #editor.dests)
+			end
+
+			for d = 1, #editor.dests do
+				local dest = editor.dests[d]
+				local engine_command = engine[source .. '_' .. dest.name]
+				params:add {
+					name = source .. ' -> ' .. dest.label,
+					id = source .. '_' .. dest.name .. '_' .. p,
+					type = 'control',
+					controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+					action = function(value)
+						source_dials[dest.name][source]:set_value(value)
+						-- create a dead zone near 0.0
+						value = (value > 0 and 1 or -1) * (1 - math.min(1, (1 - math.abs(value)) * 1.1))
+						engine_command(p, value)
+					end
+				}
+			end
+		end
 	end
 
 	params:add_group('crow', 6)
@@ -1178,22 +1125,20 @@ function enc(n, d)
 			editor.source = (editor.source - 2) % #editor.source_names + 1
 		end
 	elseif n == 2 then
+		local dest = editor.dests[editor.dest].name
+		local patch_dest = dest .. '_' .. voice_states[k.selected_voice].patch
 		if held_keys[2] then
-			params:delta(editor.source_names[editor.source] .. '_' .. editor.dests[editor.dest].name, d)
-		else
-			local name = editor.dests[editor.dest].name
-			if name ~= 'pitch' then
-				params:delta(name, d)
-			end
+			params:delta(editor.source_names[editor.source] .. '_' .. patch_dest, d)
+		elseif dest ~= 'pitch' then
+			params:delta(patch_dest, d)
 		end
 	elseif n == 3 then
+		local dest = editor.dests[editor.dest % #editor.dests + 1].name
+		local patch_dest = dest .. '_' .. voice_states[k.selected_voice].patch
 		if held_keys[3] then
-			params:delta(editor.source_names[editor.source] .. '_' .. editor.dests[editor.dest % #editor.dests + 1].name, d)
-		else
-			local name = editor.dests[editor.dest % #editor.dests + 1].name
-			if name ~= 'pitch' then
-				params:delta(name, d)
-			end
+			params:delta(editor.source_names[editor.source] .. '_' .. patch_dest, d)
+		elseif dest ~= 'pitch' then
+			params:delta(patch_dest, d)
 		end
 	end
 end
