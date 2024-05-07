@@ -886,7 +886,6 @@ function init()
 		elseif source == 'lfoA' or source == 'lfoB' then
 			-- LFOs have extra parameters too
 			params:add_group(source, 1 + #editor.dests)
-			local type_command = engine[source .. 'Type']
 			local freq_param = source .. 'Freq'
 			local freq_command = engine[freq_param]
 			local dest_dial = dest_dials[freq_param]
