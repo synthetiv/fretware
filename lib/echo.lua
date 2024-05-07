@@ -3,6 +3,7 @@ Echo.__index = Echo
 
 Echo.RATE_SMOOTHING = 0.1
 Echo.LOOP_LENGTH = 10
+Echo.DRIFT_BASE = 1.1
 Echo.last_used_voice = 0
 
 function Echo.new()
@@ -18,8 +19,9 @@ function Echo.new()
 		rate_smoothed = 1,
 		div = 1,
 		div_dirty = false,
-		drift_factor = 1,
-		drift_amount = 0,
+		drift_state = 0,
+		drift_amount = 0.15,
+		drift_leak = 0.8,
 		head_distance = 1,
 	}
 	Echo.last_used_voice = play_voice
@@ -71,10 +73,12 @@ function Echo:init()
 	clock.run(function()
 		while true do
 			self.rate_smoothed = self.rate_smoothed + (self.rate - self.rate_smoothed) * Echo.RATE_SMOOTHING
-			self.drift_factor = self.drift_factor * math.pow(1.1, (math.random() - 0.5) * self.drift_amount)
+			self.drift_state = self.drift_state * (1 - self.drift_leak)
+			self.drift_state = self.drift_state + (math.random() - 0.5) * self.drift_amount
+			local drift_factor = math.pow(Echo.DRIFT_BASE, self.drift_state)
 			for scv = 1, 2 do
 				softcut.rate_slew_time(scv, 0.3)
-				softcut.rate(scv, self.rate_smoothed * self.drift_factor)
+				softcut.rate(scv, self.rate_smoothed * drift_factor)
 			end
 			clock.sleep(0.05)
 		end
@@ -96,7 +100,7 @@ end
 
 function Echo:add_params()
 
-	params:add_group('echo', 7)
+	params:add_group('echo', 8)
 
 	params:add {
 		name = 'echo tone',
@@ -163,9 +167,19 @@ function Echo:add_params()
 		name = 'echo drift',
 		id = 'echo_drift',
 		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.01),
+		controlspec = controlspec.new(0, 0.4, 'lin', 0, 0.15),
 		action = function(value)
 			self.drift_amount = value
+		end
+	}
+
+	params:add {
+		name = 'echo drift leak',
+		id = 'echo_drift_leak',
+		type = 'control',
+		controlspec = controlspec.new(0, 1, 'lin', 0, 0.8),
+		action = function(value)
+			self.drift_leak = value
 		end
 	}
 
@@ -183,9 +197,10 @@ function Echo:add_params()
 			-- reset other related params
 			self.rate = self.head_distance / self.time
 			self.rate_smoothed = self.rate
+			local drift_factor = math.pow(Echo.DRIFT_BASE, self.drift_state)
 			for scv = 1, 2 do
 				softcut.rate_slew_time(scv, 0.01)
-				softcut.rate(scv, self.rate_smoothed * self.drift_factor)
+				softcut.rate(scv, self.rate_smoothed * drift_factor)
 			end
 			self.div_dirty = true
 		end
