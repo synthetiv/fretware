@@ -10,11 +10,8 @@ n_voices = 7
 Keyboard = include 'lib/keyboard'
 k = Keyboard.new(1, 1, 16, 8)
 
-echo_rate = 1
-echo_div_dirty = false
-echo_rate_smoothed = 1
-echo_rate_smoothing = 0.1
-echo_drift_factor = 1
+Echo = include 'lib/echo'
+echo = Echo.new()
 
 redraw_metro = nil
 blink = true
@@ -427,47 +424,8 @@ function init()
 	crow_init()
 
 	-- set up softcut echo
-	-- TODO: make something like this in SC instead, so you can add saturation / compander, and maybe a freeze function
 	softcut.reset()
-	local echo_loop_length = 10
-	local echo_head_distance = 1
-	-- voice 1 = rec head
-	softcut.level_input_cut(1, 1, 1)
-	softcut.level_input_cut(2, 1, 1)
-	softcut.rec(1, 1)
-	softcut.rec_level(1, 1)
-	softcut.phase_quant(1, 0.5)
-	softcut.event_phase(function(voice, phase)
-		if voice == 1 then
-			if echo_div_dirty then
-				local div = math.pow(2, params:get('echo_time_div'))
-				local new_position = phase - (echo_head_distance * div)
-				new_position = (new_position - 1) % echo_loop_length + 1
-				softcut.position(2, new_position)
-				echo_div_dirty = false
-			end
-		end
-	end)
-	softcut.poll_start_phase()
-	-- voice 2 = play head
-	softcut.level(2, 0.8)
-	for scv = 1, 2 do
-		softcut.buffer(scv, 1)
-		softcut.rate(scv, 1)
-		softcut.loop_start(scv, 1)
-		softcut.loop_end(scv, 1 + echo_loop_length)
-		softcut.loop(scv, 1)
-		softcut.fade_time(scv, 0.01)
-		softcut.pre_level(scv, 0)
-		softcut.position(scv, ((scv - 1) * -echo_head_distance) % echo_loop_length + 1)
-		softcut.level_slew_time(scv, 0.001)
-		softcut.play(scv, 1)
-		softcut.pre_filter_dry(scv, 1)
-		softcut.pre_filter_lp(scv, 0)
-		softcut.post_filter_dry(scv, 1)
-		softcut.post_filter_lp(scv, 0)
-		softcut.enable(scv, 1)
-	end
+	echo:init()
 
 	-- set up polls
 	for v = 1, n_voices do
@@ -574,84 +532,7 @@ function init()
 		end
 	}
 
-	params:add_group('echo', 6)
-
-	params:add {
-		name = 'echo time',
-		id = 'echo_time',
-		type = 'control',
-		controlspec = controlspec.new(0.05, 1, 'lin', 0, 0.11, 's'),
-		action = function(time)
-			-- softcut voice rates are set based on this, in a clock routine
-			echo_rate = echo_head_distance / time
-		end
-	}
-
-	params:add {
-		name = 'echo time div',
-		id = 'echo_time_div',
-		type = 'number',
-		min = -4,
-		max = 4,
-		default = 0,
-		formatter = function(param)
-			return string.format('%.2fx', math.pow(2, param:get()))
-		end,
-		action = function(value)
-			echo_div_dirty = true
-		end
-	}
-
-	params:add {
-		name = 'echo div fade',
-		id = 'echo_div_fade',
-		type = 'control',
-		controlspec = controlspec.new(0, 25, 'lin', 0, 10, 'ms'),
-		action = function(time)
-			for scv = 1, 2 do
-				softcut.fade_time(scv, time * 0.001)
-			end
-		end
-	}
-
-	params:add {
-		name = 'echo feedback',
-		id = 'echo_feedback',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.5),
-		action = function(value)
-			softcut.level_cut_cut(2, 1, value)
-		end
-	}
-
-	params:add {
-		name = 'echo drift',
-		id = 'echo_drift',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.01)
-	}
-
-	params:add {
-		name = 'echo resolution',
-		id = 'echo_resolution',
-		type = 'number',
-		default = 0,
-		min = -7,
-		max = 2,
-		action = function(value)
-			local multiplier = math.pow(2, value)
-			softcut.phase_quant(1, multiplier * 0.5)
-			echo_head_distance = multiplier
-			-- reset other related params
-			echo_rate = echo_head_distance / params:get('echo_time')
-			echo_rate_smoothed = echo_rate
-			for scv = 1, 2 do
-				softcut.rate_slew_time(scv, 0.01)
-				softcut.rate(scv, echo_rate_smoothed * echo_drift_factor)
-			end
-			echo_div_dirty = true
-		end
-	}
+	echo:add_params()
 
 	params:add_group('clock/arp', 4)
 
@@ -1055,24 +936,12 @@ function init()
 	params:set('reverb', 1) -- off
 	params:set('input_level', 0) -- ADC input at unity
 	params:set('cut_input_adc', 0) -- feed echo from ext input
-	params:set('cut_input_eng', 0) -- feed echo from SC (this can also be MIDI mapped)
+	params:set('cut_input_eng', 0) -- feed echo from internal synth (this can also be MIDI mapped)
 	params:set('cut_input_tape', -math.huge) -- do NOT feed echo from tape
 	params:set('monitor_level', -math.huge) -- monitor off (ext. echo fully wet)
 
 	reset_arp_clock()
 	reset_loop_clock()
-
-	clock.run(function()
-		while true do
-			echo_rate_smoothed = echo_rate_smoothed + (echo_rate - echo_rate_smoothed) * echo_rate_smoothing
-			echo_drift_factor = echo_drift_factor * math.pow(1.1, (math.random() - 0.5) * params:get('echo_drift'))
-			for scv = 1, 2 do
-				softcut.rate_slew_time(scv, 0.3)
-				softcut.rate(scv, echo_rate_smoothed * echo_drift_factor)
-			end
-			clock.sleep(0.05)
-		end
-	end)
 
 	redraw_metro = metro.init {
 		time = 1 / 30,
