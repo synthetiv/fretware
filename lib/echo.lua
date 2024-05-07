@@ -38,7 +38,7 @@ function Echo:init()
 		if voice == self.rec_voice then
 			if self.div_dirty then
 				local new_position = phase - (self.head_distance * self.div)
-				new_position = (new_position - 1) % Echo.LOOP_LENGTH + 1
+				new_position = new_position % Echo.LOOP_LENGTH
 				softcut.position(self.play_voice, new_position)
 				self.div_dirty = false
 			end
@@ -46,16 +46,16 @@ function Echo:init()
 	end)
 	softcut.poll_start_phase()
 
-	softcut.position(self.rec_voice, 1) -- TODO: would 0 work?
-	softcut.position(self.play_voice, (-self.head_distance) % Echo.LOOP_LENGTH + 1)
+	softcut.position(self.rec_voice, 0)
+	softcut.position(self.play_voice, (-self.head_distance) % Echo.LOOP_LENGTH)
 
 	softcut.level(self.play_voice, 0.8) -- TODO: why not 1.0 (unity)?
 
 	for scv = self.rec_voice, self.play_voice do
 		softcut.buffer(scv, 1)
 		softcut.rate(scv, 1)
-		softcut.loop_start(scv, 1)
-		softcut.loop_end(scv, 1 + Echo.LOOP_LENGTH)
+		softcut.loop_start(scv, 0)
+		softcut.loop_end(scv, Echo.LOOP_LENGTH)
 		softcut.loop(scv, 1)
 		softcut.fade_time(scv, 0.01)
 		softcut.play(scv, 1)
