@@ -149,10 +149,13 @@ function Echo:add_params()
 	params:add {
 		name = 'echo feedback',
 		id = 'echo_feedback',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.5),
+		type = 'taper',
+		min = 0,
+		max = 1.1,
+		default = 0.5,
+		k = 2,
 		action = function(value)
-			softcut.level_cut_cut(2, 1, value)
+			softcut.level_cut_cut(self.play_voice, self.rec_voice, value)
 		end
 	}
 
