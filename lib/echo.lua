@@ -49,7 +49,7 @@ function Echo:init()
 	softcut.position(self.rec_voice, 0)
 	softcut.position(self.play_voice, (-self.head_distance) % Echo.LOOP_LENGTH)
 
-	softcut.level(self.play_voice, 0.8) -- TODO: why not 1.0 (unity)?
+	softcut.level(self.play_voice, 1)
 
 	for scv = self.rec_voice, self.play_voice do
 		softcut.buffer(scv, 1)
