@@ -59,13 +59,14 @@ function Echo:init()
 		softcut.loop(scv, 1)
 		softcut.fade_time(scv, 0.01)
 		softcut.play(scv, 1)
-		-- TODO: tilt filter / tone control
 		softcut.pre_filter_dry(scv, 1)
 		softcut.pre_filter_lp(scv, 0)
 		softcut.post_filter_dry(scv, 1)
 		softcut.post_filter_lp(scv, 0)
 		softcut.enable(scv, 1)
 	end
+
+	self:set_tone(0)
 
 	clock.run(function()
 		while true do
@@ -81,9 +82,31 @@ function Echo:init()
 
 end
 
+function Echo:set_tone(tone)
+	-- TODO: is it useful to try to compensate for lost volume?
+	if tone >= 0 then
+		softcut.post_filter_fc(self.play_voice, util.linexp(0, 1, 10, 10000, math.pow(tone, 2)))
+	else
+		softcut.post_filter_fc(self.play_voice, util.linexp(0, 1, 23000, 230, math.pow(-tone, 0.5)))
+	end
+	softcut.post_filter_dry(self.play_voice, util.linlin(0, 0.9, 1, 0, math.abs(tone)))
+	softcut.post_filter_lp(self.play_voice, util.linlin(-0.9, 0, 1, 0, tone))
+	softcut.post_filter_hp(self.play_voice, util.linlin(0, 0.9, 0, 1, tone))
+end
+
 function Echo:add_params()
 
-	params:add_group('echo', 6)
+	params:add_group('echo', 7)
+
+	params:add {
+		name = 'echo tone',
+		id = 'echo_tone',
+		type = 'control',
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+		action = function(value)
+			self:set_tone(value)
+		end
+	}
 
 	params:add {
 		name = 'echo time',
