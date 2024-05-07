@@ -18,10 +18,6 @@ blink = true
 
 g = grid.connect()
 
--- TODO: connect to these devices by name
-touche = midi.connect(1) -- 'TOUCHE 1'
-uc4 = midi.connect(3) -- 'Faderfox UC4'
-
 editor = {
 	source_names = {
 		'hand',
@@ -237,39 +233,6 @@ function send_pitch_volts()
 	-- TODO: this added offset for the quantizer really shouldn't be necessary; what's going on here?
 	crow.output[1].volts = k.bent_pitch + (k.quantizing and 1/24 or 0)
 	engine.pitch(k.selected_voice, k.bent_pitch)
-end
-
-function touche.event(data)
-	local message = midi.to_msg(data)
-	if message.ch == 1 and message.type == 'cc' then
-		-- back = 16, front = 17, left = 18, right = 19
-		if message.cc == 17 then
-			tip = message.val / 126
-			engine.tip(k.selected_voice, tip * tip)
-			crow.output[2].volts = 10 * math.sqrt(tip)
-		elseif message.cc == 16 then
-			palm = message.val / 126
-			engine.palm(k.selected_voice, palm * palm * palm)
-			crow.output[3].volts = palm * params:get('damp_range') + params:get('damp_base')
-		elseif message.cc == 18 then
-			k:bend(-math.min(1, message.val / 126)) -- TODO: not sure why 126 is the max value I'm getting from Touche...
-			send_pitch_volts()
-		elseif message.cc == 19 then
-			k:bend(math.min(1, message.val / 126))
-			send_pitch_volts()
-		end
-	end
-end
-
-function uc4.event(data)
-	local message = midi.to_msg(data)
-	if message.ch == 1 and message.type == 'note_on' then
-		if message.note == 2 then
-			params:delta('echo_resolution', -1)
-		elseif message.note == 3 then
-			params:delta('echo_resolution', 1)
-		end
-	end
 end
 
 -- TODO: debounce here
@@ -962,6 +925,43 @@ function init()
 	-- start at 0 / middle C
 	k.on_pitch()
 
+	-- TODO: connect to these devices by name
+	touche = midi.connect(1) -- 'TOUCHE 1'
+	uc4 = midi.connect(3) -- 'Faderfox UC4'
+
+	function touche.event(data)
+		local message = midi.to_msg(data)
+		if message.ch == 1 and message.type == 'cc' then
+			-- back = 16, front = 17, left = 18, right = 19
+			if message.cc == 17 then
+				tip = message.val / 126
+				engine.tip(k.selected_voice, tip * tip)
+				crow.output[2].volts = 10 * math.sqrt(tip)
+			elseif message.cc == 16 then
+				palm = message.val / 126
+				engine.palm(k.selected_voice, palm * palm * palm)
+				crow.output[3].volts = palm * params:get('damp_range') + params:get('damp_base')
+			elseif message.cc == 18 then
+				k:bend(-math.min(1, message.val / 126)) -- TODO: not sure why 126 is the max value I'm getting from Touche...
+				send_pitch_volts()
+			elseif message.cc == 19 then
+				k:bend(math.min(1, message.val / 126))
+				send_pitch_volts()
+			end
+		end
+	end
+
+	function uc4.event(data)
+		local message = midi.to_msg(data)
+		if message.ch == 1 and message.type == 'note_on' then
+			if message.note == 2 then
+				params:delta('echo_resolution', -1)
+			elseif message.note == 3 then
+				params:delta('echo_resolution', 1)
+			end
+		end
+	end
+
 	grid_redraw()
 end
 
@@ -1083,5 +1083,4 @@ function cleanup()
 	if redraw_metro ~= nil then
 		redraw_metro:stop()
 	end
-	touche.event = function() end
 end
