@@ -168,7 +168,8 @@ for v = 1, n_voices do
 		loop_beat_sec = 0.25,
 		lfoA_gate = false,
 		lfoB_gate = false,
-		lfoEqual_gate = false
+		lfoEqual_gate = false,
+		polls = {},
 	}
 end
 
@@ -391,48 +392,50 @@ function init()
 	echo:init()
 
 	-- set up polls
+	-- TODO: stop these at cleanup
 	for v = 1, n_voices do
+		local voice = voice_states[v]
 		-- one poll to respond to voice amplitude info
-		local amp_poll = poll.set('amp_' .. v, function(value)
-			voice_states[v].amp = value
+		voice.polls.amp = poll.set('amp_' .. v, function(value)
+			voice.amp = value
 		end)
-		amp_poll:start()
+		voice.polls.amp:start()
 		-- a second to respond to pitch AND refresh grid; this helps a lot when voices are arpeggiating or looping
-		local instant_pitch_poll = poll.set('instant_pitch_' .. v, function(value)
-			voice_states[v].pitch = value
+		voice.polls.instant_pitch = poll.set('instant_pitch_' .. v, function(value)
+			voice.pitch = value
 			grid_redraw()
 		end)
-		instant_pitch_poll:start()
+		voice.polls.instant_pitch:start()
 		-- and another poll for "routine" pitch updates, to show glide, vibrato, etc.
-		local pitch_poll = poll.set('pitch_' .. v, function(value)
-			voice_states[v].pitch = value
+		voice.polls.pitch = poll.set('pitch_' .. v, function(value)
+			voice.pitch = value
 		end)
-		pitch_poll:start()
+		voice.polls.pitch:start()
 		-- and polls for LFO updates, which will only fire when a voice is selected and an LFO is used as an arp clock
-		local lfoA_poll = poll.set('lfoA_gate_' .. v, function(gate)
+		voice.polls.lfoA = poll.set('lfoA_gate_' .. v, function(gate)
 			gate = gate > 0
-			voice_states[v].lfoA_gate = gate
+			voice.lfoA_gate = gate
 			if k.arping and k.n_sustained_keys > 0 and v == k.selected_voice and arp_clock_source == 2 then
 				k:arp(gate)
 			end
 		end)
-		lfoA_poll:start()
-		local lfoB_poll = poll.set('lfoB_gate_' .. v, function(gate)
+		voice.polls.lfoA:start()
+		voice.polls.lfoB = poll.set('lfoB_gate_' .. v, function(gate)
 			gate = gate > 0
-			voice_states[v].lfoB_gate = gate
+			voice.lfoB_gate = gate
 			if k.arping and k.n_sustained_keys > 0 and v == k.selected_voice and arp_clock_source == 3 then
 				k:arp(gate)
 			end
 		end)
-		lfoB_poll:start()
-		local lfoEqual_poll = poll.set('lfoEqual_gate_' .. v, function(gate)
+		voice.polls.lfoB:start()
+		voice.polls.lfoEqual = poll.set('lfoEqual_gate_' .. v, function(gate)
 			gate = gate > 0
-			voice_states[v].lfoEqual_gate = gate
+			voice.lfoEqual_gate = gate
 			if k.arping and k.n_sustained_keys > 0 and v == k.selected_voice and arp_clock_source == 4 then
 				k:arp(gate)
 			end
 		end)
-		lfoEqual_poll:start()
+		voice.polls.lfoEqual:start()
 	end
 
 	params:add_group('tuning', 4)
@@ -1082,5 +1085,22 @@ end
 function cleanup()
 	if redraw_metro ~= nil then
 		redraw_metro:stop()
+	end
+	local voice_polls = {
+		'amp',
+		'instant_pitch',
+		'pitch',
+		'lfoA',
+		'lfoB',
+		'lfoEqual',
+	}
+	for v = 1, n_voices do
+		local voice = voice_states[v]
+		for p = 1, #voice_polls do
+			local poll = voice.polls[voice_polls[p]]
+			if poll then
+				poll:stop()
+			end
+		end
 	end
 end
