@@ -34,8 +34,8 @@ end
 
 function Echo:init()
 
-	softcut.level_input_cut(self.rec_voice, 1, 1)
-	softcut.level_input_cut(self.rec_voice, 2, 1)
+	softcut.level_input_cut(1, self.rec_voice, 1)
+	softcut.level_input_cut(2, self.rec_voice, 1)
 	softcut.rec(self.rec_voice, 1)
 	softcut.rec_level(self.rec_voice, 1)
 	softcut.event_position(function(voice, position)
