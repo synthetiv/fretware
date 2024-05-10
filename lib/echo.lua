@@ -162,7 +162,7 @@ function Echo:add_params()
 		name = 'echo div fade',
 		id = 'echo_div_fade',
 		type = 'control',
-		controlspec = controlspec.new(0, 25, 'lin', 0, 10, 'ms'),
+		controlspec = controlspec.new(0, 250, 'lin', 0, 100, 'ms'),
 		action = function(time)
 			softcut.fade_time(self.play_voice, time * 0.001)
 		end
@@ -185,7 +185,7 @@ function Echo:add_params()
 		name = 'echo drift',
 		id = 'echo_drift',
 		type = 'control',
-		controlspec = controlspec.new(0, 0.4, 'lin', 0, 0.15),
+		controlspec = controlspec.new(0, 0.7, 'lin', 0, 0.25),
 		action = function(value)
 			self.drift_amount = value
 		end
