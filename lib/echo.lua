@@ -110,11 +110,11 @@ function Echo:set_tone(tone)
 end
 
 function Echo.div_formatter(param)
-	local resolution = param:get()
-	if resolution < 0 then
-		return string.format('/%d', math.pow(2, -resolution))
+	local value = param:get()
+	if value < 0 then
+		return string.format('/%d', math.pow(2, -value))
 	end
-	return string.format('%dx', math.pow(2, resolution))
+	return string.format('%dx', math.pow(2, value))
 end
 
 function Echo:add_params()
