@@ -211,7 +211,7 @@ Engine_Cule : CroneEngine {
 			runglerA = this.rungle(lfoA, lfoB);
 			runglerB = this.rungle(lfoB, lfoA);
 			lfoEqual = BinaryOpUGen('>=', lfoA, lfoB);
-			lfoSH = Latch.kr(lfoA, lfoEqual);
+			lfoSH = Latch.kr(lfoA, Changed.kr(lfoEqual));
 
 			// this weird-looking LinSelectX pattern scales modulation signals so that
 			// final parameter values (base + modulation) can always reach [-1, 1]
