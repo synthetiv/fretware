@@ -214,6 +214,9 @@ function Echo:add_params()
 			local diff = value - old_value
 			self.resolution = value
 			self.resolution_dirty = true
+			-- 'div' setting is NOT relative to resolution. to retain the same looped
+			-- audio after a resolution change, we need to change resolution: use a
+			-- longer div if resolution has decreased, shorter div if increased.
 			params:delta('echo_time_div', -diff)
 		end
 	}
