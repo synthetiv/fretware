@@ -431,6 +431,9 @@ function init()
 		voice.polls.lfoEqual = poll.set('lfoEqual_gate_' .. v, function(gate)
 			gate = gate > 0
 			voice.lfoEqual_gate = gate
+			if gate then
+				echo:jump()
+			end
 			if k.arping and k.n_sustained_keys > 0 and v == k.selected_voice and arp_clock_source == 4 then
 				k:arp(gate)
 			end

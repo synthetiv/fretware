@@ -1,7 +1,7 @@
 local Echo = {}
 Echo.__index = Echo
 
-Echo.RATE_SMOOTHING = 0.1
+Echo.RATE_SMOOTHING = 0.2
 Echo.LOOP_LENGTH = 10
 Echo.DRIFT_BASE = 1.1
 Echo.last_used_voice = 0
@@ -14,9 +14,8 @@ function Echo.new()
 	local echo = {
 		rec_voice = Echo.last_used_voice + 1,
 		play_voice = Echo.last_used_voice + 2,
-		time = 0.11,
-		rate = 1,
-		rate_smoothed = 1,
+		rate = 0,
+		rate_smoothed = 0,
 		div = 0,
 		div_dirty = false,
 		resolution = 0,
@@ -25,7 +24,8 @@ function Echo.new()
 		drift_amount = 0.15,
 		drift_leak = 0.8,
 		-- TODO: make sure head distance + loop length are an evenly divisible number of sample frames... if that's important
-		head_distance = 1,
+		-- TODO: add control over playback pitch, relative to rec pitch
+		head_distance = 0.11,
 	}
 	Echo.last_used_voice = play_voice
 	setmetatable(echo, Echo)
@@ -40,18 +40,21 @@ function Echo:init()
 	softcut.rec_level(self.rec_voice, 1)
 	softcut.event_position(function(voice, position)
 		if voice == self.rec_voice then
+			-- TODO: update play head's loop points to avoid overlap with rec head when playback pitch != 1x?
+			-- (the tricky part will be handling this near the rec head's loop points...)
 			if self.div_dirty or self.resolution_dirty then
 				if self.resolution_dirty then
 					local drift_factor = math.pow(Echo.DRIFT_BASE, self.drift_state)
 					for scv = self.rec_voice, self.play_voice do
 						-- TODO: why doesn't this set the new rate instantaneously?
 						softcut.rate_slew_time(scv, 0.001)
-						softcut.rate(scv, self.rate_smoothed * math.pow(2, self.resolution) * drift_factor)
+						softcut.rate(scv, math.pow(2, self.rate_smoothed + self.resolution) * drift_factor)
 					end
 					self.resolution_dirty = false
 				end
 				-- move the play head closer to or further from the record head, depending on echo_div
-				local new_position = position - (self.head_distance * math.pow(2, self.div) * math.pow(2, self.resolution))
+				-- TODO: use 'sync' instead?
+				local new_position = position - (self.head_distance * math.pow(2, self.div + self.resolution))
 				new_position = new_position % Echo.LOOP_LENGTH
 				softcut.position(self.play_voice, new_position)
 				self.div_dirty = false
@@ -89,7 +92,7 @@ function Echo:init()
 			local drift_factor = math.pow(Echo.DRIFT_BASE, self.drift_state)
 			for scv = self.rec_voice, self.play_voice do
 				softcut.rate_slew_time(scv, 0.3)
-				softcut.rate(scv, self.rate_smoothed * math.pow(2, self.resolution) * drift_factor)
+				softcut.rate(scv, math.pow(2, self.rate_smoothed + self.resolution) * drift_factor)
 			end
 			clock.sleep(0.05)
 		end
@@ -109,12 +112,24 @@ function Echo:set_tone(tone)
 	softcut.post_filter_hp(self.play_voice, util.linlin(0, 0.9, 0, 1, tone))
 end
 
-function Echo.div_formatter(param)
-	local value = param:get()
-	if value < 0 then
-		return string.format('/%d', math.pow(2, -value))
+function Echo:jump()
+	if self.jump_amount > 0 then
+		self.div = self.jump_amount * (math.random() - 0.5) + params:get('echo_time_div') 
+		self.div_dirty = true
+		softcut.query_position(self.rec_voice)
 	end
-	return string.format('%dx', math.pow(2, value))
+end
+
+function Echo.div_formatter(format)
+	local div_format = '/' .. format
+	local mul_format = format .. 'x'
+	return function(param)
+		local value = param:get()
+		if value < 0 then
+			return string.format(div_format, math.pow(2, -value))
+		end
+		return string.format(mul_format, math.pow(2, value))
+	end
 end
 
 function Echo:add_params()
@@ -132,14 +147,14 @@ function Echo:add_params()
 	}
 
 	params:add {
-		name = 'echo time',
-		id = 'echo_time',
+		name = 'echo rate',
+		id = 'echo_rate',
 		type = 'control',
-		controlspec = controlspec.new(0.05, 1, 'lin', 0, 0.11, 's'),
+		formatter = Echo.div_formatter('%0.2f'),
+		controlspec = controlspec.new(1, -1, 'lin', 0, 0),
 		action = function(value)
-			self.time = value
 			-- softcut voice rates are set based on this, in a clock routine
-			self.rate = self.head_distance / self.time
+			self.rate = value
 		end
 	}
 
@@ -150,7 +165,7 @@ function Echo:add_params()
 		min = -7,
 		max = 4,
 		default = 0,
-		formatter = Echo.div_formatter,
+		formatter = Echo.div_formatter('%d'),
 		action = function(value)
 			self.div = value
 			self.div_dirty = true
@@ -159,10 +174,20 @@ function Echo:add_params()
 	}
 
 	params:add {
+		name = 'echo jump amount',
+		id = 'echo_jump_amount',
+		type = 'control',
+		controlspec = controlspec.new(0, 1, 'lin', 0, 0),
+		action = function(value)
+			self.jump_amount = value * 2
+		end
+	}
+
+	params:add {
 		name = 'echo div fade',
 		id = 'echo_div_fade',
 		type = 'control',
-		controlspec = controlspec.new(0, 250, 'lin', 0, 100, 'ms'),
+		controlspec = controlspec.new(0, 250, 'lin', 0, 60, 'ms'),
 		action = function(time)
 			softcut.fade_time(self.play_voice, time * 0.001)
 		end
@@ -208,10 +233,9 @@ function Echo:add_params()
 		default = 0,
 		min = -7,
 		max = 2,
-		formatter = Echo.div_formatter,
+		formatter = Echo.div_formatter('%d'),
 		action = function(value)
-			local old_value = self.resolution
-			local diff = value - old_value
+			local diff = value - self.resolution
 			self.resolution = value
 			self.resolution_dirty = true
 			-- 'div' setting is NOT relative to resolution. to retain the same looped
