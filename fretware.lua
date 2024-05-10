@@ -959,10 +959,8 @@ function init()
 		if message.ch == 1 and message.type == 'note_on' then
 			if message.note == 2 then
 				params:delta('echo_resolution', -1)
-				params:delta('echo_time_div', 1)
 			elseif message.note == 3 then
 				params:delta('echo_resolution', 1)
-				params:delta('echo_time_div', -1)
 			end
 		end
 	end

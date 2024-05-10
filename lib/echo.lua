@@ -17,9 +17,9 @@ function Echo.new()
 		time = 0.11,
 		rate = 1,
 		rate_smoothed = 1,
-		div = 1,
+		div = 0,
 		div_dirty = false,
-		resolution = 1,
+		resolution = 0,
 		resolution_dirty = false,
 		drift_state = 0,
 		drift_amount = 0.15,
@@ -38,8 +38,7 @@ function Echo:init()
 	softcut.level_input_cut(self.rec_voice, 2, 1)
 	softcut.rec(self.rec_voice, 1)
 	softcut.rec_level(self.rec_voice, 1)
-	softcut.phase_quant(self.rec_voice, 0.25)
-	softcut.event_phase(function(voice, phase)
+	softcut.event_position(function(voice, position)
 		if voice == self.rec_voice then
 			if self.div_dirty or self.resolution_dirty then
 				if self.resolution_dirty then
@@ -47,19 +46,18 @@ function Echo:init()
 					for scv = self.rec_voice, self.play_voice do
 						-- TODO: why doesn't this set the new rate instantaneously?
 						softcut.rate_slew_time(scv, 0.001)
-						softcut.rate(scv, self.rate_smoothed * self.resolution * drift_factor)
+						softcut.rate(scv, self.rate_smoothed * math.pow(2, self.resolution) * drift_factor)
 					end
 					self.resolution_dirty = false
 				end
 				-- move the play head closer to or further from the record head, depending on echo_div
-				local new_position = phase - (self.head_distance * self.div * self.resolution)
+				local new_position = position - (self.head_distance * math.pow(2, self.div) * math.pow(2, self.resolution))
 				new_position = new_position % Echo.LOOP_LENGTH
 				softcut.position(self.play_voice, new_position)
 				self.div_dirty = false
 			end
 		end
 	end)
-	softcut.poll_start_phase()
 
 	softcut.position(self.rec_voice, 0)
 	softcut.position(self.play_voice, (-self.head_distance) % Echo.LOOP_LENGTH)
@@ -91,7 +89,7 @@ function Echo:init()
 			local drift_factor = math.pow(Echo.DRIFT_BASE, self.drift_state)
 			for scv = self.rec_voice, self.play_voice do
 				softcut.rate_slew_time(scv, 0.3)
-				softcut.rate(scv, self.rate_smoothed * self.resolution * drift_factor)
+				softcut.rate(scv, self.rate_smoothed * math.pow(2, self.resolution) * drift_factor)
 			end
 			clock.sleep(0.05)
 		end
@@ -154,8 +152,9 @@ function Echo:add_params()
 		default = 0,
 		formatter = Echo.div_formatter,
 		action = function(value)
-			self.div = math.pow(2, value)
+			self.div = value
 			self.div_dirty = true
+			softcut.query_position(self.rec_voice)
 		end
 	}
 
@@ -211,8 +210,11 @@ function Echo:add_params()
 		max = 2,
 		formatter = Echo.div_formatter,
 		action = function(value)
-			self.resolution = math.pow(2, value)
+			local old_value = self.resolution
+			local diff = value - old_value
+			self.resolution = value
 			self.resolution_dirty = true
+			params:delta('echo_time_div', -diff)
 		end
 	}
 end
