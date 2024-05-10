@@ -565,8 +565,6 @@ function init()
 		end
 	}
 
-	params:add_separator('ALL int voices')
-
 	params:add {
 		name = 'lpg on',
 		id = 'lpgOn',
@@ -574,9 +572,7 @@ function init()
 		options = { 'off', 'on' },
 		default = 2,
 		action = function(value)
-			for v = 1, n_voices do
-				engine.lpgOn(v, value - 1)
-			end
+			engine.lpgOn(value - 1)
 		end
 	}
 
@@ -586,9 +582,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(0.9, 5, 'lin', 0, 1.1),
 		action = function(value)
-			for v = 1, n_voices do
-				engine.lpgQ(v, value)
-			end
+			engine.lpgQ(value)
 		end
 	}
 
@@ -598,9 +592,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(-4, 4, 'lin', 0, 3),
 		action = function(value)
-			for v = 1, n_voices do
-				engine.lpgCurve(v, value)
-			end
+			engine.lpgCurve(value)
 		end
 	}
 
@@ -611,12 +603,7 @@ function init()
 		options = { 'tip', 'tip*ar', 'adsr' },
 		default = 1,
 		action = function(value)
-			for v = 1, n_voices do
-				-- looping voices get to keep their original amp mode
-				if not voice_states[v].looping then
-					engine.ampMode(v, value - 1)
-				end
-			end
+			engine.ampMode(value - 1)
 		end
 	}
 
@@ -626,9 +613,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(0, 1, 'lin', 0, 0.12),
 		action = function(value)
-			for v = 1, n_voices do
-				engine.detuneType(v, value)
-			end
+			engine.detuneType(value)
 		end
 	}
 
@@ -638,9 +623,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(0.01, 1, 'lin', 0, 0.8),
 		action = function(value)
-			for v = 1, n_voices do
-				engine.fadeSize(v, value)
-			end
+			engine.fadeSize(value)
 		end
 	}
 
@@ -650,9 +633,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(8, 12000, 'exp', 0, 8, 'Hz'),
 		action = function(value)
-			for v = 1, n_voices do
-				engine.hpCutoff(v, value)
-			end
+			engine.hpCutoff(value)
 		end
 	}
 
@@ -668,9 +649,7 @@ function init()
 				controlspec = controlspec.new(-1, 1, 'lin', 0, dest.default),
 				action = function(value)
 					dest_dials[dest.name]:set_value(value)
-					for v = 1, n_voices do
-						engine_command(v, value + params:get(dest.name .. '_' .. v))
-					end
+					engine_command(value)
 				end
 			}
 		end
@@ -689,9 +668,7 @@ function init()
 				controlspec = controlspec.new(0.001, 2, 'exp', 0, 0.001, 's'),
 				action = function(value)
 					dest_dials.attack:set_value(params:get_raw('attack') * 2 - 1)
-					for v = 1, n_voices do
-						engine.attack(v, value)
-					end
+					engine.attack(value)
 				end
 			}
 			params:add {
@@ -701,9 +678,7 @@ function init()
 				controlspec = controlspec.new(0.001, 6, 'exp', 0, 0.1, 's'),
 				action = function(value)
 					dest_dials.decay:set_value(params:get_raw('decay') * 2 - 1)
-					for v = 1, n_voices do
-						engine.decay(v, value)
-					end
+					engine.decay(value)
 				end
 			}
 			params:add {
@@ -713,9 +688,7 @@ function init()
 				controlspec = controlspec.new(0, 1, 'lin', 0, 0.8),
 				action = function(value)
 					dest_dials.sustain:set_value(params:get_raw('sustain') * 2 - 1)
-					for v = 1, n_voices do
-						engine.sustain(v, value)
-					end
+					engine.sustain(value)
 				end
 			}
 			params:add {
@@ -725,9 +698,7 @@ function init()
 				controlspec = controlspec.new(0.001, 6, 'exp', 0, 0.3, 's'),
 				action = function(value)
 					dest_dials.release:set_value(params:get_raw('release') * 2 - 1)
-					for v = 1, n_voices do
-						engine.release(v, value)
-					end
+					engine.release(value)
 				end
 			}
 		elseif source == 'lfoA' or source == 'lfoB' then
@@ -743,9 +714,7 @@ function init()
 				controlspec = controlspec.new(0.07, 33, 'exp', 0, source == 'lfoA' and 4.3 or 3.1, 'Hz'),
 				action = function(value, param)
 					dest_dial:set_value(params:get_raw(freq_param) * 2 - 1)
-					for v = 1, n_voices do
-						freq_command(v, value)
-					end
+					freq_command(value)
 				end
 			}
 		else
@@ -764,58 +733,10 @@ function init()
 					source_dials[dest.name][source]:set_value(value)
 					-- create a dead zone near 0.0
 					value = (value > 0 and 1 or -1) * (1 - math.min(1, (1 - math.abs(value)) * 1.1))
-					for v = 1, n_voices do
-						engine_command(v, value)
-					end
+					engine_command(value)
 				end
 			}
 		end
-	end
-
-	for v = 1, n_voices do
-
-		params:add_separator('int voice ' .. v)
-
-		params:add {
-			name = 'loop position',
-			id = 'loopPosition_' .. v,
-			type = 'control',
-			controlspec = controlspec.new(0, 1, 'lin', 0, 0),
-			action = function(value)
-				engine.loopPosition(v, value)
-			end
-		}
-
-		for d = 1, #editor.dests do
-			local param = editor.dests[d]
-			if not param.mod_only then
-				local engine_command = engine[param.name]
-				params:add {
-					name = param.label,
-					id = param.name .. '_' .. v,
-					type = 'control',
-					controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
-					action = function(value)
-						engine_command(v, value + params:get(param.name))
-					end
-				}
-			end
-		end
-
-		params:add {
-			name = 'out level',
-			id = 'outLevel_' .. v,
-			type = 'taper',
-			min = 0,
-			max = 0.5,
-			k = 2,
-			default = 0.2,
-			action = function(value)
-				engine.outLevel(v, value)
-			end
-		}
-
-		-- TODO: per-voice modulation routing, EG controls, LFO controls... cooperate with global controls
 	end
 
 	params:add_group('crow', 6)
@@ -1051,22 +972,18 @@ function enc(n, d)
 			editor.source = (editor.source - 2) % #editor.source_names + 1
 		end
 	elseif n == 2 then
+		local dest = editor.dests[editor.dest].name
 		if held_keys[2] then
-			params:delta(editor.source_names[editor.source] .. '_' .. editor.dests[editor.dest].name, d)
-		else
-			local name = editor.dests[editor.dest].name
-			if name ~= 'pitch' then
-				params:delta(name, d)
-			end
+			params:delta(editor.source_names[editor.source] .. '_' .. dest, d)
+		elseif dest ~= 'pitch' then
+			params:delta(dest, d)
 		end
 	elseif n == 3 then
+		local dest = editor.dests[editor.dest % #editor.dests + 1].name
 		if held_keys[3] then
-			params:delta(editor.source_names[editor.source] .. '_' .. editor.dests[editor.dest % #editor.dests + 1].name, d)
-		else
-			local name = editor.dests[editor.dest % #editor.dests + 1].name
-			if name ~= 'pitch' then
-				params:delta(name, d)
-			end
+			params:delta(editor.source_names[editor.source] .. '_' .. dest, d)
+		elseif dest ~= 'pitch' then
+			params:delta(dest, d)
 		end
 	end
 end

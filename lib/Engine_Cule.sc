@@ -10,6 +10,8 @@ Engine_Cule : CroneEngine {
 
 	var parameterNames;
 	var modulatorNames;
+	var voiceArgs;
+	var patchArgs;
 
 	var fmRatios;
 	var nRatios;
@@ -17,9 +19,9 @@ Engine_Cule : CroneEngine {
 	var baseFreqBus;
 	var controlBuffers;
 	var voiceSynths;
+	var patchBuses;
 	var replySynth;
 	var voiceStateBuses;
-	var fmBuses;
 	var polls;
 	var voiceAmpReplyFunc;
 	var voicePitchReplyFunc;
@@ -91,6 +93,26 @@ Engine_Cule : CroneEngine {
 			\lfoSH
 		];
 
+		// non-patch, single-voice-specific args
+		voiceArgs = [
+			\voiceIndex,
+			\voiceStateBus,
+			\buffer,
+			\pitch,
+			\gate,
+			\t_trig,
+			\tip,
+			\palm,
+			\freeze,
+			\t_loopReset,
+			\loopLength,
+			\loopPosition,
+			\loopRateScale,
+			\shift,
+			\pan,
+			\outLevel,
+		];
+
 		// frequency ratios used by the two FM operators of each voice
 		// declared as one array, but stored as two arrays, one with odd and one with even
 		// members of the original; this allows operators to crossfade between two ratios
@@ -108,8 +130,6 @@ Engine_Cule : CroneEngine {
 		controlBuffers = Array.fill(nVoices, {
 			Buffer.alloc(context.server, context.server.sampleRate / context.server.options.blockSize * maxLoopTime * bufferRateScale, nRecordedModulators);
 		});
-
-		"sending synthdef...".postln;
 
 		// TODO: LFOs as separate synths
 		voiceDef = SynthDef.new(\line, {
@@ -137,7 +157,6 @@ Engine_Cule : CroneEngine {
 				release = 0.3,
 				lfoAFreq = 4.3,
 				lfoBFreq = 3.1,
-				oscType = 1,
 				tuneA = 0,
 				tuneB = 0.3,
 				fmIndex = 0,
@@ -231,6 +250,7 @@ Engine_Cule : CroneEngine {
 
 			// slew tip for direct control of amplitude -- otherwise there will be audible steppiness
 			tip = Lag.kr(tip, 0.05);
+			// TODO: don't allow ampMode to change while freeze is engaged
 			amp = (Select.kr(ampMode, [
 				tip,
 				tip * eg,
@@ -272,7 +292,7 @@ Engine_Cule : CroneEngine {
 			// filter LPG-style
 			lpgCutoff = lpgOpenness.lincurve(
 				0, 1,
-				lpgTone.lincurve(0, 1, \lpgMin.kr(20), \lpgMax.kr(20000), 4), lpgTone.lincurve(-1, 0, \lpgMin.kr(20), \lpgMax.kr(20000), 4),
+				lpgTone.lincurve(0, 1, 20, 20000, 4), lpgTone.lincurve(-1, 0, 20, 20000, 4),
 				\lpgCurve.kr(3)
 			);
 
@@ -287,6 +307,8 @@ Engine_Cule : CroneEngine {
 			voiceOutput = HPF.ar(voiceOutput, hpCutoff.lag(lag));
 			Out.ar(context.out_b, Pan2.ar(voiceOutput * Lag.kr(outLevel, 0.05), pan));
 		}).add;
+
+		patchArgs = voiceDef.allControlNames.collect({ |control| control.name }).difference(voiceArgs);
 
 		replyDef = SynthDef.new(\reply, {
 			arg selectedVoice = 0,
@@ -318,14 +340,25 @@ Engine_Cule : CroneEngine {
 
 		baseFreqBus.setSynchronous(60.midicps);
 
+		patchBuses = Dictionary.new;
+		voiceDef.allControlNames.do({
+			arg control;
+			if(patchArgs.includes(control.name), {
+				var bus = Bus.control(context.server);
+				bus.set(control.defaultValue);
+				patchBuses.put(control.name, bus);
+			});
+		});
+
 		voiceSynths = Array.fill(nVoices, {
 			arg i;
-			("creating voice #" ++ i).postln;
-			Synth.new(\line, [
+			var synth = Synth.new(\line, [
 				\voiceIndex, i,
 				\buffer, controlBuffers[i],
 				\voiceStateBus, voiceStateBuses[i],
 			], context.og, \addToTail); // "output" group
+			patchArgs.do({ |name| synth.map(name, patchBuses[name]) });
+			synth;
 		});
 
 		replySynth = Synth.new(\reply, [], context.og, \addToTail);
@@ -401,19 +434,25 @@ Engine_Cule : CroneEngine {
 			voiceSynths[msg[1] - 1].set(\freeze, 0);
 		});
 
-		this.addCommand(\gate, "ii", {
-			arg msg;
-			var synth = voiceSynths[msg[1] - 1];
-			var value = msg[2];
-			synth.set(\gate, value, \t_trig, value);
+		patchArgs.do({
+			arg name;
+			var signature = if([ \ampMode ].includes(name), "i", "f");
+			this.addCommand(name, signature, { |msg|
+				patchBuses[name].set(msg[1]);
+			});
 		});
 
-		voiceDef.allControlNames.do({ |control|
-			var controlName = control.name;
-			if(controlName !== \gate, {
-				var signature = if([ \ampMode ].includes(controlName), "ii", "if");
-				this.addCommand(controlName, signature, { |msg|
-					voiceSynths[msg[1] - 1].set(controlName, msg[2]);
+		this.addCommand(\gate, "ii", {
+			arg msg;
+			var value = msg[2];
+			voiceSynths[msg[1] - 1].set(\gate, value, \t_trig, value);
+		});
+
+		voiceArgs.do({
+			arg name;
+			if(name !== \gate, {
+				this.addCommand(name, "if", { |msg|
+					voiceSynths[msg[1] - 1].set(name, msg[2]);
 				});
 			});
 		});
@@ -423,6 +462,7 @@ Engine_Cule : CroneEngine {
 		replySynth.free;
 		voiceSynths.do({ |synth| synth.free });
 		controlBuffers.do({ |buffer| buffer.free });
+		patchBuses.do({ |bus| bus.free });
 		voiceAmpReplyFunc.free;
 		voicePitchReplyFunc.free;
 		lfoGateReplyFunc.free;
