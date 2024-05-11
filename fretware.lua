@@ -196,8 +196,6 @@ function clear_voice_loop(v)
 	-- clear pitch shift, because it only confuses things when loop isn't engaged
 	voice.shift = 0
 	engine.shift(v, 0)
-	-- update amp mode, if needed (when a voice is looping, amp_mode param has no effect)
-	engine.ampMode(v, params:get('amp_mode') - 1)
 end
 
 function record_voice_loop(v)
