@@ -771,7 +771,7 @@ function init()
 			min = 0,
 			max = 1,
 			k = 2,
-			default = 0.4,
+			default = 0.25,
 			action = function(value)
 				engine.outLevel(v, value)
 			end
