@@ -742,6 +742,24 @@ function init()
 		end
 	end
 
+	params:add_group('voice levels', n_voices)
+
+	for v = 1, n_voices do
+
+		params:add {
+			name = 'voice level ' .. v,
+			id = 'outLevel_' .. v,
+			type = 'taper',
+			min = 0,
+			max = 1,
+			k = 2,
+			default = 0.4,
+			action = function(value)
+				engine.outLevel(v, value)
+			end
+		}
+	end
+
 	params:add_group('crow', 6)
 
 	-- TODO: damp base + range are a way to avoid using an extra attenuator + offset,
