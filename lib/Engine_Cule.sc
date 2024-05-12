@@ -250,7 +250,8 @@ Engine_Cule : CroneEngine {
 
 			// slew tip for direct control of amplitude -- otherwise there will be audible steppiness
 			tip = Lag.kr(tip, 0.05);
-			// TODO: don't allow ampMode to change while freeze is engaged
+			// amp mode shouldn't change while frozen
+			ampMode = Gate.kr(ampMode, 1 - freeze);
 			amp = (Select.kr(ampMode, [
 				tip,
 				tip * eg,

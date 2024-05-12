@@ -67,7 +67,8 @@ editor = {
 		{
 			name = 'lpgTone',
 			label = 'lpg tone',
-			default = 0.3
+			default = 0.3,
+			has_divider = true
 		},
 		{
 			name = 'attack',
@@ -87,7 +88,8 @@ editor = {
 		{
 			name = 'release',
 			label = 'release',
-			default = 0
+			default = 0,
+			has_divider = true
 		},
 		{
 			name = 'lfoAFreq',
@@ -97,18 +99,21 @@ editor = {
 		{
 			name = 'lfoBFreq',
 			label = 'lfo b freq',
-			default = 0
+			default = 0,
+			has_divider = true
 		},
 		{
 			name = 'pitch',
 			label = 'pitch',
 			mod_only = true
 		},
+		-- TODO: pan is voice-specific! pull value from voice params when switching active voice
 		{
 			name = 'pan',
 			label = 'pan',
 			default = 0
 		},
+		-- TODO: use this to control outLevel, which is also voice-specific
 		{
 			name = 'amp',
 			label = 'amp',
@@ -116,27 +121,28 @@ editor = {
 		}
 	},
 	source = 1,
-	dest = 1,
+	dest1 = 1,
+	dest2 = 2
 }
 
 dest_dials = {
 	-- x, y, size, value, min_value, max_value, rounding, start_value, markers, units, title
 	tuneA    = Dial.new(82,  50, 15),
-	tuneB    = Dial.new(102, 50, 15),
-	fmIndex  = Dial.new(122, 50, 15),
-	fbB      = Dial.new(142, 50, 15),
-	opDetune = Dial.new(162, 50, 15),
-	opMix    = Dial.new(182, 50, 15),
-	foldGain = Dial.new(202, 50, 15),
-	lpgTone  = Dial.new(222, 50, 15),
-	attack   = Dial.new(242, 50, 15),
-	decay    = Dial.new(262, 50, 15),
-	sustain  = Dial.new(282, 50, 15),
-	release  = Dial.new(302, 50, 15),
-	lfoAFreq = Dial.new(322, 50, 15),
-	lfoBFreq = Dial.new(342, 50, 15),
-	pitch    = Dial.new(362, 50, 15),
-	pan      = Dial.new(382, 50, 15),
+	tuneB    = Dial.new(101, 50, 15),
+	fmIndex  = Dial.new(120, 50, 15),
+	fbB      = Dial.new(139, 50, 15),
+	opDetune = Dial.new(158, 50, 15),
+	opMix    = Dial.new(177, 50, 15),
+	foldGain = Dial.new(196, 50, 15),
+	lpgTone  = Dial.new(215, 50, 15),
+	attack   = Dial.new(239, 50, 15),
+	decay    = Dial.new(258, 50, 15),
+	sustain  = Dial.new(277, 50, 15),
+	release  = Dial.new(296, 50, 15),
+	lfoAFreq = Dial.new(321, 50, 15),
+	lfoBFreq = Dial.new(340, 50, 15),
+	pitch    = Dial.new(364, 50, 15),
+	pan      = Dial.new(383, 50, 15),
 	amp      = Dial.new(402, 50, 15)
 }
 
@@ -196,8 +202,6 @@ function clear_voice_loop(v)
 	-- clear pitch shift, because it only confuses things when loop isn't engaged
 	voice.shift = 0
 	engine.shift(v, 0)
-	-- update amp mode, if needed (when a voice is looping, amp_mode param has no effect)
-	engine.ampMode(v, params:get('amp_mode') - 1)
 end
 
 function record_voice_loop(v)
@@ -600,10 +604,24 @@ function init()
 	}
 
 	params:add {
+		name = 'eg type',
+		id = 'eg_type',
+		type = 'option',
+		options = { 'adsr', 'gated ar', 'trig\'d ar' },
+		default = 3,
+		action = function(value)
+			engine.egType(value - 1)
+			-- show/hide decay and sustain controls
+			editor.dests[10].hidden = value ~= 1
+			editor.dests[11].hidden = value ~= 1
+		end
+	}
+
+	params:add {
 		name = 'amp mode',
 		id = 'amp_mode',
 		type = 'option',
-		options = { 'tip', 'tip*ar', 'adsr' },
+		options = { 'tip', 'tip*eg', 'eg' },
 		default = 1,
 		action = function(value)
 			engine.ampMode(value - 1)
@@ -855,9 +873,31 @@ function init()
 		time = 1 / 30,
 		event = function(n)
 			blink = (n % 7 < 3)
+			-- TODO: is another offset of 20px needed?
+			local x = 82
+			for p = 1, editor.dest1 do
+				local dest = editor.dests[p]
+				if not dest.hidden then
+					if dest.has_divider then
+						x = x - 26
+					else
+						x = x - 18
+					end
+				end
+			end
 			for p = 1, #editor.dests do
-				local dial = dest_dials[editor.dests[p].name]
-				dial.x = math.floor(dial.x + (((p - editor.dest) * 20 + 82) - dial.x) * 0.6)
+				local dest = editor.dests[p]
+				if not dest.hidden then
+					local dial = dest_dials[dest.name]
+					if dial.x ~= x then
+						dial.x = math.floor(dial.x + (x - dial.x) * 0.6)
+					end
+					if dest.has_divider then
+						x = x + 26
+					else
+						x = x + 19
+					end
+				end
 			end
 			redraw()
 			grid_redraw()
@@ -921,23 +961,26 @@ function redraw()
 
 	for d = 1, #editor.dests do
 
-		local dest = editor.dests[d].name
-		local dest_dial = dest_dials[dest]
-		local source_dial = source_dials[dest][editor.source_names[editor.source]]
-		local active = editor.dest == d or editor.dest % #editor.dests + 1 == d
+		if not editor.dests[d].hidden then
 
-		dest_dial.active = active
-		dest_dial:redraw()
+			local dest = editor.dests[d].name
+			local dest_dial = dest_dials[dest]
+			local source_dial = source_dials[dest][editor.source_names[editor.source]]
+			local active = editor.dest1 == d or editor.dest2 == d
 
-		source_dial.x = dest_dial.x + 2
-		source_dial.y = dest_dial.y + 2
-		source_dial.active = active
-		source_dial:redraw()
+			dest_dial.active = active
+			dest_dial:redraw()
 
-		screen.move(dest_dial.x - 4, dest_dial.y + 11)
-		screen.level(active and 15 or 2)
-		screen.text_rotate(dest_dial.x + 10, dest_dial.y - 4, editor.dests[d].label, -90)
-		screen.stroke()
+			source_dial.x = dest_dial.x + 2
+			source_dial.y = dest_dial.y + 2
+			source_dial.active = active
+			source_dial:redraw()
+
+			screen.move(dest_dial.x - 4, dest_dial.y + 11)
+			screen.level(active and 15 or 2)
+			screen.text_rotate(dest_dial.x + 10, dest_dial.y - 4, editor.dests[d].label, -90)
+			screen.stroke()
+		end
 	end
 
 	screen.rect(0, 0, 30, 43)
@@ -993,14 +1036,14 @@ function enc(n, d)
 			editor.source = (editor.source - 2) % #editor.source_names + 1
 		end
 	elseif n == 2 then
-		local dest = editor.dests[editor.dest].name
+		local dest = editor.dests[editor.dest1].name
 		if held_keys[2] then
 			params:delta(editor.source_names[editor.source] .. '_' .. dest, d)
 		elseif dest ~= 'pitch' then
 			params:delta(dest, d)
 		end
 	elseif n == 3 then
-		local dest = editor.dests[editor.dest % #editor.dests + 1].name
+		local dest = editor.dests[editor.dest2].name
 		if held_keys[3] then
 			params:delta(editor.source_names[editor.source] .. '_' .. dest, d)
 		elseif dest ~= 'pitch' then
@@ -1012,9 +1055,29 @@ end
 function key(n, z)
 	if n > 1 and z == 0 and util.time() - held_keys[n] < 0.2 then
 		if n == 2 then
-			editor.dest = (editor.dest - 2) % (#editor.dests - 1) + 1
+			-- move dest1 left.
+			-- from first dest, move back to NEXT to last dest, leaving room for dest2.
+			-- skip dests with dividers.
+			repeat
+				editor.dest1 = util.wrap(editor.dest1 - 1, 1, #editor.dests - 1)
+			until not editor.dests[editor.dest1].has_divider and not editor.dests[editor.dest1].hidden
+			-- move dest2 right from there
+			editor.dest2 = editor.dest1
+			repeat
+				editor.dest2 = util.wrap(editor.dest2 + 1, 1, #editor.dests)
+			until not editor.dests[editor.dest2].hidden
 		elseif n == 3 then
-			editor.dest = editor.dest % (#editor.dests - 1) + 1
+			-- move dest1 right.
+			-- from next-to-last dest, move back to first dest, leaving room for dest2.
+			-- skip dests with dividers.
+			repeat
+				editor.dest1 = util.wrap(editor.dest1 + 1, 1, #editor.dests - 1)
+			until not editor.dests[editor.dest1].has_divider and not editor.dests[editor.dest1].hidden
+			-- move dest2 right from there
+			editor.dest2 = editor.dest1
+			repeat
+				editor.dest2 = util.wrap(editor.dest2 + 1, 1, #editor.dests)
+			until not editor.dests[editor.dest2].hidden
 		end
 	end
 	held_keys[n] = z == 1 and util.time() or false
