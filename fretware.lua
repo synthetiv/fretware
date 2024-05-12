@@ -595,10 +595,25 @@ function init()
 	}
 
 	params:add {
+		name = 'eg type',
+		id = 'eg_type',
+		type = 'option',
+		options = { 'adsr', 'gated ar', 'trig\'d ar' },
+		default = 3,
+		action = function(value)
+			engine.egType(value - 1)
+			if value ~= 3 then
+				dests[10].hidden = true
+				dests[11].hidden = true
+			end
+		end
+	}
+
+	params:add {
 		name = 'amp mode',
 		id = 'amp_mode',
 		type = 'option',
-		options = { 'tip', 'tip*ar', 'adsr' },
+		options = { 'tip', 'tip*eg', 'eg' },
 		default = 1,
 		action = function(value)
 			engine.ampMode(value - 1)
