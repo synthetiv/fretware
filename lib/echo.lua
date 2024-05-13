@@ -77,6 +77,7 @@ function Echo:init()
 		softcut.loop(scv, 1)
 		softcut.fade_time(scv, 0.01)
 		softcut.play(scv, 1)
+		-- TODO: HPF for record voice?
 		softcut.pre_filter_dry(scv, 1)
 		softcut.pre_filter_lp(scv, 0)
 		softcut.post_filter_dry(scv, 1)
