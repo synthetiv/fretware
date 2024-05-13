@@ -20,6 +20,8 @@ function Echo.new()
 		div_dirty = false,
 		resolution = 0,
 		resolution_dirty = false,
+		jump_amount = 0,
+		jump_div = 0,
 		drift_state = 0,
 		drift_amount = 0.15,
 		drift_leak = 0.8,
@@ -54,7 +56,7 @@ function Echo:init()
 				end
 				-- move the play head closer to or further from the record head, depending on echo_div
 				-- TODO: use 'sync' instead?
-				local new_position = position - (self.head_distance * math.pow(2, self.div + self.resolution))
+				local new_position = position - (self.head_distance * math.pow(2, self.div + self.jump_div + self.resolution))
 				new_position = new_position % Echo.LOOP_LENGTH
 				softcut.position(self.play_voice, new_position)
 				self.div_dirty = false
@@ -114,7 +116,7 @@ end
 
 function Echo:jump()
 	if self.jump_amount > 0 then
-		self.div = self.jump_amount * (math.random() - 0.5) + params:get('echo_time_div') 
+		self.jump_div = self.jump_amount * (math.random() - 0.5)
 		self.div_dirty = true
 		softcut.query_position(self.rec_voice)
 	end
@@ -174,10 +176,27 @@ function Echo:add_params()
 	}
 
 	params:add {
+		name = 'echo jump trigger',
+		id = 'echo_jump_trigger',
+		type = 'option',
+		options = { 'none', 'lfoA', 'lfoB', 'lfoEqual', 'manual' },
+		default = 1,
+		action = function(value)
+			if uc4 then
+				uc4:note_off(16)
+				uc4:note_off(17)
+				uc4:note_off(18)
+				uc4:note_off(19)
+			end
+			self.jump_trigger = value
+		end
+	}
+
+	params:add {
 		name = 'echo jump amount',
 		id = 'echo_jump_amount',
 		type = 'control',
-		controlspec = controlspec.new(0, 1, 'lin', 0, 0),
+		controlspec = controlspec.new(0, 1, 'lin', 0, 0.4),
 		action = function(value)
 			self.jump_amount = value * 2
 		end
@@ -187,7 +206,7 @@ function Echo:add_params()
 		name = 'echo div fade',
 		id = 'echo_div_fade',
 		type = 'control',
-		controlspec = controlspec.new(0, 250, 'lin', 0, 60, 'ms'),
+		controlspec = controlspec.new(0, 250, 'lin', 0, 15, 'ms'),
 		action = function(time)
 			softcut.fade_time(self.play_voice, time * 0.001)
 		end
