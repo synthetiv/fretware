@@ -153,7 +153,7 @@ function Echo:add_params()
 		id = 'echo_rate',
 		type = 'control',
 		formatter = Echo.div_formatter('%0.2f'),
-		controlspec = controlspec.new(1, -1, 'lin', 0, 0),
+		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
 			-- softcut voice rates are set based on this, in a clock routine
 			self.rate = value
