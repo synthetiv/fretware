@@ -77,13 +77,16 @@ function Echo:init()
 		softcut.loop(scv, 1)
 		softcut.fade_time(scv, 0.01)
 		softcut.play(scv, 1)
-		-- TODO: HPF for record voice?
 		softcut.pre_filter_dry(scv, 1)
 		softcut.pre_filter_lp(scv, 0)
 		softcut.post_filter_dry(scv, 1)
 		softcut.post_filter_lp(scv, 0)
 		softcut.enable(scv, 1)
 	end
+
+	softcut.pre_filter_dry(self.rec_voice, 0.75)
+	softcut.pre_filter_hp(self.rec_voice, 0.25)
+	softcut.pre_filter_fc(self.rec_voice, 5)
 
 	self:set_tone(0)
 
