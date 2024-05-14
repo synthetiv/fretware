@@ -32,12 +32,12 @@ editor = {
 		{
 			name = 'tuneA',
 			label = 'tune A',
-			default = -0.335
+			default = -0.4167 -- 1/1 (4th out of 12 harmonics)
 		},
 		{
 			name = 'tuneB',
 			label = 'tune B',
-			default = -0.335
+			default = -0.25 -- 2/1 (5th out of 12 harmonics)
 		},
 		{
 			name = 'fmIndex',
@@ -57,7 +57,7 @@ editor = {
 		{
 			name = 'opMix',
 			label = 'mix A:B',
-			default = 0
+			default = -1
 		},
 		{
 			name = 'foldGain',
@@ -104,20 +104,17 @@ editor = {
 		},
 		{
 			name = 'pitch',
-			label = 'pitch',
-			mod_only = true
+			label = 'pitch'
 		},
-		-- TODO: pan is voice-specific! pull value from voice params when switching active voice
 		{
 			name = 'pan',
 			label = 'pan',
-			default = 0
+			voice_param = 'pan'
 		},
-		-- TODO: use this to control outLevel, which is also voice-specific
 		{
 			name = 'amp',
 			label = 'amp',
-			mod_only = true
+			voice_param = 'outLevel'
 		}
 	},
 	source = 1,
@@ -364,6 +361,8 @@ function init()
 		engine.palm(old_v, 0)
 		engine.gate(old_v, 0)
 		engine.select_voice(v)
+		dest_dials.amp:set_value(params:get_raw('outLevel_' .. v) * 2 - 1)
+		dest_dials.pan:set_value(params:get_raw('pan_' .. v) * 2 - 1)
 		send_pitch_volts()
 	end
 
@@ -466,7 +465,7 @@ function init()
 		voice.polls.lfoEqual:start()
 	end
 
-	params:add_group('tuning', 4)
+	params:add_group('tuning', 6)
 
 	-- TODO: add params for tt and crow transposition
 	-- ...and yeah, control from keyboard. you'll want that again
@@ -475,8 +474,9 @@ function init()
 		name = 'base frequency (C)',
 		id = 'base_freq',
 		type = 'control',
-		controlspec = controlspec.new(130, 522, 'exp', 0, musicutil.note_num_to_freq(60), 'Hz'),
+		controlspec = controlspec.new(musicutil.note_num_to_freq(48), musicutil.note_num_to_freq(72), 'exp', 0, musicutil.note_num_to_freq(60), 'Hz'),
 		action = function(value)
+			dest_dials.pitch:set_value(params:get_raw('base_freq') * 2 - 1)
 			engine.baseFreq(value)
 		end
 	}
@@ -523,6 +523,36 @@ function init()
 			k:set_bend_targets()
 			k:bend(k.bend_amount)
 			send_pitch_volts()
+		end
+	}
+
+	params:add {
+		name = 'pitch slew',
+		id = 'pitchSlew',
+		type = 'control',
+		controlspec = controlspec.new(0, 0.1, 'lin', 0, 0.01, 's'),
+		action = function(value)
+			engine.pitchSlew(value)
+		end
+	}
+
+	params:add {
+		name = 'detune exp/lin',
+		id = 'detuneType',
+		type = 'control',
+		controlspec = controlspec.new(0, 1, 'lin', 0, 0.12),
+		action = function(value)
+			engine.detuneType(value)
+		end
+	}
+
+	params:add {
+		name = 'harmonic fade size',
+		id = 'fadeSize',
+		type = 'control',
+		controlspec = controlspec.new(0.01, 1, 'lin', 0, 0.8),
+		action = function(value)
+			engine.fadeSize(value)
 		end
 	}
 
@@ -593,6 +623,8 @@ function init()
 		end
 	}
 
+	params:add_group('filter settings', 4)
+
 	params:add {
 		name = 'lpg on',
 		id = 'lpgOn',
@@ -625,6 +657,18 @@ function init()
 	}
 
 	params:add {
+		name = 'hp cutoff',
+		id = 'hpCutoff',
+		type = 'control',
+		controlspec = controlspec.new(8, 12000, 'exp', 0, 8, 'Hz'),
+		action = function(value)
+			engine.hpCutoff(value)
+		end
+	}
+
+	params:add_group('eg settings', 2)
+
+	params:add {
 		name = 'eg type',
 		id = 'eg_type',
 		type = 'option',
@@ -649,39 +693,9 @@ function init()
 		end
 	}
 
-	params:add {
-		name = 'detune exp/lin',
-		id = 'detuneType',
-		type = 'control',
-		controlspec = controlspec.new(0, 1, 'lin', 0, 0.12),
-		action = function(value)
-			engine.detuneType(value)
-		end
-	}
-
-	params:add {
-		name = 'harmonic fade size',
-		id = 'fadeSize',
-		type = 'control',
-		controlspec = controlspec.new(0.01, 1, 'lin', 0, 0.8),
-		action = function(value)
-			engine.fadeSize(value)
-		end
-	}
-
-	params:add {
-		name = 'hp cutoff',
-		id = 'hpCutoff',
-		type = 'control',
-		controlspec = controlspec.new(8, 12000, 'exp', 0, 8, 'Hz'),
-		action = function(value)
-			engine.hpCutoff(value)
-		end
-	}
-
 	for d = 1, #editor.dests do
 		local dest = editor.dests[d]
-		if dest.name ~= 'attack' and dest.name ~= 'decay' and dest.name ~= 'sustain' and dest.name ~= 'release' and dest.name ~= 'lfoAFreq' and dest.name ~= 'lfoBFreq' and not dest.mod_only then
+		if dest.name ~= 'attack' and dest.name ~= 'decay' and dest.name ~= 'sustain' and dest.name ~= 'release' and dest.name ~= 'lfoAFreq' and dest.name ~= 'lfoBFreq' and dest.name ~= 'pitch' and not dest.voice_param then
 			local engine_command = engine[dest.name]
 			print(dest.name)
 			params:add {
@@ -781,7 +795,7 @@ function init()
 		end
 	end
 
-	params:add_group('voice levels', n_voices)
+	params:add_group('voices', n_voices)
 
 	for v = 1, n_voices do
 
@@ -794,7 +808,23 @@ function init()
 			k = 2,
 			default = 0.25,
 			action = function(value)
+				if v == k.selected_voice then
+					dest_dials.amp:set_value(params:get_raw('outLevel_' .. v) * 2 - 1)
+				end
 				engine.outLevel(v, value)
+			end
+		}
+
+		params:add {
+			name = 'voice pan ' .. v,
+			id = 'pan_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+			action = function(value)
+				if v == k.selected_voice then
+					dest_dials.pan:set_value(params:get_raw('pan_' .. v) * 2 - 1)
+				end
+				engine.pan(v, value)
 			end
 		}
 	end
@@ -805,21 +835,21 @@ function init()
 	-- but is that worth it?
 	params:add {
 		name = 'damp range',
-		id = 'damp_range',
+		id = 'crow_damp_range',
 		type = 'control',
 		controlspec = controlspec.new(-10, 10, 'lin', 0, -5, 'v')
 	}
 
 	params:add {
 		name = 'damp base',
-		id = 'damp_base',
+		id = 'crow_damp_base',
 		type = 'control',
 		controlspec = controlspec.new(-10, 10, 'lin', 0, 0, 'v')
 	}
 
 	params:add {
 		name = 'pitch slew',
-		id = 'pitch_slew',
+		id = 'crow_pitch_slew',
 		type = 'control',
 		controlspec = controlspec.new(0, 0.1, 'lin', 0, 0, 's'),
 		action = function(value)
@@ -829,7 +859,7 @@ function init()
 
 	params:add {
 		name = 'amp/damp slew',
-		id = 'amp_slew',
+		id = 'crow_amp_slew',
 		type = 'control',
 		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.05, 's'),
 		action = function(value)
@@ -840,7 +870,7 @@ function init()
 
 	params:add {
 		name = 'gate mode',
-		id = 'gate_mode',
+		id = 'crow_gate_mode',
 		type = 'option',
 		options = { 'legato', 'retrig' },
 		default = 2,
@@ -851,7 +881,7 @@ function init()
 					held { to(8, dyn { delay = 0 }, 'wait') },
 					to(0, 0)
 				}]]
-				crow.output[4].dyn.delay = params:get('gate_delay')
+				crow.output[4].dyn.delay = params:get('crow_gate_delay')
 				crow.output[4](false)
 			else
 				crow.output[4].action = [[{
@@ -859,7 +889,7 @@ function init()
 					held { to(8, 0) },
 					to(0, 0)
 				}]]
-				crow.output[4].dyn.delay = params:get('gate_delay')
+				crow.output[4].dyn.delay = params:get('crow_gate_delay')
 				crow.output[4](false)
 			end
 		end
@@ -867,7 +897,7 @@ function init()
 
 	params:add {
 		name = 'gate delay',
-		id = 'gate_delay',
+		id = 'crow_gate_delay',
 		type = 'control',
 		controlspec = controlspec.new(0.001, 0.05, 'lin', 0, 0.001, 's'),
 		action = function(value)
@@ -946,7 +976,7 @@ function init()
 			elseif message.cc == 16 then
 				palm = message.val / 126
 				engine.palm(k.selected_voice, palm * palm * palm)
-				crow.output[3].volts = palm * params:get('damp_range') + params:get('damp_base')
+				crow.output[3].volts = palm * params:get('crow_damp_range') + params:get('crow_damp_base')
 			elseif message.cc == 18 then
 				k:bend(-math.min(1, message.val / 126)) -- TODO: not sure why 126 is the max value I'm getting from Touche...
 				send_pitch_volts()
@@ -1079,50 +1109,54 @@ function enc(n, d)
 		elseif d < 0 then
 			editor.source = (editor.source - 2) % #editor.source_names + 1
 		end
-	elseif n == 2 then
-		local dest = editor.dests[editor.dest1].name
-		if held_keys[2] then
-			params:delta(editor.source_names[editor.source] .. '_' .. dest, d)
-		elseif dest ~= 'pitch' then
-			params:delta(dest, d)
-		end
-	elseif n == 3 then
-		local dest = editor.dests[editor.dest2].name
-		if held_keys[3] then
-			params:delta(editor.source_names[editor.source] .. '_' .. dest, d)
-		elseif dest ~= 'pitch' then
-			params:delta(dest, d)
+	elseif n == 2 or n == 3 then
+		local dest = (n == 2 and editor.dests[editor.dest1]) or editor.dests[editor.dest2]
+		if held_keys[n] then
+			params:delta(editor.source_names[editor.source] .. '_' .. dest.name, d)
+		elseif dest.voice_param then
+			params:delta(dest.voice_param .. '_' .. k.selected_voice, d)
+		elseif dest.name == 'pitch' then
+			params:delta('base_freq', d)
+		else
+			params:delta(dest.name, d)
 		end
 	end
 end
 
 function key(n, z)
-	if n > 1 and z == 0 and util.time() - held_keys[n] < 0.2 then
-		if n == 2 then
-			-- move dest1 left.
-			-- from first dest, move back to NEXT to last dest, leaving room for dest2.
-			-- skip dests with dividers.
-			repeat
-				editor.dest1 = util.wrap(editor.dest1 - 1, 1, #editor.dests - 1)
-			until not editor.dests[editor.dest1].has_divider and not editor.dests[editor.dest1].hidden
-			-- move dest2 right from there
-			editor.dest2 = editor.dest1
-			repeat
-				editor.dest2 = util.wrap(editor.dest2 + 1, 1, #editor.dests)
-			until not editor.dests[editor.dest2].hidden
-		elseif n == 3 then
-			-- move dest1 right.
-			-- from next-to-last dest, move back to first dest, leaving room for dest2.
-			-- skip dests with dividers.
-			repeat
-				editor.dest1 = util.wrap(editor.dest1 + 1, 1, #editor.dests - 1)
-			until not editor.dests[editor.dest1].has_divider and not editor.dests[editor.dest1].hidden
-			-- move dest2 right from there
-			editor.dest2 = editor.dest1
-			repeat
-				editor.dest2 = util.wrap(editor.dest2 + 1, 1, #editor.dests)
-			until not editor.dests[editor.dest2].hidden
+	if n == 1 and z == 1 then
+		for d = 1, 2 do
+			if held_keys[d + 1] then
+				local dest = editor.dests[d == 1 and editor.dest1 or editor.dest2]
+				for s = 1, #editor.source_names do
+					params:lookup_param(editor.source_names[s] .. '_' .. dest.name):set_default()
+				end
+				if dest.voice_param then
+					for v = 1, n_voices do
+						params:lookup_param(dest.voice_param .. '_' .. v):set_default()
+					end
+				elseif dest.name == 'pitch' then
+					params:lookup_param('base_freq'):set_default()
+				else
+					params:lookup_param(dest.name):set_default()
+				end
+			end
 		end
+	elseif n > 1 and z == 0 and util.time() - held_keys[n] < 0.2 then
+		local d = n == 2 and -1 or 1
+		-- move dest1.
+		-- wrap from first to NEXT-to-last dest, in order to leave room for dest2.
+		-- skip dests with dividers.
+		-- NB: this assumes the last dest will never be hidden,
+		-- and that the next-to-last won't have a divider.
+		repeat
+			editor.dest1 = util.wrap(editor.dest1 + d, 1, #editor.dests - 1)
+		until not editor.dests[editor.dest1].has_divider and not editor.dests[editor.dest1].hidden
+		-- move dest2 right from there
+		editor.dest2 = editor.dest1
+		repeat
+			editor.dest2 = util.wrap(editor.dest2 + 1, 1, #editor.dests)
+		until not editor.dests[editor.dest2].hidden
 	end
 	held_keys[n] = z == 1 and util.time() or false
 end
