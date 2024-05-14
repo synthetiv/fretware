@@ -233,7 +233,7 @@ function Echo:add_params()
 		name = 'echo drift',
 		id = 'echo_drift',
 		type = 'control',
-		controlspec = controlspec.new(0, 0.7, 'lin', 0, 0.125),
+		controlspec = controlspec.new(0, 0.7, 'lin', 0, 0.25),
 		action = function(value)
 			self.drift_amount = value
 		end
@@ -243,7 +243,7 @@ function Echo:add_params()
 		name = 'echo drift leak',
 		id = 'echo_drift_leak',
 		type = 'control',
-		controlspec = controlspec.new(0, 1, 'lin', 0, 0.9),
+		controlspec = controlspec.new(0, 1, 'lin', 0, 0.8),
 		action = function(value)
 			self.drift_leak = value
 		end
