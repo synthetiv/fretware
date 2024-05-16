@@ -5,7 +5,7 @@ musicutil = require 'musicutil'
 
 Dial = include 'lib/dial'
 
-n_voices = 7
+n_voices = 6
 
 Keyboard = include 'lib/keyboard'
 k = Keyboard.new(1, 1, 16, 8)
