@@ -47,7 +47,7 @@ editor = {
 		{
 			name = 'fbB',
 			label = 'feedback B',
-			default = 0
+			default = -1
 		},
 		{
 			name = 'opDetune',
