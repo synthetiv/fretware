@@ -806,7 +806,7 @@ function init()
 			min = 0,
 			max = 1,
 			k = 2,
-			default = 0.25,
+			default = 0.3,
 			action = function(value)
 				if v == k.selected_voice then
 					dest_dials.amp:set_value(params:get_raw('outLevel_' .. v) * 2 - 1)
@@ -913,7 +913,7 @@ function init()
 	params:set('reverb', 1) -- off
 	params:set('input_level', 0) -- ADC input at unity
 	params:set('cut_input_adc', 0) -- feed echo from ext input
-	params:set('cut_input_eng', 0) -- feed echo from internal synth (this can also be MIDI mapped)
+	params:set('cut_input_eng', -10.39) -- feed echo from internal synth (this can also be MIDI mapped)
 	params:set('cut_input_tape', -math.huge) -- do NOT feed echo from tape
 	params:set('monitor_level', -math.huge) -- monitor off (ext. echo fully wet)
 
