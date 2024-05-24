@@ -152,6 +152,7 @@ function Echo:add_params()
 		end
 	}
 
+	-- TODO: why doesn't this seem to initialize properly? is it a mapping issue or an issue with how this param works?
 	params:add {
 		name = 'echo rate',
 		id = 'echo_rate',

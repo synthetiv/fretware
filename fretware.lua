@@ -623,7 +623,29 @@ function init()
 		end
 	}
 
-	params:add_group('filter settings', 4)
+	params:add_group('filter settings', 8)
+
+	params:add {
+		name = 'opA squiz ratio',
+		id = 'opASquizRatio',
+		type = 'control',
+		controlspec = controlspec.new(1, 8, 'lin', 0, 1),
+		action = function(value)
+			engine.opASquizRatio(value)
+		end
+	}
+
+	params:add {
+		name = 'opA squiz ZC/chunk',
+		id = 'opASquizZC',
+		type = 'number',
+		min = 1,
+		max = 8,
+		default = 1,
+		action = function(value)
+			engine.opASquizZC(value)
+		end
+	}
 
 	params:add {
 		name = 'lpg on',
@@ -657,6 +679,26 @@ function init()
 	}
 
 	params:add {
+		name = 'dfm gain',
+		id = 'dfmGain',
+		type = 'control',
+		controlspec = controlspec.new(0.1, 2.0, 'exp', 0, 1.0),
+		action = function(value)
+			engine.dfmGain(value)
+		end
+	}
+
+	params:add {
+		name = 'dfm noise',
+		id = 'dfmNoise',
+		type = 'control',
+		controlspec = controlspec.new(0.00005, 0.001, 'exp', 0, 0.0003),
+		action = function(value)
+			engine.dfmNoise(value)
+		end
+	}
+
+	params:add {
 		name = 'hp cutoff',
 		id = 'hpCutoff',
 		type = 'control',
@@ -673,7 +715,7 @@ function init()
 		id = 'eg_type',
 		type = 'option',
 		options = { 'adsr', 'gated ar', 'trig\'d ar' },
-		default = 3,
+		default = 2,
 		action = function(value)
 			engine.egType(value - 1)
 			-- show/hide decay and sustain controls

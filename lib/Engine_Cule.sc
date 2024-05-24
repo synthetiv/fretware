@@ -273,6 +273,7 @@ Engine_Cule : CroneEngine {
 			hz = 2.pow(pitch) * In.kr(baseFreqBus);
 			detuneLin = opDetune * 40 * detuneType;
 			detuneExp = (opDetune * 7 * (1 - detuneType)).midiratio;
+			// TODO: experiment with Squiz and/or WaveLoss on these -- waveset-based weirdos
 			opB = this.harmonicOsc(
 				SinOscFB,
 				hz / detuneExp - detuneLin,
@@ -289,8 +290,11 @@ Engine_Cule : CroneEngine {
 				fadeSize,
 				fmMix
 			);
+			opA = Squiz.ar(opA, \opASquizRatio.kr(1), \opASquizZC.kr(1));
 			voiceOutput = LinXFade2.ar(opA, opB, opMix);
 			voiceOutput = (foldGain.linexp(-1, 1, 1, 27) * voiceOutput).fold2;
+			// TODO: Friction.ar filter ?? as alternative to wave folder?
+			// Friction.ar(in, friction: 0.5, spring: 0.414, damp: 0.313, mass: 0.1, beltmass: 1, mul: 1, add: 0)
 			// filter LPG-style
 			lpgCutoff = lpgOpenness.lincurve(
 				0, 1,
@@ -300,12 +304,17 @@ Engine_Cule : CroneEngine {
 
 			voiceOutput = Select.ar(\lpgOn.kr(1), [
 				voiceOutput,
-				RLPF.ar(voiceOutput, lpgCutoff, \lpgQ.kr(1.1).reciprocal)
+				Select.ar(\lpgType.kr(1), [
+					RLPF.ar(voiceOutput, lpgCutoff, \lpgQ.kr(1.1).reciprocal),
+					DFM1.ar(voiceOutput, lpgCutoff, \lpgQ.kr(1.1), \dfmGain.kr(1.0), \dfmNoise.kr(0.0003))
+				])
 			]);
 			// scale by amplitude control value
 			voiceOutput = voiceOutput * amp;
 
 			// filter and write to main outs
+			// TODO: add a MidEQ band?
+			// MidEQ.ar(in: 0.0, freq: 440.0, rq: 1.0, db: 0.0, mul: 1.0, add: 0.0)
 			voiceOutput = HPF.ar(voiceOutput, hpCutoff.lag(lag));
 			Out.ar(context.out_b, Pan2.ar(voiceOutput * Lag.kr(outLevel, 0.05), pan));
 		}).add;
