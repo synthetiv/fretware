@@ -126,11 +126,14 @@ function Echo:jump()
 	end
 end
 
-function Echo.div_formatter(format)
+function Echo.div_formatter(format, invert)
 	local div_format = '/' .. format
 	local mul_format = format .. 'x'
 	return function(param)
 		local value = param:get()
+		if invert then
+			value = -value
+		end
 		if value < 0 then
 			return string.format(div_format, math.pow(2, -value))
 		end
@@ -156,11 +159,11 @@ function Echo:add_params()
 		name = 'echo rate',
 		id = 'echo_rate',
 		type = 'control',
-		formatter = Echo.div_formatter('%0.2f'),
+		formatter = Echo.div_formatter('%0.2f', true),
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
 			-- softcut voice rates are set based on this, in a clock routine
-			self.rate = value
+			self.rate = -value
 		end
 	}
 
