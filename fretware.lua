@@ -640,7 +640,7 @@ function init()
 		name = 'lpg q',
 		id = 'lpgQ',
 		type = 'control',
-		controlspec = controlspec.new(0.9, 5, 'lin', 0, 1.1),
+		controlspec = controlspec.new(0.9, 5, 'lin', 0, 1.414),
 		action = function(value)
 			engine.lpgQ(value)
 		end

@@ -300,7 +300,7 @@ Engine_Cule : CroneEngine {
 
 			voiceOutput = Select.ar(\lpgOn.kr(1), [
 				voiceOutput,
-				RLPF.ar(voiceOutput, lpgCutoff, \lpgQ.kr(1.1).reciprocal)
+				RLPF.ar(voiceOutput, lpgCutoff, \lpgQ.kr(1.414).reciprocal)
 			]);
 			// scale by amplitude control value
 			voiceOutput = voiceOutput * amp;
