@@ -60,9 +60,9 @@ editor = {
 			default = -1
 		},
 		{
-			name = 'foldGain',
-			label = 'fold gain',
-			default = -1
+			name = 'squiz',
+			label = 'squiz',
+			default = 0
 		},
 		{
 			name = 'lpgTone',
@@ -130,7 +130,7 @@ dest_dials = {
 	fbB      = Dial.new(139, 50, 15),
 	opDetune = Dial.new(158, 50, 15),
 	opMix    = Dial.new(177, 50, 15),
-	foldGain = Dial.new(196, 50, 15),
+	squiz    = Dial.new(196, 50, 15),
 	lpgTone  = Dial.new(215, 50, 15),
 	attack   = Dial.new(239, 50, 15),
 	decay    = Dial.new(258, 50, 15),
@@ -623,36 +623,14 @@ function init()
 		end
 	}
 
-	params:add_group('filter settings', 8)
-
-	params:add {
-		name = 'opA squiz ratio',
-		id = 'opASquizRatio',
-		type = 'control',
-		controlspec = controlspec.new(1, 8, 'lin', 0, 1),
-		action = function(value)
-			engine.opASquizRatio(value)
-		end
-	}
-
-	params:add {
-		name = 'opA squiz ZC/chunk',
-		id = 'opASquizZC',
-		type = 'number',
-		min = 1,
-		max = 8,
-		default = 1,
-		action = function(value)
-			engine.opASquizZC(value)
-		end
-	}
+	params:add_group('filter settings', 4)
 
 	params:add {
 		name = 'lpg on',
 		id = 'lpgOn',
 		type = 'option',
-		options = { 'off', 'on' },
-		default = 2,
+		options = { 'off', 'RLPF', 'BLowPass' },
+		default = 3,
 		action = function(value)
 			engine.lpgOn(value - 1)
 		end
@@ -675,26 +653,6 @@ function init()
 		controlspec = controlspec.new(-4, 4, 'lin', 0, 3),
 		action = function(value)
 			engine.lpgCurve(value)
-		end
-	}
-
-	params:add {
-		name = 'dfm gain',
-		id = 'dfmGain',
-		type = 'control',
-		controlspec = controlspec.new(0.1, 2.0, 'exp', 0, 1.0),
-		action = function(value)
-			engine.dfmGain(value)
-		end
-	}
-
-	params:add {
-		name = 'dfm noise',
-		id = 'dfmNoise',
-		type = 'control',
-		controlspec = controlspec.new(0.00005, 0.001, 'exp', 0, 0.0003),
-		action = function(value)
-			engine.dfmNoise(value)
 		end
 	}
 

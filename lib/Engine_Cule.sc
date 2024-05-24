@@ -69,7 +69,7 @@ Engine_Cule : CroneEngine {
 			\fbB,
 			\opDetune,
 			\opMix,
-			\foldGain,
+			\squiz,
 			\lpgTone,
 			\attack,
 			\decay,
@@ -164,7 +164,7 @@ Engine_Cule : CroneEngine {
 				fbB = 0,
 				opDetune = 0,
 				opMix = 0,
-				foldGain = 0,
+				squiz = 0,
 				pan = 0,
 				lag = 0.1,
 
@@ -180,6 +180,7 @@ Engine_Cule : CroneEngine {
 				runglerA, runglerB, lfoA, lfoB, lfoEqual, lfoSH,
 				hz, detuneLin, detuneExp,
 				fmInput, opB, fmMix, opA,
+				squizRatio, squizZC,
 				lpgCutoff,
 				voiceOutput,
 				highPriorityUpdate;
@@ -233,6 +234,10 @@ Engine_Cule : CroneEngine {
 			lfoEqual = BinaryOpUGen('>=', lfoA, lfoB);
 			lfoSH = Latch.kr(lfoA, Changed.kr(lfoEqual));
 
+			// apply a pre-modulation dead zone to squiz control, so it's easier to hit 0
+			squiz = squiz.sign * (1 - (1.1 * (1 - squiz.abs)).min(1));
+			// TODO: scale? cube?
+
 			// this weird-looking LinSelectX pattern scales modulation signals so that
 			// final parameter values (base + modulation) can always reach [-1, 1]
 			tuneA    = LinSelectX.kr(1 + modulation[\tuneA],    [-1, tuneA.lag(lag),    1 ]);
@@ -241,7 +246,7 @@ Engine_Cule : CroneEngine {
 			fbB      = LinSelectX.kr(1 + modulation[\fbB],      [-1, fbB.lag(lag),      1 ]);
 			opDetune = LinSelectX.kr(1 + modulation[\opDetune], [-1, opDetune.cubed.lag(lag), 1 ]);
 			opMix    = LinSelectX.kr(1 + modulation[\opMix],    [-1, opMix.lag(lag),    1 ]);
-			foldGain = LinSelectX.kr(1 + modulation[\foldGain], [-1, foldGain.lag(lag), 1 ]);
+			squiz    = LinSelectX.kr(1 + modulation[\squiz],    [-1, squiz.lag(lag),    1 ]);
 			lpgTone  = LinSelectX.kr(1 + modulation[\lpgTone],  [-1, lpgTone.lag(lag),  1 ]);
 			pan      = LinSelectX.kr(1 + modulation[\pan],      [-1, pan.lag(lag),      1 ]);
 
@@ -290,10 +295,11 @@ Engine_Cule : CroneEngine {
 				fadeSize,
 				fmMix
 			);
-			opA = Squiz.ar(opA, \opASquizRatio.kr(1), \opASquizZC.kr(1));
 			voiceOutput = LinXFade2.ar(opA, opB, opMix);
-			voiceOutput = (foldGain.linexp(-1, 1, 1, 27) * voiceOutput).fold2;
-			// TODO: Friction.ar filter ?? as alternative to wave folder?
+
+			squizRatio = squiz.abs.linlin(0, 1, 1, 8);
+			squizZC = (squiz < 0) + 1;
+			voiceOutput = Squiz.ar(voiceOutput, squizRatio, squizZC);
 			// Friction.ar(in, friction: 0.5, spring: 0.414, damp: 0.313, mass: 0.1, beltmass: 1, mul: 1, add: 0)
 			// filter LPG-style
 			lpgCutoff = lpgOpenness.lincurve(
@@ -304,10 +310,8 @@ Engine_Cule : CroneEngine {
 
 			voiceOutput = Select.ar(\lpgOn.kr(1), [
 				voiceOutput,
-				Select.ar(\lpgType.kr(1), [
-					RLPF.ar(voiceOutput, lpgCutoff, \lpgQ.kr(1.1).reciprocal),
-					DFM1.ar(voiceOutput, lpgCutoff, \lpgQ.kr(1.1), \dfmGain.kr(1.0), \dfmNoise.kr(0.0003))
-				])
+				RLPF.ar(voiceOutput, lpgCutoff, \lpgQ.kr(1.1).reciprocal),
+				BLowPass.ar(voiceOutput, lpgCutoff, \lpgQ.kr(1.1).reciprocal)
 			]);
 			// scale by amplitude control value
 			voiceOutput = voiceOutput * amp;
