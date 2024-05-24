@@ -67,7 +67,7 @@ editor = {
 		{
 			name = 'lpgTone',
 			label = 'lpg tone',
-			default = 0.3,
+			default = 0.6,
 			has_divider = true
 		},
 		{
