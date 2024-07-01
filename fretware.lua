@@ -60,9 +60,9 @@ editor = {
 			default = -1
 		},
 		{
-			name = 'foldGain',
-			label = 'fold gain',
-			default = -1
+			name = 'squiz',
+			label = 'squiz',
+			default = 0
 		},
 		{
 			name = 'lpgTone',
@@ -130,7 +130,7 @@ dest_dials = {
 	fbB      = Dial.new(139, 50, 15),
 	opDetune = Dial.new(158, 50, 15),
 	opMix    = Dial.new(177, 50, 15),
-	foldGain = Dial.new(196, 50, 15),
+	squiz    = Dial.new(196, 50, 15),
 	lpgTone  = Dial.new(215, 50, 15),
 	attack   = Dial.new(239, 50, 15),
 	decay    = Dial.new(258, 50, 15),
@@ -673,7 +673,7 @@ function init()
 		id = 'eg_type',
 		type = 'option',
 		options = { 'adsr', 'gated ar', 'trig\'d ar' },
-		default = 3,
+		default = 2,
 		action = function(value)
 			engine.egType(value - 1)
 			-- show/hide decay and sustain controls
