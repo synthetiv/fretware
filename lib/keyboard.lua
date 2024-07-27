@@ -221,16 +221,27 @@ function Keyboard:key(x, y, z)
 	elseif x <= self.x + 1 then
 		local v = self.y2 - y
 		if x == self.x then
-			-- voice loop keys
-			self.held_keys.voice_loops[v] = z == 1
-			local voice = voice_states[v]
-			-- cheating a little here by calling functions from fretware.lua. TODO: clean up?
-			if z == 1 and not voice.looping then
-				if voice.loop_armed then
-					play_voice_loop(v)
-				else
-					self:select_voice(v)
-					record_voice_loop(v)
+			if y == self.y then
+				if z == 1 then
+					-- loop delete key
+					for v = 1, n_voices do
+						if self.held_keys.voice_loops[v] then
+							clear_voice_loop(v)
+						end
+					end
+				end
+			else
+				-- voice loop keys
+				self.held_keys.voice_loops[v] = z == 1
+				local voice = voice_states[v]
+				-- cheating a little here by calling functions from fretware.lua. TODO: clean up?
+				if z == 1 and not voice.looping then
+					if voice.loop_armed then
+						play_voice_loop(v)
+					else
+						self:select_voice(v)
+						record_voice_loop(v)
+					end
 				end
 			end
 		else
@@ -240,19 +251,6 @@ function Keyboard:key(x, y, z)
 			end
 		end
 	else
-		if z == 1 and x == self.x2 and y == self.y then
-			-- loop delete key
-			local has_voice_key_held = false
-			for v = 1, n_voices do
-				if self.held_keys.voice_loops[v] then
-					has_voice_key_held = true
-					clear_voice_loop(v)
-				end
-			end
-			if has_voice_key_held then
-				return
-			end
-		end
 		self:note(x, y, z)
 	end
 end
@@ -634,7 +632,7 @@ function Keyboard:draw()
 	-- voice loop delete key
 	for v = 1, n_voices do
 		if self.held_keys.voice_loops[v] and voice_states[v].looping then
-			g:led(self.x2, self.y, 7)
+			g:led(self.x, self.y, 7)
 		end
 	end
 end
