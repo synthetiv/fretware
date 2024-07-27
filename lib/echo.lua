@@ -173,7 +173,7 @@ function Echo:add_params()
 		type = 'number',
 		min = -7,
 		max = 4,
-		default = 0,
+		default = -2,
 		formatter = Echo.div_formatter('%d'),
 		action = function(value)
 			self.div = value
@@ -256,7 +256,7 @@ function Echo:add_params()
 		name = 'echo resolution',
 		id = 'echo_resolution',
 		type = 'number',
-		default = 0,
+		default = -3,
 		min = -7,
 		max = 2,
 		formatter = Echo.div_formatter('%d'),

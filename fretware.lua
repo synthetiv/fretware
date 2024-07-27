@@ -640,7 +640,7 @@ function init()
 		name = 'lpg q',
 		id = 'lpgQ',
 		type = 'control',
-		controlspec = controlspec.new(0.9, 5, 'lin', 0, 1.414),
+		controlspec = controlspec.new(1.414, 5, 'lin', 0, 1.414),
 		action = function(value)
 			engine.lpgQ(value)
 		end
@@ -673,7 +673,7 @@ function init()
 		id = 'eg_type',
 		type = 'option',
 		options = { 'adsr', 'gated ar', 'trig\'d ar' },
-		default = 2,
+		default = 3,
 		action = function(value)
 			engine.egType(value - 1)
 			-- show/hide decay and sustain controls
@@ -767,7 +767,7 @@ function init()
 				name = source .. ' freq',
 				id = freq_param,
 				type = 'control',
-				controlspec = controlspec.new(0.07, 33, 'exp', 0, source == 'lfoA' and 4.3 or 3.1, 'Hz'),
+				controlspec = controlspec.new(0.07, 33, 'exp', 0, source == 'lfoA' and 0.97 or 0.61, 'Hz'),
 				action = function(value, param)
 					dest_dial:set_value(params:get_raw(freq_param) * 2 - 1)
 					freq_command(value)
