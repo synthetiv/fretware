@@ -465,7 +465,7 @@ function init()
 		voice.polls.lfoEqual:start()
 	end
 
-	params:add_group('tuning', 6)
+	params:add_group('tuning', 7)
 
 	-- TODO: add params for tt and crow transposition
 	-- ...and yeah, control from keyboard. you'll want that again

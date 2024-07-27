@@ -143,7 +143,7 @@ end
 
 function Echo:add_params()
 
-	params:add_group('echo', 9)
+	params:add_group('echo', 10)
 
 	params:add {
 		name = 'echo tone',
