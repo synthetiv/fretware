@@ -84,9 +84,10 @@ function Echo:init()
 		softcut.enable(scv, 1)
 	end
 
-	softcut.pre_filter_dry(self.rec_voice, 0.85)
-	softcut.pre_filter_hp(self.rec_voice, 0.15)
-	softcut.pre_filter_fc(self.rec_voice, 5)
+	softcut.pre_filter_dry(self.rec_voice, 0.7)
+	softcut.pre_filter_hp(self.rec_voice, 0.3)
+	softcut.pre_filter_fc(self.rec_voice, 100)
+	softcut.pre_filter_rq(self.rec_voice, 6)
 
 	self:set_tone(0)
 
