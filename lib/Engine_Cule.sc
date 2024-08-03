@@ -156,6 +156,7 @@ Engine_Cule : CroneEngine {
 				decay = 0.1,
 				sustain = 0.8,
 				release = 0.3,
+				egCurve = -6,
 				lfoAFreq = 4.3,
 				lfoBFreq = 3.1,
 				tuneA = 0,
@@ -220,9 +221,26 @@ Engine_Cule : CroneEngine {
 			sustain = (sustain + modulation[\sustain]).clip;
 			release = release * 8.pow(modulation[\release]);
 			eg = Select.kr(\egType.kr(2), [
-				EnvGen.kr(Env.adsr(attack, decay, sustain, release), gate),
-				EnvGen.kr(Env.asr(attack, 1, release), gate),
-				EnvGen.kr(Env.perc(attack, release), t_trig)
+				// ADSR, linear attack
+				EnvGen.kr(Env.new(
+					[0, 1, sustain, 0],
+					[attack, decay, release],
+					egCurve * [0, 1, 1],
+					releaseNode: 2
+				), gate),
+				// ASR, linear attack
+				EnvGen.kr(Env.new(
+					[0, 1, 0],
+					[attack, release],
+					egCurve * [0, 1],
+					releaseNode: 1
+				), gate),
+				// AR, Maths-style symmetrical attack
+				EnvGen.kr(Env.new(
+					[0, 1, 0],
+					[attack, release],
+					egCurve * [-1, 1],
+				), t_trig)
 			]);
 
 			lfoAFreq = lfoAFreq * 8.pow(modulation[\lfoAFreq]);

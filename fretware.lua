@@ -630,7 +630,7 @@ function init()
 		end
 	}
 
-	params:add_group('eg settings', 2)
+	params:add_group('eg settings', 3)
 
 	params:add {
 		name = 'eg type',
@@ -643,6 +643,16 @@ function init()
 			-- show/hide decay and sustain controls
 			editor.dests[10].hidden = value ~= 1
 			editor.dests[11].hidden = value ~= 1
+		end
+	}
+
+	params:add {
+		name = 'eg curve',
+		id = 'eg_curve',
+		type = 'control',
+		controlspec = controlspec.new(-8, 8, 'lin', 0, -4),
+		action = function(value)
+			engine.egCurve(value)
 		end
 	}
 
@@ -685,7 +695,7 @@ function init()
 				name = 'attack',
 				id = 'attack',
 				type = 'control',
-				controlspec = controlspec.new(0.001, 2, 'exp', 0, 0.001, 's'),
+				controlspec = controlspec.new(0.001, 3, 'exp', 0, 0.001, 's'),
 				action = function(value)
 					dest_dials.attack:set_value(params:get_raw('attack') * 2 - 1)
 					engine.attack(value)
@@ -695,7 +705,7 @@ function init()
 				name = 'decay',
 				id = 'decay',
 				type = 'control',
-				controlspec = controlspec.new(0.001, 6, 'exp', 0, 0.1, 's'),
+				controlspec = controlspec.new(0.001, 12, 'exp', 0, 0.2, 's'),
 				action = function(value)
 					dest_dials.decay:set_value(params:get_raw('decay') * 2 - 1)
 					engine.decay(value)
@@ -715,7 +725,7 @@ function init()
 				name = 'release',
 				id = 'release',
 				type = 'control',
-				controlspec = controlspec.new(0.001, 6, 'exp', 0, 0.3, 's'),
+				controlspec = controlspec.new(0.001, 12, 'exp', 0, 1, 's'),
 				action = function(value)
 					dest_dials.release:set_value(params:get_raw('release') * 2 - 1)
 					engine.release(value)
