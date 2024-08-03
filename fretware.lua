@@ -180,8 +180,20 @@ tip = 0
 palm = 0
 gate_in = false
 
-arp_clock_source = -1
-arp_clock = false
+n_arp_divs = 4
+arp_clocks = {}
+for d = 1, 3 do
+	local rate = math.pow(2, 1 - d)
+	arp_clocks[d] = clock.run(function()
+		while true do
+			clock.sync(rate)
+			k:arp(d, true)
+			clock.sleep(clock.get_beat_sec() * rate / 2)
+			k:arp(d, false)
+		end
+	end)
+end
+
 loop_clock = false
 loop_free = false
 
@@ -255,41 +267,24 @@ function grid_redraw()
 	g:refresh()
 end
 
-function crow_init()
-
-	print('crow add')
-	params:bang()
-
-	crow.input[1].change = function(gate)
-		gate_in = gate
-		if arp_clock_source == 4 and k.arping and k.n_sustained_keys > 0 then
-			k:arp(gate)
-		end
-	end
-	crow.input[1].mode('change', 1, 0.01, 'both')
-
-	crow.input[2].stream = function(v)
-		k:transpose(v)
-	end
-	crow.input[2].mode('stream', 0.01)
-end
-
-function reset_arp_clock()
-	if arp_clock then
-		clock.cancel(arp_clock)
-	end
-	arp_clock = clock.run(function()
-		while true do
-			local rate = math.pow(2, -params:get('arp_clock_div'))
-			clock.sync(rate)
-			if arp_clock_source == 1 and k.arping and k.n_sustained_keys > 0 then
-				k:arp(true)
-				clock.sleep(clock.get_beat_sec() * rate / 2)
-				k:arp(false)
-			end
-		end
-	end)
-end
+-- function crow_init()
+-- 
+-- 	print('crow add')
+-- 	params:bang()
+-- 
+-- 	crow.input[1].change = function(gate)
+-- 		gate_in = gate
+-- 		if k.arp_clock_source == ?? and k.n_sustained_keys > 0 then
+-- 			k:arp(??, gate)
+-- 		end
+-- 	end
+-- 	crow.input[1].mode('change', 1, 0.01, 'both')
+-- 
+-- 	crow.input[2].stream = function(v)
+-- 		k:transpose(v)
+-- 	end
+-- 	crow.input[2].mode('stream', 0.01)
+-- end
 
 function reset_loop_clock()
 	if loop_clock then
@@ -388,7 +383,7 @@ function init()
 	end
 
 	-- TODO: why doesn't crow.add() work anymore?
-	crow_init()
+	-- crow_init()
 
 	-- set up softcut echo
 	softcut.reset()
@@ -418,48 +413,48 @@ function init()
 		voice.polls.lfoA = poll.set('lfoA_gate_' .. v, function(gate)
 			gate = gate > 0
 			voice.lfoA_gate = gate
-			if echo.jump_trigger == 2 then
-				if gate then
-					uc4:note_on(16, 127)
-					echo:jump()
-				else
-					uc4:note_off(16)
+			if v == k.selected_voice then
+				if echo.jump_trigger == 2 then
+					if gate then
+						uc4:note_on(16, 127)
+						echo:jump()
+					else
+						uc4:note_off(16)
+					end
 				end
-			end
-			if k.arping and k.n_sustained_keys > 0 and v == k.selected_voice and arp_clock_source == 2 then
-				k:arp(gate)
+				k:arp(4, gate)
 			end
 		end)
 		voice.polls.lfoA:start()
 		voice.polls.lfoB = poll.set('lfoB_gate_' .. v, function(gate)
 			gate = gate > 0
 			voice.lfoB_gate = gate
-			if echo.jump_trigger == 3 then
-				if gate then
-					uc4:note_on(17, 127)
-					echo:jump()
-				else
-					uc4:note_off(17)
+			if v == k.selected_voice then
+				if echo.jump_trigger == 3 then
+					if gate then
+						uc4:note_on(17, 127)
+						echo:jump()
+					else
+						uc4:note_off(17)
+					end
 				end
-			end
-			if k.arping and k.n_sustained_keys > 0 and v == k.selected_voice and arp_clock_source == 3 then
-				k:arp(gate)
+				k:arp(5, gate)
 			end
 		end)
 		voice.polls.lfoB:start()
 		voice.polls.lfoEqual = poll.set('lfoEqual_gate_' .. v, function(gate)
 			gate = gate > 0
 			voice.lfoEqual_gate = gate
-			if echo.jump_trigger == 4 then
-				if gate then
-					uc4:note_on(18, 127)
-					echo:jump()
-				else
-					uc4:note_off(18)
+			if v == k.selected_voice then
+				if echo.jump_trigger == 4 then
+					if gate then
+						uc4:note_on(18, 127)
+						echo:jump()
+					else
+						uc4:note_off(18)
+					end
 				end
-			end
-			if k.arping and k.n_sustained_keys > 0 and v == k.selected_voice and arp_clock_source == 4 then
-				k:arp(gate)
+				k:arp(6, gate)
 			end
 		end)
 		voice.polls.lfoEqual:start()
@@ -579,37 +574,6 @@ function init()
 		end,
 		action = function(value)
 			reset_loop_clock()
-		end
-	}
-
-	params:add {
-		name = 'arp clock div',
-		id = 'arp_clock_div',
-		type = 'number',
-		default = 2,
-		min = -3,
-		max = 5,
-		formatter = function(param)
-			local measures = -param:get() - 2
-			if measures >= 0 then
-				return string.format('%d', math.pow(2, measures))
-			else
-				return string.format('1/%d', math.pow(2, -measures))
-			end
-		end,
-		action = function(value)
-			reset_arp_clock()
-		end
-	}
-
-	params:add {
-		name = 'arp clock source',
-		id = 'arp_clock_source',
-		type = 'option',
-		options = { 'system', 'lfoA', 'lfoB', 'lfoEqual', 'crow' },
-		default = 2,
-		action = function(value)
-			arp_clock_source = value
 		end
 	}
 
@@ -917,7 +881,6 @@ function init()
 	params:set('cut_input_tape', -math.huge) -- do NOT feed echo from tape
 	params:set('monitor_level', -math.huge) -- monitor off (ext. echo fully wet)
 
-	reset_arp_clock()
 	reset_loop_clock()
 
 	redraw_metro = metro.init {
