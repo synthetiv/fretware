@@ -751,7 +751,7 @@ function init()
 				name = source .. ' freq',
 				id = freq_param,
 				type = 'control',
-				controlspec = controlspec.new(0.07, 33, 'exp', 0, source == 'lfoA' and 0.97 or 0.61, 'Hz'),
+				controlspec = controlspec.new(0.03, 21, 'exp', 0, source == 'lfoA' and 0.323 or 0.2, 'Hz'),
 				action = function(value, param)
 					dest_dial:set_value(params:get_raw(freq_param) * 2 - 1)
 					freq_command(value)
