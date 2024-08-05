@@ -667,6 +667,16 @@ function init()
 		end
 	}
 
+	params:add {
+		name = 'fm pitch scale',
+		id = 'fm_pitch_scale',
+		type = 'control',
+		controlspec = controlspec.new(0.5, 1, 'lin', 0, 0.87),
+		action = function(value)
+			engine.fmPitchScale(value)
+		end
+	}
+
 	for d = 1, #editor.dests do
 		local dest = editor.dests[d]
 		if dest.name ~= 'attack' and dest.name ~= 'decay' and dest.name ~= 'sustain' and dest.name ~= 'release' and dest.name ~= 'lfoAFreq' and dest.name ~= 'lfoBFreq' and dest.name ~= 'pitch' and not dest.voice_param then

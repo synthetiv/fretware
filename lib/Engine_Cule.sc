@@ -152,6 +152,7 @@ Engine_Cule : CroneEngine {
 				shift = 0,
 				pitchSlew = 0.01,
 				lpgTone = 0.6,
+				fmPitchScale = 0.7,
 				attack = 0.01,
 				decay = 0.1,
 				sustain = 0.8,
@@ -256,15 +257,19 @@ Engine_Cule : CroneEngine {
 			squiz = squiz.sign * (1 - (1.1 * (1 - squiz.abs)).min(1));
 			// TODO: scale? cube?
 
+			// params with additive modulation
+			fmIndex  = fmIndex.lag(lag) + modulation[\fmIndex];
+			fbB      = fbB.lag(lag) + modulation[\fbB];
+			opMix    = opMix.lag(lag) + modulation[\opMix];
+			opDetune = opDetune.cubed.lag(lag) + modulation[\opDetune];
+
+			// multiplicative modulation
+			squiz    = squiz.lag(lag) * 4.pow(modulation[\squiz]);
+
 			// this weird-looking LinSelectX pattern scales modulation signals so that
-			// final parameter values (base + modulation) can always reach [-1, 1]
+			// final parameter values (base + modulation) can reach [-1, 1], but not go beyond
 			tuneA    = LinSelectX.kr(1 + modulation[\tuneA],    [-1, tuneA.lag(lag),    1 ]);
 			tuneB    = LinSelectX.kr(1 + modulation[\tuneB],    [-1, tuneB.lag(lag),    1 ]);
-			fmIndex  = LinSelectX.kr(1 + modulation[\fmIndex],  [-1, fmIndex.lag(lag),  1 ]);
-			fbB      = LinSelectX.kr(1 + modulation[\fbB],      [-1, fbB.lag(lag),      1 ]);
-			opDetune = LinSelectX.kr(1 + modulation[\opDetune], [-1, opDetune.cubed.lag(lag), 1 ]);
-			opMix    = LinSelectX.kr(1 + modulation[\opMix],    [-1, opMix.lag(lag),    1 ]);
-			squiz    = LinSelectX.kr(1 + modulation[\squiz],    [-1, squiz.lag(lag),    1 ]);
 			lpgTone  = LinSelectX.kr(1 + modulation[\lpgTone],  [-1, lpgTone.lag(lag),  1 ]);
 			pan      = LinSelectX.kr(1 + modulation[\pan],      [-1, pan.lag(lag),      1 ]);
 
@@ -301,9 +306,9 @@ Engine_Cule : CroneEngine {
 				hz / detuneExp - detuneLin,
 				tuneB,
 				fadeSize,
-				fbB.lincurve(-1, 1, 0, pi, 3)
+				fbB.lincurve(-1, 1, 0, pi, 3, \min)
 			);
-			fmMix = opB * fmIndex.lincurve(-1, 1, 0, 10pi, 4);
+			fmMix = opB * fmIndex.lincurve(-1, 1, 0, 10pi, 4, \min) * fmPitchScale.pow(pitch);
 			fmMix = fmMix.mod(2pi);
 			opA = this.harmonicOsc(
 				SinOsc,
@@ -313,12 +318,12 @@ Engine_Cule : CroneEngine {
 				fmMix
 			);
 
-			voiceOutput = SelectX.ar(opMix.linlin(-1, 1, 0, 4), [
+			// gotta convert to audio rate before wrapping or we get glitches when crossing the wrap point
+			voiceOutput = SelectX.ar(K2A.ar(opMix.linlin(-1, 1, 0, 4, nil)).wrap(0, 3), [
 				opA,
 				opB,
-				opA * opB,
+				opA * opB * 3.dbamp, // compensate for amplitude loss from sine * sine
 				opA,
-				opB
 			]);
 
 			waveLossCount = squiz.neg.squared.linlin(0, 1, 0, 79);
