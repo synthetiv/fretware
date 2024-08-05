@@ -84,9 +84,10 @@ function Echo:init()
 		softcut.enable(scv, 1)
 	end
 
-	softcut.pre_filter_dry(self.rec_voice, 0.7)
-	softcut.pre_filter_hp(self.rec_voice, 0.3)
-	softcut.pre_filter_fc(self.rec_voice, 100)
+	-- TODO: change mix and/or freq with resolution... and/or rate
+	softcut.pre_filter_dry(self.rec_voice, 0.8)
+	softcut.pre_filter_hp(self.rec_voice, 0.2)
+	softcut.pre_filter_fc(self.rec_voice, 30)
 	softcut.pre_filter_rq(self.rec_voice, 6)
 
 	self:set_tone(0)
@@ -229,6 +230,7 @@ function Echo:add_params()
 		default = 0.5,
 		k = 2,
 		action = function(value)
+			-- TODO: automatically adjust feedback level to compensate for filtering
 			softcut.level_cut_cut(self.play_voice, self.rec_voice, value)
 		end
 	}
@@ -257,7 +259,7 @@ function Echo:add_params()
 		name = 'echo resolution',
 		id = 'echo_resolution',
 		type = 'number',
-		default = -3,
+		default = -2,
 		min = -7,
 		max = 2,
 		formatter = Echo.div_formatter('%d'),
