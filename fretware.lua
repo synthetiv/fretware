@@ -178,6 +178,7 @@ end
 
 tip = 0
 palm = 0
+expo_scaling = false
 gate_in = false
 
 n_arp_divs = 4
@@ -611,6 +612,17 @@ function init()
 	}
 
 	params:add {
+		name = 'expo tip/palm scaling',
+		id = 'expo_scaling',
+		type = 'option',
+		options = { 'off', 'on' },
+		default = 1,
+		action = function(value)
+			expo_scaling = value == 2
+		end
+	}
+
+	params:add {
 		name = 'lpg curve',
 		id = 'lpgCurve',
 		type = 'control',
@@ -954,11 +966,21 @@ function init()
 			-- back = 16, front = 17, left = 18, right = 19
 			if message.cc == 17 then
 				tip = message.val / 126
-				engine.tip(k.selected_voice, tip * tip)
+				local scaled_tip = tip
+				if expo_scaling then
+					tip = tip * tip
+				end
+				engine.tip(k.selected_voice, tip)
 				crow.output[2].volts = 10 * math.sqrt(tip)
 			elseif message.cc == 16 then
 				palm = message.val / 126
-				engine.palm(k.selected_voice, palm * palm * palm)
+				local scaled_palm
+				if expo_scaling then
+					scaled_palm = palm * palm * palm
+				else
+					scaled_palm = palm * palm
+				end
+				engine.palm(k.selected_voice, palm)
 				crow.output[3].volts = palm * params:get('crow_damp_range') + params:get('crow_damp_base')
 			elseif message.cc == 18 then
 				k:bend(-math.min(1, message.val / 126)) -- TODO: not sure why 126 is the max value I'm getting from Touche...
