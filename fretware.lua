@@ -554,7 +554,7 @@ function init()
 
 	echo:add_params()
 
-	params:add_group('clock/arp', 4)
+	params:add_group('clock/arp', 2)
 
 	params:add {
 		name = 'loop clock div',
@@ -612,17 +612,6 @@ function init()
 	}
 
 	params:add {
-		name = 'expo tip/palm scaling',
-		id = 'expo_scaling',
-		type = 'option',
-		options = { 'off', 'on' },
-		default = 1,
-		action = function(value)
-			expo_scaling = value == 2
-		end
-	}
-
-	params:add {
 		name = 'lpg curve',
 		id = 'lpgCurve',
 		type = 'control',
@@ -676,6 +665,17 @@ function init()
 		default = 1,
 		action = function(value)
 			engine.ampMode(value - 1)
+		end
+	}
+
+	params:add {
+		name = 'expo tip/palm scaling',
+		id = 'expo_scaling',
+		type = 'option',
+		options = { 'off', 'on' },
+		default = 1,
+		action = function(value)
+			expo_scaling = value == 2
 		end
 	}
 
