@@ -20,6 +20,7 @@ g = grid.connect()
 
 editor = {
 	source_names = {
+		'amp',
 		'hand',
 		'eg',
 		'lfoA',
@@ -42,7 +43,10 @@ editor = {
 		{
 			name = 'fmIndex',
 			label = 'fm index',
-			default = -1
+			default = -1,
+			source_defaults = {
+				amp = 0.2
+			}
 		},
 		{
 			name = 'fbB',
@@ -146,6 +150,7 @@ dest_dials = {
 source_dials = {}
 for s = 1, #editor.dests do
 	source_dials[editor.dests[s].name] = {
+		amp   = Dial.new(82, 2, 11),
 		hand  = Dial.new(82, 2, 11),
 		eg    = Dial.new(82, 2, 11),
 		lfoA  = Dial.new(82, 2, 11),
@@ -780,7 +785,7 @@ function init()
 				name = source .. ' -> ' .. dest.label,
 				id = source .. '_' .. dest.name,
 				type = 'control',
-				controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+				controlspec = controlspec.new(-1, 1, 'lin', 0, (dest.source_defaults and dest.source_defaults[source]) or 0),
 				action = function(value)
 					source_dials[dest.name][source]:set_value(value)
 					-- create a dead zone near 0.0
@@ -1070,36 +1075,40 @@ function redraw()
 	
 	local voice = voice_states[k.selected_voice]
 
-	screen.level('hand' == editor.source_names[editor.source] and 15 or 3)
+	screen.level('amp' == editor.source_names[editor.source] and 15 or 3)
 	screen.move(2, 7)
+	screen.text('Am')
+
+	screen.level('hand' == editor.source_names[editor.source] and 15 or 3)
+	screen.move(2, 18)
 	screen.text('Hd')
 
 	screen.level('eg' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(18, 7)
+	screen.move(18, 18)
 	screen.text('Eg')
 
 	screen.level('lfoA' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(2, 18)
+	screen.move(2, 29)
 	screen.text('La')
 	screen.level(voice.lfoA_gate and 15 or 3)
 	screen.text('.')
 
 	screen.level('lfoB' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(18, 18)
+	screen.move(18, 29)
 	screen.text('Lb')
 	screen.level(voice.lfoB_gate and 15 or 3)
 	screen.text('.')
 
 	screen.level('runglerA' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(2, 29)
+	screen.move(2, 40)
 	screen.text('Ra')
 
 	screen.level('runglerB' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(18, 29)
+	screen.move(18, 40)
 	screen.text('Rb')
 
 	screen.level('lfoSH' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(2, 40)
+	screen.move(2, 51)
 	screen.text('Ls')
 	screen.level(voice.lfoEqual_gate and 15 or 3)
 	screen.text('.')

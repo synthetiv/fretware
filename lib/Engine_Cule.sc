@@ -81,9 +81,7 @@ Engine_Cule : CroneEngine {
 
 		// modulation sources
 		modulatorNames = [
-			\pitch,
-			\tip,
-			\palm,
+			\amp,
 			\hand,
 			\eg,
 			\lfoA,
@@ -273,10 +271,6 @@ Engine_Cule : CroneEngine {
 			lpgTone  = LinSelectX.kr(1 + modulation[\lpgTone],  [-1, lpgTone.lag(lag),  1 ]);
 			pan      = LinSelectX.kr(1 + modulation[\pan],      [-1, pan.lag(lag),      1 ]);
 
-			// now we're done with the modulation matrix
-
-			LocalOut.kr([pitch, tip, palm, tip - palm, eg, lfoA, lfoB, runglerA, runglerB, lfoSH]);
-
 			// slew tip for direct control of amplitude -- otherwise there will be audible steppiness
 			tip = Lag.kr(tip, 0.05);
 			// amp mode shouldn't change while frozen
@@ -286,6 +280,10 @@ Engine_Cule : CroneEngine {
 				tip * eg,
 				eg * -6.dbamp
 			]) * (1 + modulation[\amp])).clip(0, 1);
+
+			// now save the modulation values for the next block
+			LocalOut.kr([amp, tip - palm, eg, lfoA, lfoB, runglerA, runglerB, lfoSH]);
+
 			// scaled version of amp that allows env to fully open the LPG filter
 			lpgOpenness = amp * Select.kr((ampMode == 2).asInteger, [1, 6.dbamp]).lag;
 
