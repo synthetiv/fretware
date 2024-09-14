@@ -264,11 +264,13 @@ Engine_Cule : CroneEngine {
 			// TODO: scale? cube?
 
 			// params with additive modulation
-			detuneA = detuneA.cubed.lag(lag) + modulation[\detuneA];
-			fmIndex = fmIndex.lag(lag) + modulation[\fmIndex];
-			opMix   = opMix.lag(lag) + modulation[\opMix];
-			detuneB = detuneB.cubed.lag(lag) + modulation[\detuneB];
-			fbB     = fbB.lag(lag) + modulation[\fbB];
+			detuneA  = detuneA.cubed.lag(lag) + modulation[\detuneA];
+			fmIndex  = fmIndex.lag(lag) + modulation[\fmIndex];
+			opMix    = opMix.lag(lag) + modulation[\opMix];
+			detuneB  = detuneB.cubed.lag(lag) + modulation[\detuneB];
+			fbB      = fbB.lag(lag) + modulation[\fbB];
+			hpCutoff = hpCutoff.lag(lag) + modulation[\hpCutoff];
+			lpCutoff = lpCutoff.lag(lag) + modulation[\lpCutoff];
 
 			// multiplicative modulation
 			squiz    = squiz.lag(lag) * 4.pow(modulation[\squiz]);
@@ -277,8 +279,6 @@ Engine_Cule : CroneEngine {
 			// final parameter values (base + modulation) can reach [-1, 1], but not go beyond
 			ratioA   = LinSelectX.kr(1 + modulation[\ratioA],   [-1, ratioA.lag(lag),   1 ]);
 			ratioB   = LinSelectX.kr(1 + modulation[\ratioB],   [-1, ratioB.lag(lag),   1 ]);
-			hpCutoff = LinSelectX.kr(1 + modulation[\hpCutoff], [-1, hpCutoff.lag(lag), 1 ]);
-			lpCutoff = LinSelectX.kr(1 + modulation[\lpCutoff], [-1, lpCutoff.lag(lag), 1 ]);
 			pan      = LinSelectX.kr(1 + modulation[\pan],      [-1, pan.lag(lag),      1 ]);
 
 			// slew tip for direct control of amplitude -- otherwise there will be audible steppiness
