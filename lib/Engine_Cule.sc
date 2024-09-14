@@ -75,8 +75,6 @@ Engine_Cule : CroneEngine {
 			\hpCutoff,
 			\lpCutoff,
 			\attack,
-			\decay,
-			\sustain,
 			\release,
 			\lfoAFreq,
 			\lfoBFreq,
@@ -156,8 +154,6 @@ Engine_Cule : CroneEngine {
 				lpCutoff = 0.8,
 
 				attack = 0.01,
-				decay = 0.1,
-				sustain = 0.8,
 				release = 0.3,
 				egCurve = -6,
 
@@ -187,7 +183,7 @@ Engine_Cule : CroneEngine {
 			var bufferRate, bufferLength, bufferPhase,
 				loopStart, loopPhase, loopTrigger, loopOffset,
 				modulation = Dictionary.new,
-				adsr, eg, amp,
+				eg, amp,
 				runglerA, runglerB, lfoA, lfoB, lfoEqual, lfoSH,
 				hz, fmInput, opB, fmMix, opA,
 				voiceOutput,
@@ -224,17 +220,8 @@ Engine_Cule : CroneEngine {
 			});
 
 			attack = attack * 8.pow(modulation[\attack]);
-			decay = decay * 8.pow(modulation[\decay]);
-			sustain = (sustain + modulation[\sustain]).clip;
 			release = release * 8.pow(modulation[\release]);
-			eg = Select.kr(\egType.kr(2), [
-				// ADSR, linear attack
-				EnvGen.kr(Env.new(
-					[0, 1, sustain, 0],
-					[attack, decay, release],
-					egCurve * [0, 1, 1],
-					releaseNode: 2
-				), gate),
+			eg = Select.kr(\egType.kr(1), [
 				// ASR, linear attack
 				EnvGen.kr(Env.new(
 					[0, 1, 0],

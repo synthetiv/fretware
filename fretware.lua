@@ -99,16 +99,6 @@ editor = {
 			default = 0
 		},
 		{
-			name = 'decay',
-			label = 'decay',
-			default = 0
-		},
-		{
-			name = 'sustain',
-			label = 'sustain',
-			default = 0
-		},
-		{
 			name = 'release',
 			label = 'release',
 			default = 0,
@@ -162,15 +152,13 @@ dest_dials = {
 	lpCutoff = Dial.new(253, 50, 15),
 
 	attack   = Dial.new(277, 50, 15),
-	decay    = Dial.new(296, 50, 15),
-	sustain  = Dial.new(315, 50, 15),
-	release  = Dial.new(334, 50, 15),
+	release  = Dial.new(296, 50, 15),
 
-	lfoAFreq = Dial.new(359, 50, 15),
-	lfoBFreq = Dial.new(378, 50, 15),
-	pitch    = Dial.new(402, 50, 15),
-	pan      = Dial.new(421, 50, 15),
-	amp      = Dial.new(440, 50, 15)
+	lfoAFreq = Dial.new(321, 50, 15),
+	lfoBFreq = Dial.new(340, 50, 15),
+	pitch    = Dial.new(364, 50, 15),
+	pan      = Dial.new(383, 50, 15),
+	amp      = Dial.new(402, 50, 15)
 }
 
 source_dials = {}
@@ -669,13 +657,10 @@ function init()
 		name = 'eg type',
 		id = 'eg_type',
 		type = 'option',
-		options = { 'adsr', 'gated ar', 'trig\'d ar' },
-		default = 3,
+		options = { 'gated ar', 'trig\'d ar' },
+		default = 2,
 		action = function(value)
 			engine.egType(value - 1)
-			-- show/hide decay and sustain controls
-			editor.dests[14].hidden = value ~= 1
-			editor.dests[15].hidden = value ~= 1
 		end
 	}
 
@@ -713,7 +698,7 @@ function init()
 
 	for d = 1, #editor.dests do
 		local dest = editor.dests[d]
-		if dest.name ~= 'attack' and dest.name ~= 'decay' and dest.name ~= 'sustain' and dest.name ~= 'release' and dest.name ~= 'lfoAFreq' and dest.name ~= 'lfoBFreq' and dest.name ~= 'pitch' and not dest.voice_param then
+		if dest.name ~= 'attack' and dest.name ~= 'release' and dest.name ~= 'lfoAFreq' and dest.name ~= 'lfoBFreq' and dest.name ~= 'pitch' and not dest.voice_param then
 			local engine_command = engine[dest.name]
 			print(dest.name)
 			params:add {
@@ -743,26 +728,6 @@ function init()
 				action = function(value)
 					dest_dials.attack:set_value(params:get_raw('attack') * 2 - 1)
 					engine.attack(value)
-				end
-			}
-			params:add {
-				name = 'decay',
-				id = 'decay',
-				type = 'control',
-				controlspec = controlspec.new(0.001, 12, 'exp', 0, 0.2, 's'),
-				action = function(value)
-					dest_dials.decay:set_value(params:get_raw('decay') * 2 - 1)
-					engine.decay(value)
-				end
-			}
-			params:add {
-				name = 'sustain',
-				id = 'sustain',
-				type = 'control',
-				controlspec = controlspec.new(0, 1, 'lin', 0, 0.8),
-				action = function(value)
-					dest_dials.sustain:set_value(params:get_raw('sustain') * 2 - 1)
-					engine.sustain(value)
 				end
 			}
 			params:add {
