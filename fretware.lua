@@ -31,14 +31,14 @@ editor = {
 	},
 	dests = {
 		{
-			name = 'tuneA',
-			label = 'tune A',
+			name = 'ratioA',
+			label = 'ratio A',
 			default = -0.4167 -- 1/1 (4th out of 12 harmonics)
 		},
 		{
-			name = 'tuneB',
-			label = 'tune B',
-			default = -0.25 -- 2/1 (5th out of 12 harmonics)
+			name = 'detuneA',
+			label = 'detune A',
+			default = 0
 		},
 		{
 			name = 'fmIndex',
@@ -49,29 +49,48 @@ editor = {
 			}
 		},
 		{
-			name = 'fbB',
-			label = 'feedback B',
-			default = -1
-		},
-		{
-			name = 'opDetune',
-			label = 'detune A:B',
-			default = 0
-		},
-		{
 			name = 'opMix',
 			label = 'mix A:B',
 			default = -1
 		},
 		{
-			name = 'squiz',
-			label = 'squiz',
+			name = 'ratioB',
+			label = 'ratio B',
+			default = -0.25 -- 2/1 (5th out of 12 harmonics)
+		},
+		{
+			name = 'detuneB',
+			label = 'detune B',
 			default = 0
 		},
 		{
-			name = 'lpgTone',
-			label = 'lpg tone',
-			default = 0.6,
+			name = 'fbB',
+			label = 'feedback B',
+			default = -1,
+			has_divider = true
+		},
+		{
+			name = 'squiz',
+			label = 'squiz',
+			default = -1
+		},
+		{
+			name = 'loss',
+			label = 'loss',
+			default = -1
+		},
+		{
+			name = 'hpCutoff',
+			label = 'hp cutoff',
+			default = 0.0
+		},
+		{
+			name = 'lpCutoff',
+			label = 'lp cutoff',
+			default = 0.8,
+			source_defaults = {
+				amp = 0.2
+			},
 			has_divider = true
 		},
 		{
@@ -127,24 +146,31 @@ editor = {
 }
 
 dest_dials = {
-	-- x, y, size, value, min_value, max_value, rounding, start_value, markers, units, title
-	tuneA    = Dial.new(82,  50, 15),
-	tuneB    = Dial.new(101, 50, 15),
+	ratioA    = Dial.new(82,  50, 15),
+	detuneA  = Dial.new(101, 50, 15),
 	fmIndex  = Dial.new(120, 50, 15),
-	fbB      = Dial.new(139, 50, 15),
-	opDetune = Dial.new(158, 50, 15),
-	opMix    = Dial.new(177, 50, 15),
-	squiz    = Dial.new(196, 50, 15),
-	lpgTone  = Dial.new(215, 50, 15),
-	attack   = Dial.new(239, 50, 15),
-	decay    = Dial.new(258, 50, 15),
-	sustain  = Dial.new(277, 50, 15),
-	release  = Dial.new(296, 50, 15),
-	lfoAFreq = Dial.new(321, 50, 15),
-	lfoBFreq = Dial.new(340, 50, 15),
-	pitch    = Dial.new(364, 50, 15),
-	pan      = Dial.new(383, 50, 15),
-	amp      = Dial.new(402, 50, 15)
+
+	opMix    = Dial.new(196, 50, 15),
+
+	ratioB    = Dial.new(139, 50, 15),
+	detuneB  = Dial.new(158, 50, 15),
+	fbB      = Dial.new(177, 50, 15),
+
+	squiz    = Dial.new(215, 50, 15),
+	loss     = Dial.new(234, 50, 15),
+	hpCutoff = Dial.new(253, 50, 15),
+	lpCutoff = Dial.new(253, 50, 15),
+
+	attack   = Dial.new(277, 50, 15),
+	decay    = Dial.new(296, 50, 15),
+	sustain  = Dial.new(315, 50, 15),
+	release  = Dial.new(334, 50, 15),
+
+	lfoAFreq = Dial.new(359, 50, 15),
+	lfoBFreq = Dial.new(378, 50, 15),
+	pitch    = Dial.new(402, 50, 15),
+	pan      = Dial.new(421, 50, 15),
+	amp      = Dial.new(440, 50, 15)
 }
 
 source_dials = {}
@@ -538,22 +564,22 @@ function init()
 	}
 
 	params:add {
-		name = 'detune exp/lin',
-		id = 'detuneType',
+		name = 'harmonic fade size A',
+		id = 'fadeSizeA',
 		type = 'control',
-		controlspec = controlspec.new(0, 1, 'lin', 0, 0.12),
+		controlspec = controlspec.new(0.01, 1, 'lin', 0, 0.8),
 		action = function(value)
-			engine.detuneType(value)
+			engine.fadeSizeA(value)
 		end
 	}
 
 	params:add {
-		name = 'harmonic fade size',
-		id = 'fadeSize',
+		name = 'harmonic fade size B',
+		id = 'fadeSizeB',
 		type = 'control',
 		controlspec = controlspec.new(0.01, 1, 'lin', 0, 0.8),
 		action = function(value)
-			engine.fadeSize(value)
+			engine.fadeSizeB(value)
 		end
 	}
 
@@ -596,43 +622,44 @@ function init()
 	params:add_group('filter settings', 4)
 
 	params:add {
-		name = 'lpg on',
-		id = 'lpgOn',
+		name = 'lp on',
+		id = 'lpOn',
 		type = 'option',
 		options = { 'off', 'on' },
 		default = 2,
 		action = function(value)
-			engine.lpgOn(value - 1)
+			engine.lpOn(value - 1)
 		end
 	}
 
 	params:add {
-		name = 'lpg q',
-		id = 'lpgQ',
+		name = 'lp q',
+		id = 'lpQ',
 		type = 'control',
 		controlspec = controlspec.new(1.414, 5, 'lin', 0, 1.414),
 		action = function(value)
-			engine.lpgQ(value)
+			engine.lpQ(value)
 		end
 	}
 
 	params:add {
-		name = 'lpg curve',
-		id = 'lpgCurve',
-		type = 'control',
-		controlspec = controlspec.new(-4, 4, 'lin', 0, 3),
+		name = 'hp on',
+		id = 'hpOn',
+		type = 'option',
+		options = { 'off', 'on' },
+		default = 2,
 		action = function(value)
-			engine.lpgCurve(value)
+			engine.hpOn(value - 1)
 		end
 	}
 
 	params:add {
-		name = 'hp cutoff',
-		id = 'hpCutoff',
+		name = 'hp q',
+		id = 'hpQ',
 		type = 'control',
-		controlspec = controlspec.new(8, 12000, 'exp', 0, 8, 'Hz'),
+		controlspec = controlspec.new(1.414, 5, 'lin', 0, 1.414),
 		action = function(value)
-			engine.hpCutoff(value)
+			engine.hpQ(value)
 		end
 	}
 
@@ -647,8 +674,8 @@ function init()
 		action = function(value)
 			engine.egType(value - 1)
 			-- show/hide decay and sustain controls
-			editor.dests[10].hidden = value ~= 1
-			editor.dests[11].hidden = value ~= 1
+			editor.dests[14].hidden = value ~= 1
+			editor.dests[15].hidden = value ~= 1
 		end
 	}
 
@@ -681,16 +708,6 @@ function init()
 		default = 1,
 		action = function(value)
 			expo_scaling = value == 2
-		end
-	}
-
-	params:add {
-		name = 'fm pitch scale',
-		id = 'fm_pitch_scale',
-		type = 'control',
-		controlspec = controlspec.new(0.5, 1, 'lin', 0, 0.87),
-		action = function(value)
-			engine.fmPitchScale(value)
 		end
 	}
 
@@ -790,6 +807,7 @@ function init()
 					source_dials[dest.name][source]:set_value(value)
 					-- create a dead zone near 0.0
 					value = (value > 0 and 1 or -1) * (1 - math.min(1, (1 - math.abs(value)) * 1.1))
+					print(source .. '_' .. dest.name)
 					engine_command(value)
 				end
 			}

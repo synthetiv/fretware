@@ -63,14 +63,17 @@ Engine_Cule : CroneEngine {
 			\amp,
 			\pitch,
 			\pan,
-			\tuneA,
-			\tuneB,
+			\ratioA,
+			\detuneA,
 			\fmIndex,
+			\ratioB,
+			\detuneB,
 			\fbB,
-			\opDetune,
 			\opMix,
 			\squiz,
-			\lpgTone,
+			\loss,
+			\hpCutoff,
+			\lpCutoff,
 			\attack,
 			\decay,
 			\sustain,
@@ -149,39 +152,44 @@ Engine_Cule : CroneEngine {
 
 				shift = 0,
 				pitchSlew = 0.01,
-				lpgTone = 0.6,
-				fmPitchScale = 0.7,
+				hpCutoff = 0.0,
+				lpCutoff = 0.8,
+
 				attack = 0.01,
 				decay = 0.1,
 				sustain = 0.8,
 				release = 0.3,
 				egCurve = -6,
+
 				lfoAFreq = 4.3,
 				lfoBFreq = 3.1,
-				tuneA = 0,
-				tuneB = 0.3,
+
+				ratioA = 0,
+				fadeSizeA = 0.5,
+				detuneA = 0,
 				fmIndex = 0,
-				fbB = 0,
-				opDetune = 0,
+
 				opMix = 0,
+
+				ratioB = 0.3,
+				fadeSizeB = 0.5,
+				detuneB = 0,
+				fbB = 0,
+
 				squiz = 0,
+				loss = 0,
+
 				pan = 0,
 				lag = 0.1,
 
-				detuneType = 0.2,
-				fadeSize = 0.5,
-				hpCutoff = 16,
 				outLevel = 0.2;
 
 			var bufferRate, bufferLength, bufferPhase,
 				loopStart, loopPhase, loopTrigger, loopOffset,
 				modulation = Dictionary.new,
-				adsr, eg, amp, lpgOpenness,
+				adsr, eg, amp,
 				runglerA, runglerB, lfoA, lfoB, lfoEqual, lfoSH,
-				hz, detuneLin, detuneExp,
-				fmInput, opB, fmMix, opA,
-				waveLossCount, squizRatio,
-				lpgCutoff,
+				hz, fmInput, opB, fmMix, opA,
 				voiceOutput,
 				highPriorityUpdate;
 
@@ -256,19 +264,21 @@ Engine_Cule : CroneEngine {
 			// TODO: scale? cube?
 
 			// params with additive modulation
-			fmIndex  = fmIndex.lag(lag) + modulation[\fmIndex];
-			fbB      = fbB.lag(lag) + modulation[\fbB];
-			opMix    = opMix.lag(lag) + modulation[\opMix];
-			opDetune = opDetune.cubed.lag(lag) + modulation[\opDetune];
+			detuneA = detuneA.cubed.lag(lag) + modulation[\detuneA];
+			fmIndex = fmIndex.lag(lag) + modulation[\fmIndex];
+			opMix   = opMix.lag(lag) + modulation[\opMix];
+			detuneB = detuneB.cubed.lag(lag) + modulation[\detuneB];
+			fbB     = fbB.lag(lag) + modulation[\fbB];
 
 			// multiplicative modulation
 			squiz    = squiz.lag(lag) * 4.pow(modulation[\squiz]);
 
 			// this weird-looking LinSelectX pattern scales modulation signals so that
 			// final parameter values (base + modulation) can reach [-1, 1], but not go beyond
-			tuneA    = LinSelectX.kr(1 + modulation[\tuneA],    [-1, tuneA.lag(lag),    1 ]);
-			tuneB    = LinSelectX.kr(1 + modulation[\tuneB],    [-1, tuneB.lag(lag),    1 ]);
-			lpgTone  = LinSelectX.kr(1 + modulation[\lpgTone],  [-1, lpgTone.lag(lag),  1 ]);
+			ratioA   = LinSelectX.kr(1 + modulation[\ratioA],   [-1, ratioA.lag(lag),   1 ]);
+			ratioB   = LinSelectX.kr(1 + modulation[\ratioB],   [-1, ratioB.lag(lag),   1 ]);
+			hpCutoff = LinSelectX.kr(1 + modulation[\hpCutoff], [-1, hpCutoff.lag(lag), 1 ]);
+			lpCutoff = LinSelectX.kr(1 + modulation[\lpCutoff], [-1, lpCutoff.lag(lag), 1 ]);
 			pan      = LinSelectX.kr(1 + modulation[\pan],      [-1, pan.lag(lag),      1 ]);
 
 			// slew tip for direct control of amplitude -- otherwise there will be audible steppiness
@@ -284,9 +294,6 @@ Engine_Cule : CroneEngine {
 			// now save the modulation values for the next block
 			LocalOut.kr([amp, tip - palm, eg, lfoA, lfoB, runglerA, runglerB, lfoSH]);
 
-			// scaled version of amp that allows env to fully open the LPG filter
-			lpgOpenness = amp * Select.kr((ampMode == 2).asInteger, [1, 6.dbamp]).lag;
-
 			pitch = pitch + (modulation[\pitch] / 4) + shift;
 
 			// send control values to bus for polling
@@ -297,24 +304,25 @@ Engine_Cule : CroneEngine {
 			pitch = Lag.kr(pitch, pitchSlew);
 
 			hz = 2.pow(pitch) * In.kr(baseFreqBus);
-			detuneLin = opDetune * 40 * detuneType;
-			detuneExp = (opDetune * 7 * (1 - detuneType)).midiratio;
 			opB = this.harmonicOsc(
 				SinOscFB,
-				hz / detuneExp - detuneLin,
-				tuneB,
-				fadeSize,
+				hz * (9 / 4).pow(detuneB),
+				ratioB,
+				fadeSizeB,
 				fbB.lincurve(-1, 1, 0, pi, 3, \min)
 			);
-			fmMix = opB * fmIndex.lincurve(-1, 1, 0, 10pi, 4, \min) * fmPitchScale.pow(pitch);
+			// FM index gets scaled by a factor of 0.7 per octave (exponential). this
+			// makes timbre feel more evenly balanced across a range of several octaves.
+			fmMix = opB * fmIndex.lincurve(-1, 1, 0, 10pi, 4, \min) * 0.7.pow(pitch);
 			fmMix = fmMix.mod(2pi);
 			opA = this.harmonicOsc(
 				SinOsc,
-				hz * detuneExp + detuneLin,
-				tuneA,
-				fadeSize,
+				hz * (9 / 4).pow(detuneA),
+				ratioA,
+				fadeSizeA,
 				fmMix
 			);
+
 
 			// gotta convert to audio rate before wrapping or we get glitches when crossing the wrap point
 			voiceOutput = SelectX.ar(K2A.ar(opMix.linlin(-1, 1, 0, 4, nil)).wrap(0, 3), [
@@ -324,29 +332,23 @@ Engine_Cule : CroneEngine {
 				opA,
 			]);
 
-			waveLossCount = squiz.neg.squared.linlin(0, 1, 0, 79);
-			squizRatio = squiz.cubed.linlin(0, 1, 1, 16);
-			voiceOutput = Select.ar(squiz > 0, [
-				WaveLoss.ar(voiceOutput, waveLossCount, 80, mode: 2),
-				Squiz.ar(voiceOutput, squizRatio, 2)
-			]);
+			// apply FX
+			voiceOutput = WaveLoss.ar(voiceOutput, loss.lincurve(-1, 1, 0, 127, 4), 127, mode: 2);
+			voiceOutput = Squiz.ar(voiceOutput, squiz.lincurve(-1, 1, 1, 16, 4), 2);
 
-			// filter LPG-style
-			lpgCutoff = lpgOpenness.lincurve(
-				0, 1,
-				lpgTone.lincurve(0, 1, 20, 20000, 4), lpgTone.lincurve(-1, 0, 20, 20000, 4),
-				\lpgCurve.kr(3)
-			);
-
-			voiceOutput = Select.ar(\lpgOn.kr(1), [
+			voiceOutput = Select.ar(\hpOn.kr(1), [
 				voiceOutput,
-				RLPF.ar(voiceOutput, lpgCutoff, \lpgQ.kr(1.414).reciprocal)
+				RHPF.ar(voiceOutput, hpCutoff.linexp(-1, 1, 8, 22000), \hpQ.kr(1.414).reciprocal)
 			]);
+			voiceOutput = Select.ar(\lpOn.kr(1), [
+				voiceOutput,
+				RLPF.ar(voiceOutput, lpCutoff.linexp(-1, 1, 8, 22000), \lpQ.kr(1.414).reciprocal)
+			]);
+
 			// scale by amplitude control value
 			voiceOutput = voiceOutput * amp;
 
 			// filter and write to main outs
-			voiceOutput = HPF.ar(voiceOutput, hpCutoff.lag(lag));
 			Out.ar(context.out_b, Pan2.ar(voiceOutput * Lag.kr(outLevel, 0.05), pan));
 		}).add;
 
