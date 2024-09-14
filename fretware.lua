@@ -911,26 +911,22 @@ function init()
 			local x = 82
 			for p = 1, editor.dest1 do
 				local dest = editor.dests[p]
-				if not dest.hidden then
-					if dest.has_divider then
-						x = x - 26
-					else
-						x = x - 18
-					end
+				if dest.has_divider then
+					x = x - 26
+				else
+					x = x - 18
 				end
 			end
 			for p = 1, #editor.dests do
 				local dest = editor.dests[p]
-				if not dest.hidden then
-					local dial = dest_dials[dest.name]
-					if dial.x ~= x then
-						dial.x = math.floor(dial.x + (x - dial.x) * 0.6)
-					end
-					if dest.has_divider then
-						x = x + 26
-					else
-						x = x + 19
-					end
+				local dial = dest_dials[dest.name]
+				if dial.x ~= x then
+					dial.x = math.floor(dial.x + (x - dial.x) * 0.6)
+				end
+				if dest.has_divider then
+					x = x + 26
+				else
+					x = x + 19
 				end
 			end
 			redraw()
@@ -1028,26 +1024,23 @@ function redraw()
 
 	for d = 1, #editor.dests do
 
-		if not editor.dests[d].hidden then
+		local dest = editor.dests[d].name
+		local dest_dial = dest_dials[dest]
+		local source_dial = source_dials[dest][editor.source_names[editor.source]]
+		local active = editor.dest1 == d or editor.dest2 == d
 
-			local dest = editor.dests[d].name
-			local dest_dial = dest_dials[dest]
-			local source_dial = source_dials[dest][editor.source_names[editor.source]]
-			local active = editor.dest1 == d or editor.dest2 == d
+		dest_dial.active = active
+		dest_dial:redraw()
 
-			dest_dial.active = active
-			dest_dial:redraw()
+		source_dial.x = dest_dial.x + 2
+		source_dial.y = dest_dial.y + 2
+		source_dial.active = active
+		source_dial:redraw()
 
-			source_dial.x = dest_dial.x + 2
-			source_dial.y = dest_dial.y + 2
-			source_dial.active = active
-			source_dial:redraw()
-
-			screen.move(dest_dial.x - 4, dest_dial.y + 11)
-			screen.level(active and 15 or 2)
-			screen.text_rotate(dest_dial.x + 10, dest_dial.y - 4, editor.dests[d].label, -90)
-			screen.stroke()
-		end
+		screen.move(dest_dial.x - 4, dest_dial.y + 11)
+		screen.level(active and 15 or 2)
+		screen.text_rotate(dest_dial.x + 10, dest_dial.y - 4, editor.dests[d].label, -90)
+		screen.stroke()
 	end
 
 	screen.rect(0, 0, 30, 43)
@@ -1144,16 +1137,12 @@ function key(n, z)
 		-- move dest1.
 		-- wrap from first to NEXT-to-last dest, in order to leave room for dest2.
 		-- skip dests with dividers.
-		-- NB: this assumes the last dest will never be hidden,
-		-- and that the next-to-last won't have a divider.
 		repeat
 			editor.dest1 = util.wrap(editor.dest1 + d, 1, #editor.dests - 1)
-		until not editor.dests[editor.dest1].has_divider and not editor.dests[editor.dest1].hidden
+		until not editor.dests[editor.dest1].has_divider
 		-- move dest2 right from there
 		editor.dest2 = editor.dest1
-		repeat
-			editor.dest2 = util.wrap(editor.dest2 + 1, 1, #editor.dests)
-		until not editor.dests[editor.dest2].hidden
+		editor.dest2 = util.wrap(editor.dest2 + 1, 1, #editor.dests)
 	end
 	held_keys[n] = z == 1 and util.time() or false
 end
