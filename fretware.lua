@@ -132,7 +132,8 @@ editor = {
 	},
 	source = 1,
 	dest1 = 1,
-	dest2 = 2
+	dest2 = 2,
+	last_xvi_data_time = 0
 }
 
 dest_dials = {
@@ -700,7 +701,6 @@ function init()
 		local dest = editor.dests[d]
 		if dest.name ~= 'attack' and dest.name ~= 'release' and dest.name ~= 'lfoAFreq' and dest.name ~= 'lfoBFreq' and dest.name ~= 'pitch' and not dest.voice_param then
 			local engine_command = engine[dest.name]
-			print(dest.name)
 			params:add {
 				name = dest.label,
 				id = dest.name,
@@ -772,7 +772,6 @@ function init()
 					source_dials[dest.name][source]:set_value(value)
 					-- create a dead zone near 0.0
 					value = (value > 0 and 1 or -1) * (1 - math.min(1, (1 - math.abs(value)) * 1.1))
-					print(source .. '_' .. dest.name)
 					engine_command(value)
 				end
 			}
@@ -942,7 +941,8 @@ function init()
 
 	-- TODO: connect to these devices by name
 	touche = midi.connect(1) -- 'TOUCHE 1'
-	uc4 = midi.connect(3) -- 'Faderfox UC4'
+	xvi = midi.connect(3) -- 'MiSW XVIM'
+	uc4 = midi.connect(4) -- 'Faderfox UC4'
 
 	function touche.event(data)
 		local message = midi.to_msg(data)
@@ -973,6 +973,23 @@ function init()
 				k:bend(math.min(1, message.val / 126))
 				send_pitch_volts()
 			end
+		end
+	end
+
+	function xvi.event(data)
+		local message = midi.to_msg(data)
+		if message.cc == 9 then
+			local time = util.time()
+			if time - editor.last_xvi_data_time > 0.5 then
+				if editor.dests[message.ch].has_divider then
+					editor.dest1 = message.ch - 1
+					editor.dest2 = message.ch
+				else
+					editor.dest1 = message.ch
+					editor.dest2 = message.ch + 1
+				end
+			end
+			editor.last_xvi_data_time = time
 		end
 	end
 
@@ -1094,14 +1111,18 @@ end
 
 function enc(n, d)
 	if n == 1 then
-		if d > 0 then
-			editor.source = editor.source % #editor.source_names + 1
-		elseif d < 0 then
-			editor.source = (editor.source - 2) % #editor.source_names + 1
-		end
+		-- move dest1.
+		-- wrap from first to NEXT-to-last dest, in order to leave room for dest2.
+		-- skip dests with dividers.
+		repeat
+			editor.dest1 = util.wrap(editor.dest1 + d, 1, #editor.dests - 1)
+		until not editor.dests[editor.dest1].has_divider
+		-- move dest2 right from there
+		editor.dest2 = editor.dest1
+		editor.dest2 = util.wrap(editor.dest2 + 1, 1, #editor.dests)
 	elseif n == 2 or n == 3 then
 		local dest = (n == 2 and editor.dests[editor.dest1]) or editor.dests[editor.dest2]
-		if held_keys[n] then
+		if not held_keys[n] then
 			params:delta(editor.source_names[editor.source] .. '_' .. dest.name, d)
 		elseif dest.voice_param then
 			params:delta(dest.voice_param .. '_' .. k.selected_voice, d)
@@ -1133,16 +1154,11 @@ function key(n, z)
 			end
 		end
 	elseif n > 1 and z == 0 and util.time() - held_keys[n] < 0.2 then
-		local d = n == 2 and -1 or 1
-		-- move dest1.
-		-- wrap from first to NEXT-to-last dest, in order to leave room for dest2.
-		-- skip dests with dividers.
-		repeat
-			editor.dest1 = util.wrap(editor.dest1 + d, 1, #editor.dests - 1)
-		until not editor.dests[editor.dest1].has_divider
-		-- move dest2 right from there
-		editor.dest2 = editor.dest1
-		editor.dest2 = util.wrap(editor.dest2 + 1, 1, #editor.dests)
+		if n == 2 then
+			editor.source = (editor.source - 2) % #editor.source_names + 1
+		elseif n == 3 then
+			editor.source = editor.source % #editor.source_names + 1
+		end
 	end
 	held_keys[n] = z == 1 and util.time() or false
 end
