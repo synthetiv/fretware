@@ -82,7 +82,7 @@ editor = {
 		{
 			name = 'hpCutoff',
 			label = 'hp cutoff',
-			default = 0.0
+			default = -1
 		},
 		{
 			name = 'lpCutoff',
@@ -624,7 +624,7 @@ function init()
 		name = 'lp q',
 		id = 'lpQ',
 		type = 'control',
-		controlspec = controlspec.new(1.414, 5, 'lin', 0, 1.414),
+		controlspec = controlspec.new(1, 5, 'exp', 0, 1.414),
 		action = function(value)
 			engine.lpQ(value)
 		end
@@ -645,7 +645,7 @@ function init()
 		name = 'hp q',
 		id = 'hpQ',
 		type = 'control',
-		controlspec = controlspec.new(1.414, 5, 'lin', 0, 1.414),
+		controlspec = controlspec.new(1, 5, 'exp', 0, 1.414),
 		action = function(value)
 			engine.hpQ(value)
 		end
