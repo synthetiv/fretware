@@ -133,7 +133,8 @@ editor = {
 	source = 1,
 	dest1 = 1,
 	dest2 = 2,
-	last_xvi_data_time = 0
+	last_xvi_input = 0,
+	last_encoder_input = 0
 }
 
 dest_sliders = {
@@ -906,7 +907,6 @@ function init()
 		time = 1 / 30,
 		event = function(n)
 			blink = (n % 7 < 3)
-			-- TODO: is another offset of 20px needed?
 			local x = 82
 			for p = 1, editor.dest1 do
 				local dest = editor.dests[p]
@@ -982,9 +982,9 @@ function init()
 
 	function xvi.event(data)
 		local message = midi.to_msg(data)
-		if message.cc == 9 then
+		if message.cc == 9 then -- fader moved
 			local time = util.time()
-			if time - editor.last_xvi_data_time > 0.5 then
+			if (time - editor.last_xvi_input > 0.75) and (time - editor.last_encoder_input > 2) then
 				if editor.dests[message.ch].has_divider then
 					editor.dest1 = message.ch - 1
 					editor.dest2 = message.ch
@@ -993,7 +993,7 @@ function init()
 					editor.dest2 = message.ch + 1
 				end
 			end
-			editor.last_xvi_data_time = time
+			editor.last_xvi_input = time
 		end
 	end
 
@@ -1129,6 +1129,7 @@ function enc(n, d)
 			params:delta(dest.name, d)
 		end
 	end
+	editor.last_encoder_input = util.time()
 end
 
 function key(n, z)
