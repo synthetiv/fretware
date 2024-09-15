@@ -437,10 +437,10 @@ function init()
 			if v == k.selected_voice then
 				if echo.jump_trigger == 2 then
 					if gate then
-						uc4:note_on(16, 127)
+						if uc4 then uc4:note_on(16, 127) end
 						echo:jump()
 					else
-						uc4:note_off(16)
+						if uc4 then uc4:note_off(16) end
 					end
 				end
 				k:arp(4, gate)
@@ -453,10 +453,10 @@ function init()
 			if v == k.selected_voice then
 				if echo.jump_trigger == 3 then
 					if gate then
-						uc4:note_on(17, 127)
+						if uc4 then uc4:note_on(17, 127) end
 						echo:jump()
 					else
-						uc4:note_off(17)
+						if uc4 then uc4:note_off(17) end
 					end
 				end
 				k:arp(5, gate)
@@ -469,10 +469,10 @@ function init()
 			if v == k.selected_voice then
 				if echo.jump_trigger == 4 then
 					if gate then
-						uc4:note_on(18, 127)
+						if uc4 then uc4:note_on(18, 127) end
 						echo:jump()
 					else
-						uc4:note_off(18)
+						if uc4 then uc4:note_off(18) end
 					end
 				end
 				k:arp(6, gate)
@@ -939,10 +939,14 @@ function init()
 	-- start at 0 / middle C
 	k.on_pitch()
 
-	-- TODO: connect to these devices by name
-	touche = midi.connect(1) -- 'TOUCHE 1'
-	xvi = midi.connect(3) -- 'MiSW XVIM'
-	uc4 = midi.connect(4) -- 'Faderfox UC4'
+	local midi_devices_by_name = {}
+	for vport = 1, #midi.vports do
+		local device = midi.connect(vport)
+		midi_devices_by_name[device.name] = device
+	end
+	touche = midi_devices_by_name['TOUCHE 1'] or {}
+	xvi = midi_devices_by_name['MiSW XVIM'] or {}
+	uc4 = midi_devices_by_name['Faderfox UC4'] or {}
 
 	function touche.event(data)
 		local message = midi.to_msg(data)
