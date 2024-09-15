@@ -3,7 +3,7 @@
 engine.name = 'Cule'
 musicutil = require 'musicutil'
 
-Dial = include 'lib/dial'
+Slider = include 'lib/slider'
 
 n_voices = 6
 
@@ -25,9 +25,9 @@ editor = {
 		'eg',
 		'lfoA',
 		'lfoB',
+		'lfoSH',
 		'runglerA',
-		'runglerB',
-		'lfoSH'
+		'runglerB'
 	},
 	dests = {
 		{
@@ -136,43 +136,43 @@ editor = {
 	last_xvi_data_time = 0
 }
 
-dest_dials = {
-	ratioA    = Dial.new(82,  50, 15),
-	detuneA  = Dial.new(101, 50, 15),
-	fmIndex  = Dial.new(120, 50, 15),
+dest_sliders = {
+	ratioA   = Slider.new(82, 1, 2, 55),
+	detuneA  = Slider.new(101, 1, 2, 55, 0),
+	fmIndex  = Slider.new(120, 1, 2, 55),
 
-	opMix    = Dial.new(196, 50, 15),
+	opMix    = Slider.new(196, 1, 2, 55, 0),
 
-	ratioB    = Dial.new(139, 50, 15),
-	detuneB  = Dial.new(158, 50, 15),
-	fbB      = Dial.new(177, 50, 15),
+	ratioB   = Slider.new(139, 1, 2, 55),
+	detuneB  = Slider.new(158, 1, 2, 55, 0),
+	fbB      = Slider.new(177, 1, 2, 55),
 
-	squiz    = Dial.new(215, 50, 15),
-	loss     = Dial.new(234, 50, 15),
-	hpCutoff = Dial.new(253, 50, 15),
-	lpCutoff = Dial.new(253, 50, 15),
+	squiz    = Slider.new(215, 1, 2, 55),
+	loss     = Slider.new(234, 1, 2, 55),
+	hpCutoff = Slider.new(253, 1, 2, 55),
+	lpCutoff = Slider.new(253, 1, 2, 55, 1),
 
-	attack   = Dial.new(277, 50, 15),
-	release  = Dial.new(296, 50, 15),
+	attack   = Slider.new(277, 1, 2, 55),
+	release  = Slider.new(516, 1, 2, 55),
 
-	lfoAFreq = Dial.new(321, 50, 15),
-	lfoBFreq = Dial.new(340, 50, 15),
-	pitch    = Dial.new(364, 50, 15),
-	pan      = Dial.new(383, 50, 15),
-	amp      = Dial.new(402, 50, 15)
+	lfoAFreq = Slider.new(321, 1, 2, 55),
+	lfoBFreq = Slider.new(340, 1, 2, 55),
+	pitch    = Slider.new(364, 1, 2, 55, 0),
+	pan      = Slider.new(383, 1, 2, 55, 0),
+	amp      = Slider.new(402, 1, 2, 55, 0)
 }
 
-source_dials = {}
+source_sliders = {}
 for s = 1, #editor.dests do
-	source_dials[editor.dests[s].name] = {
-		amp   = Dial.new(82, 2, 11),
-		hand  = Dial.new(82, 2, 11),
-		eg    = Dial.new(82, 2, 11),
-		lfoA  = Dial.new(82, 2, 11),
-		lfoB  = Dial.new(82, 2, 11),
-		runglerA = Dial.new(82, 2, 11),
-		runglerB = Dial.new(82, 2, 11),
-		lfoSH = Dial.new(82, 2, 11),
+	source_sliders[editor.dests[s].name] = {
+		amp   = Slider.new(82, 0, 4, 57, 0),
+		hand  = Slider.new(82, 0, 4, 57, 0),
+		eg    = Slider.new(82, 0, 4, 57, 0),
+		lfoA  = Slider.new(82, 0, 4, 57, 0),
+		lfoB  = Slider.new(82, 0, 4, 57, 0),
+		lfoSH = Slider.new(82, 0, 4, 57, 0),
+		runglerA = Slider.new(82, 0, 4, 57, 0),
+		runglerB = Slider.new(82, 0, 4, 57, 0),
 	}
 end
 
@@ -377,8 +377,8 @@ function init()
 		engine.palm(old_v, 0)
 		engine.gate(old_v, 0)
 		engine.select_voice(v)
-		dest_dials.amp:set_value(params:get_raw('outLevel_' .. v) * 2 - 1)
-		dest_dials.pan:set_value(params:get_raw('pan_' .. v) * 2 - 1)
+		dest_sliders.amp:set_value(params:get_raw('outLevel_' .. v) * 2 - 1)
+		dest_sliders.pan:set_value(params:get_raw('pan_' .. v) * 2 - 1)
 		send_pitch_volts()
 	end
 
@@ -492,7 +492,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(musicutil.note_num_to_freq(48), musicutil.note_num_to_freq(72), 'exp', 0, musicutil.note_num_to_freq(60), 'Hz'),
 		action = function(value)
-			dest_dials.pitch:set_value(params:get_raw('base_freq') * 2 - 1)
+			dest_sliders.pitch:set_value(params:get_raw('base_freq') * 2 - 1)
 			engine.baseFreq(value)
 		end
 	}
@@ -707,7 +707,7 @@ function init()
 				type = 'control',
 				controlspec = controlspec.new(-1, 1, 'lin', 0, dest.default),
 				action = function(value)
-					dest_dials[dest.name]:set_value(value)
+					dest_sliders[dest.name]:set_value(value)
 					engine_command(value)
 				end
 			}
@@ -726,7 +726,7 @@ function init()
 				type = 'control',
 				controlspec = controlspec.new(0.001, 3, 'exp', 0, 0.001, 's'),
 				action = function(value)
-					dest_dials.attack:set_value(params:get_raw('attack') * 2 - 1)
+					dest_sliders.attack:set_value(params:get_raw('attack') * 2 - 1)
 					engine.attack(value)
 				end
 			}
@@ -736,7 +736,7 @@ function init()
 				type = 'control',
 				controlspec = controlspec.new(0.001, 12, 'exp', 0, 1, 's'),
 				action = function(value)
-					dest_dials.release:set_value(params:get_raw('release') * 2 - 1)
+					dest_sliders.release:set_value(params:get_raw('release') * 2 - 1)
 					engine.release(value)
 				end
 			}
@@ -745,14 +745,14 @@ function init()
 			params:add_group(source, 1 + #editor.dests)
 			local freq_param = source .. 'Freq'
 			local freq_command = engine[freq_param]
-			local dest_dial = dest_dials[freq_param]
+			local dest_slider = dest_sliders[freq_param]
 			params:add {
 				name = source .. ' freq',
 				id = freq_param,
 				type = 'control',
 				controlspec = controlspec.new(0.03, 21, 'exp', 0, source == 'lfoA' and 0.323 or 0.2, 'Hz'),
 				action = function(value, param)
-					dest_dial:set_value(params:get_raw(freq_param) * 2 - 1)
+					dest_slider:set_value(params:get_raw(freq_param) * 2 - 1)
 					freq_command(value)
 				end
 			}
@@ -769,7 +769,7 @@ function init()
 				type = 'control',
 				controlspec = controlspec.new(-1, 1, 'lin', 0, (dest.source_defaults and dest.source_defaults[source]) or 0),
 				action = function(value)
-					source_dials[dest.name][source]:set_value(value)
+					source_sliders[dest.name][source]:set_value(value)
 					-- create a dead zone near 0.0
 					value = (value > 0 and 1 or -1) * (1 - math.min(1, (1 - math.abs(value)) * 1.1))
 					engine_command(value)
@@ -792,7 +792,7 @@ function init()
 			default = 0.3,
 			action = function(value)
 				if v == k.selected_voice then
-					dest_dials.amp:set_value(params:get_raw('outLevel_' .. v) * 2 - 1)
+					dest_sliders.amp:set_value(params:get_raw('outLevel_' .. v) * 2 - 1)
 				end
 				engine.outLevel(v, value)
 			end
@@ -805,7 +805,7 @@ function init()
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				if v == k.selected_voice then
-					dest_dials.pan:set_value(params:get_raw('pan_' .. v) * 2 - 1)
+					dest_sliders.pan:set_value(params:get_raw('pan_' .. v) * 2 - 1)
 				end
 				engine.pan(v, value)
 			end
@@ -911,21 +911,21 @@ function init()
 			for p = 1, editor.dest1 do
 				local dest = editor.dests[p]
 				if dest.has_divider then
-					x = x - 26
+					x = x - 23
 				else
-					x = x - 18
+					x = x - 16
 				end
 			end
 			for p = 1, #editor.dests do
 				local dest = editor.dests[p]
-				local dial = dest_dials[dest.name]
-				if dial.x ~= x then
-					dial.x = math.floor(dial.x + (x - dial.x) * 0.6)
+				local slider = dest_sliders[dest.name]
+				if slider.x ~= x then
+					slider.x = math.floor(slider.x + (x - slider.x) * 0.6)
 				end
 				if dest.has_divider then
-					x = x + 26
+					x = x + 23
 				else
-					x = x + 19
+					x = x + 16
 				end
 			end
 			redraw()
@@ -1042,69 +1042,62 @@ function redraw()
 	for d = 1, #editor.dests do
 
 		local dest = editor.dests[d].name
-		local dest_dial = dest_dials[dest]
-		local source_dial = source_dials[dest][editor.source_names[editor.source]]
+		local dest_slider = dest_sliders[dest]
+		local source_slider = source_sliders[dest][editor.source_names[editor.source]]
 		local active = editor.dest1 == d or editor.dest2 == d
+		local active_and_held = (editor.dest1 == d and held_keys[2]) or (editor.dest2 == d and held_keys[3])
 
-		dest_dial.active = active
-		dest_dial:redraw()
+		source_slider.x = dest_slider.x - 1
+		source_slider:redraw(active and 2 or 1, active_and_held and 5 or (active and 15 or 4))
 
-		source_dial.x = dest_dial.x + 2
-		source_dial.y = dest_dial.y + 2
-		source_dial.active = active
-		source_dial:redraw()
+		dest_slider:redraw(active and 1 or 0, active_and_held and 15 or (active and 3 or 1))
 
-		screen.move(dest_dial.x - 4, dest_dial.y + 11)
-		screen.level(active and 15 or 2)
-		screen.text_rotate(dest_dial.x + 10, dest_dial.y - 4, editor.dests[d].label, -90)
+		screen.level(active and 10 or 1)
+		screen.text_rotate(dest_slider.x - 3, 57, editor.dests[d].label, -90)
 		screen.stroke()
 	end
-
-	screen.rect(0, 0, 30, 43)
-	screen.level(0)
-	screen.fill()
 
 	-- TODO: icons
 	
 	local voice = voice_states[k.selected_voice]
 
 	screen.level('amp' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(2, 7)
+	screen.move(2, 64)
 	screen.text('Am')
 
 	screen.level('hand' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(2, 18)
+	screen.move(17, 64)
 	screen.text('Hd')
 
 	screen.level('eg' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(18, 18)
-	screen.text('Eg')
+	screen.move(32, 64)
+	screen.text('En')
 
 	screen.level('lfoA' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(2, 29)
+	screen.move(47, 64)
 	screen.text('La')
 	screen.level(voice.lfoA_gate and 15 or 3)
 	screen.text('.')
 
 	screen.level('lfoB' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(18, 29)
+	screen.move(62, 64)
 	screen.text('Lb')
 	screen.level(voice.lfoB_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level('runglerA' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(2, 40)
-	screen.text('Ra')
-
-	screen.level('runglerB' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(18, 40)
-	screen.text('Rb')
-
 	screen.level('lfoSH' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(2, 51)
+	screen.move(77, 64)
 	screen.text('Ls')
 	screen.level(voice.lfoEqual_gate and 15 or 3)
 	screen.text('.')
+
+	screen.level('runglerA' == editor.source_names[editor.source] and 15 or 3)
+	screen.move(92, 64)
+	screen.text('Ra')
+
+	screen.level('runglerB' == editor.source_names[editor.source] and 15 or 3)
+	screen.move(107, 64)
+	screen.text('Rb')
 
 	screen.update()
 end
