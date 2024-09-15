@@ -25,9 +25,10 @@ editor = {
 		'eg',
 		'lfoA',
 		'lfoB',
-		'lfoSH',
-		'runglerA',
-		'runglerB'
+		'lfoC',
+		'lfoAB',
+		'lfoBC',
+		'lfoCA'
 	},
 	dests = {
 		{
@@ -112,7 +113,12 @@ editor = {
 		{
 			name = 'lfoBFreq',
 			label = 'lfo b freq',
-			default = 0,
+			default = -0.2
+		},
+		{
+			name = 'lfoCFreq',
+			label = 'lfo c freq',
+			default = -0.4,
 			has_divider = true
 		},
 		{
@@ -158,9 +164,11 @@ dest_sliders = {
 
 	lfoAFreq = Slider.new(321, 1, 2, 55),
 	lfoBFreq = Slider.new(340, 1, 2, 55),
-	pitch    = Slider.new(364, 1, 2, 55, 0),
-	pan      = Slider.new(383, 1, 2, 55, 0),
-	amp      = Slider.new(402, 1, 2, 55, 0)
+	lfoCFreq = Slider.new(359, 1, 2, 55),
+
+	pitch    = Slider.new(383, 1, 2, 55, 0),
+	pan      = Slider.new(402, 1, 2, 55, 0),
+	amp      = Slider.new(421, 1, 2, 55, 0)
 }
 
 source_sliders = {}
@@ -171,9 +179,10 @@ for s = 1, #editor.dests do
 		eg    = Slider.new(82, 0, 4, 57, 0),
 		lfoA  = Slider.new(82, 0, 4, 57, 0),
 		lfoB  = Slider.new(82, 0, 4, 57, 0),
-		lfoSH = Slider.new(82, 0, 4, 57, 0),
-		runglerA = Slider.new(82, 0, 4, 57, 0),
-		runglerB = Slider.new(82, 0, 4, 57, 0),
+		lfoC  = Slider.new(82, 0, 4, 57, 0),
+		lfoAB = Slider.new(82, 0, 4, 57, 0),
+		lfoBC = Slider.new(82, 0, 4, 57, 0),
+		lfoCA = Slider.new(82, 0, 4, 57, 0)
 	}
 end
 
@@ -192,7 +201,10 @@ for v = 1, n_voices do
 		loop_beat_sec = 0.25,
 		lfoA_gate = false,
 		lfoB_gate = false,
-		lfoEqual_gate = false,
+		lfoC_gate = false,
+		lfoAB_gate = false,
+		lfoBC_gate = false,
+		lfoCA_gate = false,
 		polls = {},
 	}
 end
@@ -432,54 +444,29 @@ function init()
 		end)
 		voice.polls.pitch:start()
 		-- and polls for LFO updates, which will only fire when a voice is selected and an LFO is used as an arp clock
-		voice.polls.lfoA = poll.set('lfoA_gate_' .. v, function(gate)
-			gate = gate > 0
-			voice.lfoA_gate = gate
-			if v == k.selected_voice then
-				if echo.jump_trigger == 2 then
-					if gate then
-						if uc4 then uc4:note_on(16, 127) end
-						echo:jump()
-					else
-						if uc4 then uc4:note_off(16) end
+		local lfo_gates = { 'lfoA', 'lfoB', 'lfoC', 'lfoAB', 'lfoBC', 'lfoCA' }
+		for g, name in ipairs(lfo_gates) do
+			local gate_name = name .. '_gate'
+			local echo_jump_trigger = 1 + g
+			local echo_uc4_note = 15 + g
+			local arp_source = 3 + g
+			voice.polls[name] = poll.set(name .. '_gate_' .. v, function(gate)
+				gate = gate > 0
+				voice[gate_name] = gate
+				if v == k.selected_voice then
+					if echo.jump_trigger == echo_jump_trigger then
+						if gate then
+							if uc4 then uc4:note_on(echo_uc4_note, 127) end
+							echo:jump()
+						else
+							if uc4 then uc4:note_off(echo_uc4_note) end
+						end
 					end
+					k:arp(arp_source, gate)
 				end
-				k:arp(4, gate)
-			end
-		end)
-		voice.polls.lfoA:start()
-		voice.polls.lfoB = poll.set('lfoB_gate_' .. v, function(gate)
-			gate = gate > 0
-			voice.lfoB_gate = gate
-			if v == k.selected_voice then
-				if echo.jump_trigger == 3 then
-					if gate then
-						if uc4 then uc4:note_on(17, 127) end
-						echo:jump()
-					else
-						if uc4 then uc4:note_off(17) end
-					end
-				end
-				k:arp(5, gate)
-			end
-		end)
-		voice.polls.lfoB:start()
-		voice.polls.lfoEqual = poll.set('lfoEqual_gate_' .. v, function(gate)
-			gate = gate > 0
-			voice.lfoEqual_gate = gate
-			if v == k.selected_voice then
-				if echo.jump_trigger == 4 then
-					if gate then
-						if uc4 then uc4:note_on(18, 127) end
-						echo:jump()
-					else
-						if uc4 then uc4:note_off(18) end
-					end
-				end
-				k:arp(6, gate)
-			end
-		end)
-		voice.polls.lfoEqual:start()
+			end)
+			voice.polls[name]:start()
+		end
 	end
 
 	params:add_group('tuning', 7)
@@ -700,7 +687,7 @@ function init()
 
 	for d = 1, #editor.dests do
 		local dest = editor.dests[d]
-		if dest.name ~= 'attack' and dest.name ~= 'release' and dest.name ~= 'lfoAFreq' and dest.name ~= 'lfoBFreq' and dest.name ~= 'pitch' and not dest.voice_param then
+		if dest.name ~= 'attack' and dest.name ~= 'release' and dest.name ~= 'lfoAFreq' and dest.name ~= 'lfoBFreq' and dest.name ~= 'lfoCFreq' and dest.name ~= 'pitch' and not dest.voice_param then
 			local engine_command = engine[dest.name]
 			params:add {
 				name = dest.label,
@@ -741,7 +728,7 @@ function init()
 					engine.release(value)
 				end
 			}
-		elseif source == 'lfoA' or source == 'lfoB' then
+		elseif source == 'lfoA' or source == 'lfoB' or source == 'lfoC' then
 			-- LFOs have extra parameters too
 			params:add_group(source, 1 + #editor.dests)
 			local freq_param = source .. 'Freq'
@@ -751,7 +738,7 @@ function init()
 				name = source .. ' freq',
 				id = freq_param,
 				type = 'control',
-				controlspec = controlspec.new(0.03, 21, 'exp', 0, source == 'lfoA' and 0.323 or 0.2, 'Hz'),
+				controlspec = controlspec.new(0.03, 21, 'exp', 0, 0.2, 'Hz'),
 				action = function(value, param)
 					dest_slider:set_value(params:get_raw(freq_param) * 2 - 1)
 					freq_command(value)
@@ -773,6 +760,7 @@ function init()
 					source_sliders[dest.name][source]:set_value(value)
 					-- create a dead zone near 0.0
 					value = (value > 0 and 1 or -1) * (1 - math.min(1, (1 - math.abs(value)) * 1.1))
+					print('engine command', source .. '_' .. dest.name)
 					engine_command(value)
 				end
 			}
@@ -1066,42 +1054,52 @@ function redraw()
 	local voice = voice_states[k.selected_voice]
 
 	screen.level('amp' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(2, 64)
+	screen.move(0, 64)
 	screen.text('Am')
 
 	screen.level('hand' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(17, 64)
+	screen.move_rel(4, 0)
 	screen.text('Hd')
 
 	screen.level('eg' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(32, 64)
+	screen.move_rel(4, 0)
 	screen.text('En')
 
 	screen.level('lfoA' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(47, 64)
+	screen.move_rel(4, 0)
 	screen.text('La')
 	screen.level(voice.lfoA_gate and 15 or 3)
 	screen.text('.')
 
 	screen.level('lfoB' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(62, 64)
+	screen.move_rel(4, 0)
 	screen.text('Lb')
 	screen.level(voice.lfoB_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level('lfoSH' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(77, 64)
-	screen.text('Ls')
-	screen.level(voice.lfoEqual_gate and 15 or 3)
+	screen.level('lfoC' == editor.source_names[editor.source] and 15 or 3)
+	screen.move_rel(4, 0)
+	screen.text('Lc')
+	screen.level(voice.lfoC_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level('runglerA' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(92, 64)
-	screen.text('Ra')
+	screen.level('lfoAB' == editor.source_names[editor.source] and 15 or 3)
+	screen.move_rel(4, 0)
+	screen.text('Ab')
+	screen.level(voice.lfoAB_gate and 15 or 3)
+	screen.text('.')
 
-	screen.level('runglerB' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(107, 64)
-	screen.text('Rb')
+	screen.level('lfoBC' == editor.source_names[editor.source] and 15 or 3)
+	screen.move_rel(4, 0)
+	screen.text('Bc')
+	screen.level(voice.lfoBC_gate and 15 or 3)
+	screen.text('.')
+
+	screen.level('lfoCA' == editor.source_names[editor.source] and 15 or 3)
+	screen.move_rel(4, 0)
+	screen.text('Ca')
+	screen.level(voice.lfoCA_gate and 15 or 3)
+	screen.text('.')
 
 	screen.update()
 end
@@ -1171,7 +1169,10 @@ function cleanup()
 		'pitch',
 		'lfoA',
 		'lfoB',
-		'lfoEqual',
+		'lfoC',
+		'lfoAB',
+		'lfoBC',
+		'lfoCA'
 	}
 	for v = 1, n_voices do
 		local voice = voice_states[v]
