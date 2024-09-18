@@ -133,51 +133,48 @@ editor = {
 		}
 	},
 	source = 1,
-	dest1 = 1,
-	dest2 = 2,
-	last_xvi_input = 0,
-	last_encoder_input = 0
+	dest = 1
 }
 
 dest_sliders = {
-	ratioA   = Slider.new(82, 1, 2, 55),
-	detuneA  = Slider.new(101, 1, 2, 55, 0),
-	fmIndex  = Slider.new(120, 1, 2, 55),
+	ratioA   = Slider.new(82, 8, 2, 55),
+	detuneA  = Slider.new(101, 8, 2, 55, 0),
+	fmIndex  = Slider.new(120, 8, 2, 55),
 
-	opMix    = Slider.new(196, 1, 2, 55, 0),
+	opMix    = Slider.new(196, 8, 2, 55, 0),
 
-	ratioB   = Slider.new(139, 1, 2, 55),
-	detuneB  = Slider.new(158, 1, 2, 55, 0),
-	fbB      = Slider.new(177, 1, 2, 55),
+	ratioB   = Slider.new(139, 8, 2, 55),
+	detuneB  = Slider.new(158, 8, 2, 55, 0),
+	fbB      = Slider.new(177, 8, 2, 55),
 
-	squiz    = Slider.new(215, 1, 2, 55),
-	loss     = Slider.new(234, 1, 2, 55),
-	hpCutoff = Slider.new(253, 1, 2, 55),
-	lpCutoff = Slider.new(253, 1, 2, 55, 1),
+	squiz    = Slider.new(215, 8, 2, 55),
+	loss     = Slider.new(234, 8, 2, 55),
+	hpCutoff = Slider.new(253, 8, 2, 55),
+	lpCutoff = Slider.new(253, 8, 2, 55, 1),
 
-	attack   = Slider.new(277, 1, 2, 55),
-	release  = Slider.new(516, 1, 2, 55),
+	attack   = Slider.new(277, 8, 2, 55),
+	release  = Slider.new(516, 8, 2, 55),
 
-	lfoAFreq = Slider.new(321, 1, 2, 55),
-	lfoBFreq = Slider.new(340, 1, 2, 55),
-	lfoCFreq = Slider.new(359, 1, 2, 55),
+	lfoAFreq = Slider.new(321, 8, 2, 55),
+	lfoBFreq = Slider.new(340, 8, 2, 55),
+	lfoCFreq = Slider.new(359, 8, 2, 55),
 
-	pan      = Slider.new(383, 1, 2, 55, 0),
-	amp      = Slider.new(402, 1, 2, 55, 0)
+	pan      = Slider.new(383, 8, 2, 55, 0),
+	amp      = Slider.new(402, 8, 2, 55, 0)
 }
 
 source_sliders = {}
 for s = 1, #editor.dests do
 	source_sliders[editor.dests[s].name] = {
-		amp   = Slider.new(82, 0, 4, 57, 0),
-		hand  = Slider.new(82, 0, 4, 57, 0),
-		eg    = Slider.new(82, 0, 4, 57, 0),
-		lfoA  = Slider.new(82, 0, 4, 57, 0),
-		lfoB  = Slider.new(82, 0, 4, 57, 0),
-		lfoC  = Slider.new(82, 0, 4, 57, 0),
-		lfoAB = Slider.new(82, 0, 4, 57, 0),
-		lfoBC = Slider.new(82, 0, 4, 57, 0),
-		lfoCA = Slider.new(82, 0, 4, 57, 0)
+		amp   = Slider.new(82, 7, 4, 57, 0),
+		hand  = Slider.new(82, 7, 4, 57, 0),
+		eg    = Slider.new(82, 7, 4, 57, 0),
+		lfoA  = Slider.new(82, 7, 4, 57, 0),
+		lfoB  = Slider.new(82, 7, 4, 57, 0),
+		lfoC  = Slider.new(82, 7, 4, 57, 0),
+		lfoAB = Slider.new(82, 7, 4, 57, 0),
+		lfoBC = Slider.new(82, 7, 4, 57, 0),
+		lfoCA = Slider.new(82, 7, 4, 57, 0)
 	}
 end
 
@@ -373,6 +370,8 @@ function init()
 
 	norns.enc.accel(1, false)
 	norns.enc.sens(1, 8)
+	norns.enc.accel(2, false)
+	norns.enc.sens(2, 8)
 
 	k.on_select_voice = function(v, old_v)
 		-- if any other voice is recording, stop recording & start looping it
@@ -754,7 +753,6 @@ function init()
 					source_sliders[dest.name][source]:set_value(value)
 					-- create a dead zone near 0.0
 					value = (value > 0 and 1 or -1) * (1 - math.min(1, (1 - math.abs(value)) * 1.1))
-					print('engine command', source .. '_' .. dest.name)
 					engine_command(value)
 				end
 			}
@@ -890,7 +888,7 @@ function init()
 		event = function(n)
 			blink = (n % 7 < 3)
 			local x = 82
-			for p = 1, editor.dest1 do
+			for p = 1, editor.dest do
 				local dest = editor.dests[p]
 				if dest.has_divider then
 					x = x - 23
@@ -963,19 +961,12 @@ function init()
 	end
 
 	function xvi.event(data)
-		local message = midi.to_msg(data)
-		if message.cc == 9 then -- fader moved
-			local time = util.time()
-			if (time - editor.last_xvi_input > 0.75) and (time - editor.last_encoder_input > 2) then
-				if editor.dests[message.ch].has_divider then
-					editor.dest1 = message.ch - 1
-					editor.dest2 = message.ch
-				else
-					editor.dest1 = message.ch
-					editor.dest2 = message.ch + 1
-				end
+		-- when k2 is held and a fader is moved, select that parameter for editing
+		if held_keys[2] then
+			local message = midi.to_msg(data)
+			if message.cc == 9 then -- fader moved
+				editor.dest = message.ch
 			end
-			editor.last_xvi_input = time
 		end
 	end
 
@@ -1025,30 +1016,12 @@ function redraw()
 	screen.clear()
 	screen.fill() -- prevent a flash of stroke when leaving system UI
 
-	for d = 1, #editor.dests do
-
-		local dest = editor.dests[d].name
-		local dest_slider = dest_sliders[dest]
-		local source_slider = source_sliders[dest][editor.source_names[editor.source]]
-		local active = editor.dest1 == d or editor.dest2 == d
-		local active_and_held = (editor.dest1 == d and held_keys[2]) or (editor.dest2 == d and held_keys[3])
-
-		source_slider.x = dest_slider.x - 1
-		source_slider:redraw(active and 2 or 1, active_and_held and 5 or (active and 15 or 4))
-
-		dest_slider:redraw(active and 1 or 0, active_and_held and 15 or (active and 3 or 1))
-
-		screen.level(active and 10 or 1)
-		screen.text_rotate(dest_slider.x - 3, 57, editor.dests[d].label, -90)
-		screen.stroke()
-	end
-
 	-- TODO: icons
 	
 	local voice = voice_states[k.selected_voice]
 
 	screen.level('amp' == editor.source_names[editor.source] and 15 or 3)
-	screen.move(0, 64)
+	screen.move(0, 5)
 	screen.text('Am')
 
 	screen.level('hand' == editor.source_names[editor.source] and 15 or 3)
@@ -1095,23 +1068,35 @@ function redraw()
 	screen.level(voice.lfoCA_gate and 15 or 3)
 	screen.text('.')
 
+	for d = 1, #editor.dests do
+
+		local dest = editor.dests[d].name
+		local dest_slider = dest_sliders[dest]
+		local source_slider = source_sliders[dest][editor.source_names[editor.source]]
+		local active = editor.dest == d
+		local active_and_held = active and held_keys[3]
+
+		source_slider.x = dest_slider.x - 1
+		source_slider:redraw(active and 2 or 1, active_and_held and 5 or (active and 15 or 4))
+
+		dest_slider:redraw(active and 1 or 0, active_and_held and 15 or (active and 3 or 1))
+
+		screen.level(active and 10 or 1)
+		screen.text_rotate(dest_slider.x - 3, 63, editor.dests[d].label, -90)
+		screen.stroke()
+	end
+
 	screen.update()
 end
 
 function enc(n, d)
 	if n == 1 then
-		-- move dest1.
-		-- wrap from first to NEXT-to-last dest, in order to leave room for dest2.
-		-- skip dests with dividers.
-		repeat
-			editor.dest1 = util.wrap(editor.dest1 + d, 1, #editor.dests - 1)
-		until not editor.dests[editor.dest1].has_divider
-		-- move dest2 right from there
-		editor.dest2 = editor.dest1
-		editor.dest2 = util.wrap(editor.dest2 + 1, 1, #editor.dests)
-	elseif n == 2 or n == 3 then
-		local dest = (n == 2 and editor.dests[editor.dest1]) or editor.dests[editor.dest2]
-		if not held_keys[n] then
+		editor.source = util.wrap(editor.source + d, 1, #editor.source_names)
+	elseif n == 2 then
+		editor.dest = util.wrap(editor.dest + d, 1, #editor.dests)
+	elseif n == 3 then
+		local dest = editor.dests[editor.dest]
+		if not held_keys[3] then
 			params:delta(editor.source_names[editor.source] .. '_' .. dest.name, d)
 		elseif dest.voice_param then
 			params:delta(dest.voice_param .. '_' .. k.selected_voice, d)
@@ -1119,24 +1104,21 @@ function enc(n, d)
 			params:delta(dest.name, d)
 		end
 	end
-	editor.last_encoder_input = util.time()
 end
 
 function key(n, z)
 	if n == 1 and z == 1 then
-		for d = 1, 2 do
-			if held_keys[d + 1] then
-				local dest = editor.dests[d == 1 and editor.dest1 or editor.dest2]
-				for s = 1, #editor.source_names do
-					params:lookup_param(editor.source_names[s] .. '_' .. dest.name):set_default()
+		if held_keys[d] then
+			local dest = editor.dests[editor.dest]
+			for s = 1, #editor.source_names do
+				params:lookup_param(editor.source_names[s] .. '_' .. dest.name):set_default()
+			end
+			if dest.voice_param then
+				for v = 1, n_voices do
+					params:lookup_param(dest.voice_param .. '_' .. v):set_default()
 				end
-				if dest.voice_param then
-					for v = 1, n_voices do
-						params:lookup_param(dest.voice_param .. '_' .. v):set_default()
-					end
-				else
-					params:lookup_param(dest.name):set_default()
-				end
+			else
+				params:lookup_param(dest.name):set_default()
 			end
 		end
 	elseif n > 1 and z == 0 and util.time() - held_keys[n] < 0.2 then
