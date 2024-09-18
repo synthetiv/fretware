@@ -700,7 +700,7 @@ function init()
 
 		if source == 'eg' then
 			-- EG group gets extra parameters
-			params:add_group('eg', 4 + #editor.dests)
+			params:add_group('eg', 2 + #editor.dests)
 			params:add {
 				name = 'attack',
 				id = 'attack',
