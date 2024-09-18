@@ -122,10 +122,6 @@ editor = {
 			has_divider = true
 		},
 		{
-			name = 'pitch',
-			label = 'pitch'
-		},
-		{
 			name = 'pan',
 			label = 'pan',
 			voice_param = 'pan'
@@ -166,9 +162,8 @@ dest_sliders = {
 	lfoBFreq = Slider.new(340, 1, 2, 55),
 	lfoCFreq = Slider.new(359, 1, 2, 55),
 
-	pitch    = Slider.new(383, 1, 2, 55, 0),
-	pan      = Slider.new(402, 1, 2, 55, 0),
-	amp      = Slider.new(421, 1, 2, 55, 0)
+	pan      = Slider.new(383, 1, 2, 55, 0),
+	amp      = Slider.new(402, 1, 2, 55, 0)
 }
 
 source_sliders = {}
@@ -480,7 +475,6 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(musicutil.note_num_to_freq(48), musicutil.note_num_to_freq(72), 'exp', 0, musicutil.note_num_to_freq(60), 'Hz'),
 		action = function(value)
-			dest_sliders.pitch:set_value(params:get_raw('base_freq') * 2 - 1)
 			engine.baseFreq(value)
 		end
 	}
@@ -687,7 +681,7 @@ function init()
 
 	for d = 1, #editor.dests do
 		local dest = editor.dests[d]
-		if dest.name ~= 'attack' and dest.name ~= 'release' and dest.name ~= 'lfoAFreq' and dest.name ~= 'lfoBFreq' and dest.name ~= 'lfoCFreq' and dest.name ~= 'pitch' and not dest.voice_param then
+		if dest.name ~= 'attack' and dest.name ~= 'release' and dest.name ~= 'lfoAFreq' and dest.name ~= 'lfoBFreq' and dest.name ~= 'lfoCFreq' and not dest.voice_param then
 			local engine_command = engine[dest.name]
 			params:add {
 				name = dest.label,
@@ -1121,8 +1115,6 @@ function enc(n, d)
 			params:delta(editor.source_names[editor.source] .. '_' .. dest.name, d)
 		elseif dest.voice_param then
 			params:delta(dest.voice_param .. '_' .. k.selected_voice, d)
-		elseif dest.name == 'pitch' then
-			params:delta('base_freq', d)
 		else
 			params:delta(dest.name, d)
 		end
@@ -1142,8 +1134,6 @@ function key(n, z)
 					for v = 1, n_voices do
 						params:lookup_param(dest.voice_param .. '_' .. v):set_default()
 					end
-				elseif dest.name == 'pitch' then
-					params:lookup_param('base_freq'):set_default()
 				else
 					params:lookup_param(dest.name):set_default()
 				end

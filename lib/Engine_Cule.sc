@@ -49,7 +49,6 @@ Engine_Cule : CroneEngine {
 		// modulatable parameters for audio synths
 		parameterNames = [
 			\amp,
-			\pitch,
 			\pan,
 			\ratioA,
 			\detuneA,
@@ -279,7 +278,7 @@ Engine_Cule : CroneEngine {
 			// now save the modulation values for the next block
 			LocalOut.kr([amp, tip - palm, eg, lfoA, lfoB, lfoC, lfoSHAB, lfoSHBC, lfoSHCA]);
 
-			pitch = pitch + (modulation[\pitch] / 4) + shift;
+			pitch = pitch + shift;
 
 			// send control values to bus for polling
 			Out.kr(\voiceStateBus.ir, [amp, pitch, t_trig, lfoA > 0, lfoB > 0, lfoC > 0, lfoAB, lfoBC, lfoCA]);
