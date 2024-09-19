@@ -55,8 +55,7 @@ function Keyboard.new(x, y, width, height)
 		arp_index = 0,
 		arp_insert = 0,
 		arp_randomness = 0,
-		arp_clock_source = false,
-		arp_clock_states = {},
+		arping = false,
 		octave = 0,
 		transposition = 0,
 		active_key = 0,
@@ -172,23 +171,24 @@ function Keyboard:key(x, y, z)
 				self.gliding = not self.gliding
 				self:set_bend_targets()
 				if self.gliding then
-					self.arp_clock_source = false
+					self.arping = false
 				end
 			end
 		elseif x >= self.x + 5 and x <= self.x + 10 then
 			-- arp select / toggle
-			local source = x - self.x - 4
-			if z == 1 then
-				if self.arp_clock_source == source then
-					self.arp_clock_source = false
-					self.on_gate(false)
-				else
-					self.arp_clock_source = source
-					self.gliding = false
-					self.bent_pitch = self.active_pitch
-					self:set_bend_targets()
-				end
-			end
+			-- TODO: move this outside the Keyboard class
+			-- local source = x - self.x - 4
+			-- if z == 1 then
+			-- 	if self.arp_clock_source == source then
+			-- 		self.arp_clock_source = false
+			-- 		self.on_gate(false)
+			-- 	else
+			-- 		self.arp_clock_source = source
+			-- 		self.gliding = false
+			-- 		self.bent_pitch = self.active_pitch
+			-- 		self:set_bend_targets()
+			-- 	end
+			-- end
 		elseif x == self.x2 - 3 then
 			self.held_keys.octave_scroll = z == 1
 		elseif x > self.x2 - 2 then
@@ -340,7 +340,7 @@ function Keyboard:shift_octave(od)
 		end
 	end
 	-- recalculate active pitch with new octave
-	if not self.arp_clock_source or self.n_sustained_keys == 0 then
+	if not self.arping or self.n_sustained_keys == 0 then
 		self:set_active_key(self.active_key)
 		if self.n_sustained_keys > 0 and self.retrig and not self.gliding then
 			self.on_gate(true)
@@ -425,7 +425,7 @@ function Keyboard:note(x, y, z)
 				return
 			end
 		end
-		if self.gliding or not self.arp_clock_source or self.n_sustained_keys == 0 then
+		if self.gliding or not self.arping or self.n_sustained_keys == 0 then
 			-- glide mode, no arp, or first note held: push new note to the stack
 			self.n_sustained_keys = self.n_sustained_keys + 1
 			self.arp_index = self.n_sustained_keys
@@ -433,7 +433,7 @@ function Keyboard:note(x, y, z)
 			table.insert(self.sustained_keys, key_id)
 			self:set_active_key(key_id)
 			-- set gate high if we're in retrig mode, or if this is the first note held
-			if not self.arp_clock_source and ((self.retrig and not self.gliding) or self.n_sustained_keys == 1) then
+			if not self.arping and ((self.retrig and not self.gliding) or self.n_sustained_keys == 1) then
 				self.on_gate(true)
 			end
 		else
@@ -453,7 +453,7 @@ function Keyboard:note(x, y, z)
 				self.arp_insert = self.arp_insert - 1
 			end
 			self.n_sustained_keys = self.n_sustained_keys - 1
-			if not self.arp_clock_source and sustained_key_index > self.n_sustained_keys and self.n_sustained_keys > 0 then
+			if not self.arping and sustained_key_index > self.n_sustained_keys and self.n_sustained_keys > 0 then
 				self:set_active_key(self.sustained_keys[self.n_sustained_keys])
 			else
 				self:set_bend_targets()
@@ -483,7 +483,7 @@ function Keyboard:note(x, y, z)
 		if self.n_sustained_keys > 0 then
 			self.arp_index = (self.arp_index - 1) % self.n_sustained_keys + 1
 			self.arp_insert = (self.arp_insert - 1) % self.n_sustained_keys + 1
-			if not self.arp_clock_source then
+			if not self.arping then
 				local released_active_key = key_id == self.active_key
 				self:set_active_key(self.sustained_keys[self.arp_index], true)
 				if released_active_key and self.retrig and not self.gliding then
@@ -496,9 +496,8 @@ function Keyboard:note(x, y, z)
 	end
 end
 
-function Keyboard:arp(source, gate)
-	self.arp_clock_states[source] = gate
-	if self.arp_clock_source == source and self.n_sustained_keys > 0 then
+function Keyboard:arp(gate)
+	if self.arping and self.n_sustained_keys > 0 then
 		if gate then
 			-- at randomness = 0, step size is always 1; at randomness = 1, step size varies from
 			-- (-n/2 + 1) to (n/2), but is never zero
@@ -579,14 +578,7 @@ function Keyboard:draw()
 	g:led(self.x, self.y2, self.held_keys.shift and 15 or 6)
 	g:led(self.x + 2, self.y2, self.held_keys.latch and 7 or 2)
 	g:led(self.x + 3, self.y2, self.gliding and 7 or 2)
-	for source = 1, 6 do
-		local x = self.x + 4 + source
-		if self.arp_clock_source == source then
-			g:led(x, self.y2, self.arp_clock_states[source] and 11 or 7)
-		else
-			g:led(x, self.y2, self.arp_clock_source and 3 or 2)
-		end
-	end
+	-- TODO: draw arp button and menu in main script
 	g:led(self.x2 - 3, self.y2, self.held_keys.octave_scroll and 7 or 2)
 	g:led(self.x2 - 1, self.y2, math.min(15, math.max(0, (self.held_keys.down and 7 or 2) - math.min(self.octave, 0))))
 	g:led(self.x2, self.y2, math.min(15, math.max(0, (self.held_keys.up and 7 or 2) + math.max(self.octave, 0))))

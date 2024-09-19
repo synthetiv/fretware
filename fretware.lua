@@ -10,6 +10,14 @@ n_voices = 6
 Keyboard = include 'lib/keyboard'
 k = Keyboard.new(1, 1, 16, 8)
 
+Menu = include 'lib/menu'
+arp_menu = Menu.new(7, 6, 6, 2, false, function(source)
+	print('arp menu select', source)
+	if source and not k.arping then
+		k.arping = true
+	end
+end)
+
 Echo = include 'lib/echo'
 echo = Echo.new()
 
@@ -207,16 +215,22 @@ palm = 0
 expo_scaling = false
 gate_in = false
 
-n_arp_divs = 4
+arp_divs = { 1, 3/4, 1/2, 3/8, 1/4, 1/8 }
 arp_clocks = {}
-for d = 1, 3 do
-	local rate = math.pow(2, 1 - d)
+for d = 1, #arp_divs do
+	local rate = arp_divs[d]
 	arp_clocks[d] = clock.run(function()
 		while true do
 			clock.sync(rate)
-			k:arp(d, true)
-			clock.sleep(clock.get_beat_sec() * rate / 2)
-			k:arp(d, false)
+			arp_menu.keys[d].level = 2
+			if arp_menu.selected == d then
+				k:arp(true)
+			end
+			clock.sync(rate / 2)
+			arp_menu.keys[d].level = 0
+			if arp_menu.selected == d then
+				k:arp(false)
+			end
 		end
 	end)
 end
@@ -263,6 +277,20 @@ function play_voice_loop(v)
 end
 
 function g.key(x, y, z)
+	if x == 6 and y == 8 then
+		if z == 1 then
+			k.arping = not k.arping
+			if not k.arping then
+				arp_menu.selected = false
+			end
+		end
+	elseif x == 7 and y == 8 then
+		arp_menu.open = z == 1
+	end
+	if arp_menu:key(x, y, z) then
+		grid_redraw()
+		return
+	end
 	k:key(x, y, z)
 	-- TODO: sync the whole note stack with TT
 	-- I think you'll need to trigger events from the keyboard class, and... urgh...
@@ -280,6 +308,9 @@ end
 function grid_redraw()
 	g:all(0)
 	k:draw()
+	g:led(6, 8, k.arping and 7 or 2)
+	g:led(7, 8, arp_menu.open and 15 or (k.arping and 5 or 2))
+	arp_menu:draw()
 	for v = 1, n_voices do
 		local voice = voice_states[v]
 		local level = voice.amp
@@ -301,8 +332,8 @@ end
 -- 
 -- 	crow.input[1].change = function(gate)
 -- 		gate_in = gate
--- 		if k.arp_clock_source == ?? and k.n_sustained_keys > 0 then
--- 			k:arp(??, gate)
+-- 		if arp_menu.selected == ?? and k.n_sustained_keys > 0 then
+-- 			k:arp(gate)
 -- 		end
 -- 	end
 -- 	crow.input[1].mode('change', 1, 0.01, 'both')
@@ -444,7 +475,7 @@ function init()
 			local gate_name = name .. '_gate'
 			local echo_jump_trigger = 1 + g
 			local echo_uc4_note = 15 + g
-			local arp_source = 3 + g
+			local arp_source = #arp_divs + g
 			voice.polls[name] = poll.set(name .. '_gate_' .. v, function(gate)
 				gate = gate > 0
 				voice[gate_name] = gate
@@ -457,7 +488,10 @@ function init()
 							if uc4 then uc4:note_off(echo_uc4_note) end
 						end
 					end
-					k:arp(arp_source, gate)
+					arp_menu.keys[arp_source].level = gate and 2 or 0
+					if arp_menu.selected == arp_source then
+						k:arp(gate)
+					end
 				end
 			end)
 			voice.polls[name]:start()
