@@ -133,7 +133,8 @@ editor = {
 		}
 	},
 	source = 1,
-	dest = 1
+	dest = 1,
+	dest_reset_coro = -1
 }
 
 dest_sliders = {
@@ -1091,8 +1092,10 @@ end
 
 function enc(n, d)
 	if n == 1 then
+		clock.cancel(editor.dest_reset_coro)
 		editor.source = util.wrap(editor.source + d, 1, #editor.source_names)
 	elseif n == 2 then
+		clock.cancel(editor.dest_reset_coro)
 		editor.dest = util.wrap(editor.dest + d, 1, #editor.dests)
 	elseif n == 3 then
 		local dest = editor.dests[editor.dest]
@@ -1107,26 +1110,37 @@ function enc(n, d)
 end
 
 function key(n, z)
-	if n == 1 and z == 1 then
-		if held_keys[d] then
+	if n == 1 then
+		if z == 1 and held_keys[3] then
+			-- reset modulation from source
+			local source = editor.source_names[editor.source]
+			for d = 1, #editor.dests do
+				params:lookup_param(source .. '_' .. editor.dests[d].name):set_default()
+			end
+		end
+	elseif n == 2 then
+		if z == 1 and held_keys[3] then
 			local dest = editor.dests[editor.dest]
-			for s = 1, #editor.source_names do
-				params:lookup_param(editor.source_names[s] .. '_' .. dest.name):set_default()
-			end
-			if dest.voice_param then
-				for v = 1, n_voices do
-					params:lookup_param(dest.voice_param .. '_' .. v):set_default()
+			editor.dest_reset_coro = clock.run(function()
+				clock.sleep(0.25)
+				-- reset modulation to destination
+				for s = 1, #editor.source_names do
+					params:lookup_param(editor.source_names[s] .. '_' .. dest.name):set_default()
 				end
-			else
-				params:lookup_param(dest.name):set_default()
-			end
+				-- reset param value
+				if dest.voice_param then
+					for v = 1, n_voices do
+						params:lookup_param(dest.voice_param .. '_' .. v):set_default()
+					end
+				else
+					params:lookup_param(dest.name):set_default()
+				end
+			end)
+		elseif z == 0 then
+			clock.cancel(editor.dest_reset_coro)
 		end
-	elseif n > 1 and z == 0 and util.time() - held_keys[n] < 0.2 then
-		if n == 2 then
-			editor.source = (editor.source - 2) % #editor.source_names + 1
-		elseif n == 3 then
-			editor.source = editor.source % #editor.source_names + 1
-		end
+	elseif n == 3 then
+		-- only used as a modifier
 	end
 	held_keys[n] = z == 1 and util.time() or false
 end
