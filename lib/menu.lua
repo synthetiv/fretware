@@ -1,7 +1,7 @@
 local Menu = {}
 Menu.__index = Menu
 
-function Menu.new(x, y, width, height, keys, on_select)
+function Menu.new(x, y, width, height, toggle, keys, on_select)
 	if not keys then
 		keys = {}
 		for a = 1, height do
@@ -17,6 +17,7 @@ function Menu.new(x, y, width, height, keys, on_select)
 		height = height,
 		x2 = x + width - 1,
 		y2 = y + height - 1,
+		toggle = toggle or false,
 		keys = keys,
 		selected = false,
 		open = false,
@@ -54,6 +55,9 @@ function Menu:key(x, y, z)
 	y = y - self.y
 	local k = x + (y * self.width) + 1
 	if z == 1 then
+		if self.toggle and self.selected == k then
+			k = false
+		end
 		self.selected = k
 		self.on_select(k)
 	end

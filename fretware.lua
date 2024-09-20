@@ -11,10 +11,11 @@ Keyboard = include 'lib/keyboard'
 k = Keyboard.new(1, 1, 16, 8)
 
 Menu = include 'lib/menu'
-arp_menu = Menu.new(7, 6, 6, 2, false, function(source)
-	print('arp menu select', source)
+arp_menu = Menu.new(6, 6, 6, 2, true, false, function(source)
 	if source and not k.arping then
 		k.arping = true
+	elseif not source then
+		k.arping = false
 	end
 end)
 
@@ -278,14 +279,11 @@ end
 
 function g.key(x, y, z)
 	if x == 6 and y == 8 then
-		if z == 1 then
-			k.arping = not k.arping
-			if not k.arping then
-				arp_menu.selected = false
-			end
-		end
-	elseif x == 7 and y == 8 then
 		arp_menu.open = z == 1
+		-- TODO: this could lead to stuck keys, since the menu will steal key input from the
+		-- keyboard. how could you work around that? examine keyboard's held keys and give
+		-- first priority in key handler to keyboard keyoffs, then menu keyon, then keyboard
+		-- keyon?
 	end
 	if arp_menu:key(x, y, z) then
 		grid_redraw()
@@ -308,8 +306,7 @@ end
 function grid_redraw()
 	g:all(0)
 	k:draw()
-	g:led(6, 8, k.arping and 7 or 2)
-	g:led(7, 8, arp_menu.open and 15 or (k.arping and 5 or 2))
+	g:led(6, 8, arp_menu.open and 15 or (k.arping and 5 or 2))
 	arp_menu:draw()
 	for v = 1, n_voices do
 		local voice = voice_states[v]
