@@ -341,6 +341,13 @@ end
 function grid_redraw()
 	g:all(0)
 	k:draw()
+	if arp_menu.open or source_menu.open or dest_menu.open then
+		for x = 3, 15 do
+			for y = 1, 7 do
+				g:led(x, y, 0)
+			end
+		end
+	end
 	if arp_menu.value then
 		g:led(6, 8, arp_menu.open and 15 or 5 + arp_menu.levels[arp_menu.value])
 	else
