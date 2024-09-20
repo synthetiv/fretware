@@ -253,10 +253,6 @@ Engine_Cule : CroneEngine {
 			lfoSHBC = Latch.kr(lfoB, Changed.kr(lfoBC));
 			lfoSHCA = Latch.kr(lfoC, Changed.kr(lfoCA));
 
-			// apply a pre-modulation dead zone to squiz control, so it's easier to hit 0
-			squiz = squiz.sign * (1 - (1.1 * (1 - squiz.abs)).min(1));
-			// TODO: scale? cube?
-
 			// params with additive modulation
 			detuneA  = detuneA.cubed.lag(lag) + modulation[\detuneA];
 			fmIndex  = fmIndex.lag(lag) + modulation[\fmIndex];
