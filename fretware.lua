@@ -293,14 +293,26 @@ end
 
 function g.key(x, y, z)
 	if x == 6 and y == 8 then
-		arp_menu.open = z == 1
 		-- TODO: this could lead to stuck keys, since the menu will steal key input from the
 		-- keyboard. how could you work around that? examine keyboard's held keys and give
 		-- first priority in key handler to keyboard keyoffs, then menu keyon, then keyboard
 		-- keyon?
+		if z == 1 then
+			arp_menu.open = true
+			source_menu.open = false
+			dest_menu.open = false
+		else
+			arp_menu.open = false
+		end
 	elseif x == 9 and y == 8 then
-		source_menu.open = z == 1
-		dest_menu.open = z == 1
+		if z == 1 then
+			source_menu.open = true
+			dest_menu.open = true
+			arp_menu.open = false
+		else
+			source_menu.open = false
+			dest_menu.open = false
+		end
 	elseif arp_menu:key(x, y, z) then
 		grid_redraw()
 		return
