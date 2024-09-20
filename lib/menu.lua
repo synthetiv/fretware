@@ -2,12 +2,10 @@ local Menu = {}
 Menu.__index = Menu
 
 function Menu.new(x, y, width, height, arg_values)
-	levels = {}
 	values = {}
 	local k = 1
 	for a = 1, height do
 		for b = 1, width do
-			levels[k] = false
 			if arg_values then
 				values[k] = arg_values[k]
 			else
@@ -24,7 +22,6 @@ function Menu.new(x, y, width, height, arg_values)
 		x2 = x + width - 1,
 		y2 = y + height - 1,
 		toggle = toggle or false,
-		levels = levels,
 		values = values,
 		selected = false,
 		value = false,
@@ -35,6 +32,10 @@ function Menu.new(x, y, width, height, arg_values)
 	return menu
 end
 
+function Menu.get_key_level(value, selected)
+	return selected and 13 or 4
+end
+
 function Menu:draw()
 	if not self.open then
 		return
@@ -42,15 +43,11 @@ function Menu:draw()
 	local k = 1
 	for y = self.y, self.y2 do
 		for x = self.x, self.x2 do
+			local level = 0
 			if self.values[k] then
-				if k == self.selected then
-					g:led(x, y, (self.levels[k] or 2) + 11)
-				elseif self.values[k] then
-					g:led(x, y, (self.levels[k] or 0) + 4)
-				end
-			else
-				g:led(x, y, 0)
+				level = self.get_key_level(self.values[k], self.selected == k)
 			end
+			g:led(x, y, level)
 			k = k + 1
 		end
 	end

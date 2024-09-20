@@ -11,6 +11,7 @@ Keyboard = include 'lib/keyboard'
 k = Keyboard.new(1, 1, 16, 8)
 
 Menu = include 'lib/menu'
+
 arp_menu = Menu.new(6, 6, 6, 2)
 arp_menu.toggle = true
 arp_menu.on_select = function(source)
@@ -21,8 +22,34 @@ arp_menu.on_select = function(source)
 		k.arping = false
 	end
 end
+arp_menu.get_key_level = function(value, selected)
+	local level = 0
+	if value <= 6 then
+		if arp_clocks[value].gate then
+			level = 2
+		end
+	elseif voice_states[k.selected_voice][lfo_gate_names[value - 6]] then
+		level = 2
+	end
+	return level + (selected and 11 or 4)
+end
+
 source_menu = Menu.new(6, 5, 3, 3)
 source_menu:select(1)
+source_menu.get_key_level = function(value, selected)
+	local level = 0
+	if value == 1 then
+		level = voice_states[k.selected_voice].amp >= 0.1 and 2 or 0
+	elseif value == 2 then
+		-- TODO: hand
+	elseif value == 3 then
+		-- TODO: env
+	else
+		level = voice_states[k.selected_voice][lfo_gate_names[value - 3]] and 2 or 0
+	end
+	return level + (selected and 11 or 4)
+end
+
 dest_menu = Menu.new(9, 1, 4, 7, {
 	-- map of dest numbers (in editor.dests) to keys
 	 1,  2,  3,  _,
@@ -34,6 +61,14 @@ dest_menu = Menu.new(9, 1, 4, 7, {
 	 _,  _, 17, 18
 })
 dest_menu:select(1)
+dest_menu.get_key_level = function(value, selected)
+	local level = 0
+	local source_name = editor.source_names[source_menu.value]
+	local dest = editor.dests[value]
+	local mod_amount = params:get(source_name .. '_' .. dest.name)
+	level = (math.abs(mod_amount) >= 0.1) and 3 or 0
+	return level + (selected and 11 or 3)
+end
 
 Echo = include 'lib/echo'
 echo = Echo.new()
@@ -225,6 +260,15 @@ for v = 1, n_voices do
 	}
 end
 
+lfo_gate_names = {
+	'lfoA_gate',
+	'lfoB_gate',
+	'lfoC_gate',
+	'lfoAB_gate',
+	'lfoBC_gate',
+	'lfoCA_gate'
+}
+
 tip = 0
 palm = 0
 expo_scaling = false
@@ -234,20 +278,22 @@ arp_divs = { 1, 3/4, 1/2, 3/8, 1/4, 1/8 }
 arp_clocks = {}
 for d = 1, #arp_divs do
 	local rate = arp_divs[d]
-	arp_clocks[d] = clock.run(function()
+	local arp_clock = {}
+	arp_clock.coro = clock.run(function()
 		while true do
 			clock.sync(rate)
-			arp_menu.levels[d] = 2
+			arp_clock.gate = true
 			if arp_menu.value == d then
 				k:arp(true)
 			end
 			clock.sync(rate / 2)
-			arp_menu.levels[d] = 0
+			arp_clock.gate = false
 			if arp_menu.value == d then
 				k:arp(false)
 			end
 		end
 	end)
+	arp_clocks[d] = arp_clock
 end
 
 loop_clock = false
@@ -346,10 +392,23 @@ function grid_redraw()
 			end
 		end
 	end
-	if arp_menu.value then
-		g:led(6, 8, arp_menu.open and 15 or 5 + arp_menu.levels[arp_menu.value])
+	if arp_menu.open then
+		g:led(6, 8, 15)
+	elseif arp_menu.value then
+		-- an arp clock source is selected; blink
+		local v = arp_menu.value
+		local level = 5
+		if v <= 6 then
+			if arp_clocks[v].gate then
+				level = level + 2
+			end
+		elseif voice_states[k.selected_voice][lfo_gate_names[v - 6]] then
+			level = level + 2
+		end
+		g:led(6, 8, level)
 	else
-		g:led(6, 8, arp_menu.open and 15 or 2)
+		-- no source selected; go dark
+		g:led(6, 8, 2)
 	end
 	arp_menu:draw()
 	g:led(9, 8, source_menu.open and 15 or 2)
@@ -500,9 +559,6 @@ function init()
 		-- one poll to respond to voice amplitude info
 		voice.polls.amp = poll.set('amp_' .. v, function(value)
 			voice.amp = value
-			if v == k.selected_voice then
-				source_menu.levels[1] = value > 0.3 and 2 or 0
-			end
 		end)
 		voice.polls.amp:start()
 		-- a second to respond to pitch AND refresh grid; this helps a lot when voices are arpeggiating or looping
@@ -517,15 +573,13 @@ function init()
 		end)
 		voice.polls.pitch:start()
 		-- and polls for LFO updates, which will only fire when a voice is selected and an LFO is used as an arp clock
-		local lfo_gates = { 'lfoA', 'lfoB', 'lfoC', 'lfoAB', 'lfoBC', 'lfoCA' }
-		for g, name in ipairs(lfo_gates) do
-			local gate_name = name .. '_gate'
+		for g, name in ipairs(lfo_gate_names) do
 			local echo_jump_trigger = 1 + g
 			local echo_uc4_note = 15 + g
 			local arp_source = #arp_divs + g
-			voice.polls[name] = poll.set(name .. '_gate_' .. v, function(gate)
+			voice.polls[name] = poll.set(name .. '_' .. v, function(gate)
 				gate = gate > 0
-				voice[gate_name] = gate
+				voice[name] = gate
 				if v == k.selected_voice then
 					if echo.jump_trigger == echo_jump_trigger then
 						if gate then
@@ -535,9 +589,6 @@ function init()
 							if uc4 then uc4:note_off(echo_uc4_note) end
 						end
 					end
-					local level = gate and 2 or 0
-					arp_menu.levels[arp_source] = level
-					source_menu.levels[g + 3] = level
 					if arp_menu.value == arp_source then
 						k:arp(gate)
 					end
@@ -1237,12 +1288,12 @@ function cleanup()
 		'amp',
 		'instant_pitch',
 		'pitch',
-		'lfoA',
-		'lfoB',
-		'lfoC',
-		'lfoAB',
-		'lfoBC',
-		'lfoCA'
+		'lfoA_gate',
+		'lfoB_gate',
+		'lfoC_gate',
+		'lfoAB_gate',
+		'lfoBC_gate',
+		'lfoCA_gate'
 	}
 	for v = 1, n_voices do
 		local voice = voice_states[v]
