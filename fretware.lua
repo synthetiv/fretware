@@ -313,17 +313,15 @@ function g.key(x, y, z)
 			source_menu.open = false
 			dest_menu.open = false
 		end
-	elseif arp_menu:key(x, y, z) then
-		grid_redraw()
-		return
-	elseif source_menu:key(x, y, z) then
-		grid_redraw()
-		return
-	elseif dest_menu:key(x, y, z) then
-		grid_redraw()
-		return
+	elseif arp_menu.open then
+		arp_menu:key(x, y, z)
+	elseif source_menu.open then
+		if not source_menu:key(x, y, z) then
+			dest_menu:key(x, y, z)
+		end
+	else
+		k:key(x, y, z)
 	end
-	k:key(x, y, z)
 	-- TODO: sync the whole note stack with TT
 	-- I think you'll need to trigger events from the keyboard class, and... urgh...
 	-- it's more information than you can easily send to TT
