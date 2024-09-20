@@ -173,7 +173,8 @@ Engine_Cule : CroneEngine {
 			var bufferRate, bufferLength, bufferPhase,
 				loopStart, loopPhase, loopTrigger, loopOffset,
 				modulation = Dictionary.new,
-				eg, amp,
+				recPitch, recTip, recHand, recGate, recTrig,
+				hand, freezeWithoutGate, eg, amp,
 				lfoA, lfoB, lfoC,
 				lfoAB, lfoBC, lfoCA,
 				lfoSHAB, lfoSHBC, lfoSHCA,
@@ -198,11 +199,20 @@ Engine_Cule : CroneEngine {
 			loopOffset = Latch.kr(bufferLength - (loopLength * bufferRate), loopTrigger) * loopPosition;
 			loopPhase = loopPhase - loopOffset;
 			t_trig = Trig.kr(t_trig, 0.01);
-			BufWr.kr([pitch, tip, palm, gate, t_trig], buffer, bufferPhase);
-			# pitch, tip, palm, gate, t_trig = Select.kr(freeze, [
-				[pitch, tip, palm, gate, t_trig],
-				BufRd.kr(nRecordedModulators, buffer, loopPhase, interpolation: 1)
-			]);
+			hand = tip - palm;
+			freezeWithoutGate = freeze.min(1 - gate);
+			BufWr.kr([pitch, tip, hand, gate, t_trig], buffer, bufferPhase);
+			// read values from recorded loop (if any)
+			# recPitch, recTip, recHand, recGate, recTrig = BufRd.kr(nRecordedModulators, buffer, loopPhase, interpolation: 1);
+			// new pitch values can "punch through" frozen ones when gate is high
+			pitch = Select.kr(freezeWithoutGate, [ pitch, recPitch ]);
+			// punch tip through too, only when gate is high
+			tip = Select.kr(freezeWithoutGate, [ tip, recTip ]);
+			// mix incoming hand data with recorded hand (fade in when freeze is engaged)
+			hand = hand + (Linen.kr(freeze, 0.3, 1, 0) * recHand);
+			// combine incoming gates with recorded gates
+			gate = gate.max(freeze * recGate);
+			t_trig = t_trig.max(freeze * recTrig);
 
 			// build a dictionary of summed modulation signals to apply to parameters
 			parameterNames.do({ |paramName|
@@ -276,7 +286,7 @@ Engine_Cule : CroneEngine {
 			]) * (1 + modulation[\amp])).clip(0, 1);
 
 			// now save the modulation values for the next block
-			LocalOut.kr([amp, tip - palm, eg, lfoA, lfoB, lfoC, lfoSHAB, lfoSHBC, lfoSHCA]);
+			LocalOut.kr([amp, hand, eg, lfoA, lfoB, lfoC, lfoSHAB, lfoSHBC, lfoSHCA]);
 
 			pitch = pitch + shift;
 
