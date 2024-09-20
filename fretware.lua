@@ -11,13 +11,25 @@ Keyboard = include 'lib/keyboard'
 k = Keyboard.new(1, 1, 16, 8)
 
 Menu = include 'lib/menu'
-arp_menu = Menu.new(6, 6, 6, 2, true, false, function(source)
+arp_menu = Menu.new(6, 6, 6, 2)
+arp_menu.toggle = true
+arp_menu.on_select = function(source)
+	-- enable arp when a source is selected, disable when toggled off
 	if source and not k.arping then
 		k.arping = true
 	elseif not source then
 		k.arping = false
 	end
-end)
+end
+source_menu = Menu.new(5, 5, 3, 3)
+source_menu:select(1)
+dest_menu = Menu.new(9, 5, 7, 3, {
+	-- map of dest numbers (in editor.dests) to keys
+	 1,  2,  3,  4,  5,  6,  7,
+	 8,  9, 10, 11,  _, 17, 18,
+	12, 13,  _, 14, 15, 16,  _
+})
+dest_menu:select(1)
 
 Echo = include 'lib/echo'
 echo = Echo.new()
@@ -141,8 +153,6 @@ editor = {
 			voice_param = 'outLevel'
 		}
 	},
-	source = 1,
-	dest = 1,
 	dest_reset_coro = -1
 }
 
@@ -223,13 +233,13 @@ for d = 1, #arp_divs do
 	arp_clocks[d] = clock.run(function()
 		while true do
 			clock.sync(rate)
-			arp_menu.keys[d].level = 2
-			if arp_menu.selected == d then
+			arp_menu.levels[d] = 2
+			if arp_menu.value == d then
 				k:arp(true)
 			end
 			clock.sync(rate / 2)
-			arp_menu.keys[d].level = 0
-			if arp_menu.selected == d then
+			arp_menu.levels[d] = 0
+			if arp_menu.value == d then
 				k:arp(false)
 			end
 		end
@@ -284,8 +294,16 @@ function g.key(x, y, z)
 		-- keyboard. how could you work around that? examine keyboard's held keys and give
 		-- first priority in key handler to keyboard keyoffs, then menu keyon, then keyboard
 		-- keyon?
-	end
-	if arp_menu:key(x, y, z) then
+	elseif x == 9 and y == 8 then
+		source_menu.open = z == 1
+		dest_menu.open = z == 1
+	elseif arp_menu:key(x, y, z) then
+		grid_redraw()
+		return
+	elseif source_menu:key(x, y, z) then
+		grid_redraw()
+		return
+	elseif dest_menu:key(x, y, z) then
 		grid_redraw()
 		return
 	end
@@ -294,6 +312,7 @@ function g.key(x, y, z)
 	-- I think you'll need to trigger events from the keyboard class, and... urgh...
 	-- it's more information than you can easily send to TT
 	grid_redraw()
+	screen.ping()
 end
 
 function send_pitch_volts()
@@ -306,13 +325,15 @@ end
 function grid_redraw()
 	g:all(0)
 	k:draw()
-	local arp_source = arp_menu.keys[arp_menu.selected]
-	if arp_source then
-		g:led(6, 8, arp_menu.open and 15 or 5 + arp_source.level)
+	if arp_menu.value then
+		g:led(6, 8, arp_menu.open and 15 or 5 + arp_menu.levels[arp_menu.value])
 	else
 		g:led(6, 8, arp_menu.open and 15 or 2)
 	end
 	arp_menu:draw()
+	g:led(9, 8, source_menu.open and 15 or 2)
+	source_menu:draw()
+	dest_menu:draw()
 	for v = 1, n_voices do
 		local voice = voice_states[v]
 		local level = voice.amp
@@ -334,7 +355,7 @@ end
 -- 
 -- 	crow.input[1].change = function(gate)
 -- 		gate_in = gate
--- 		if arp_menu.selected == ?? and k.n_sustained_keys > 0 then
+-- 		if arp_menu.value == ?? and k.n_sustained_keys > 0 then
 -- 			k:arp(gate)
 -- 		end
 -- 	end
@@ -458,6 +479,9 @@ function init()
 		-- one poll to respond to voice amplitude info
 		voice.polls.amp = poll.set('amp_' .. v, function(value)
 			voice.amp = value
+			if v == k.selected_voice then
+				source_menu.levels[1] = value > 0.3 and 2 or 0
+			end
 		end)
 		voice.polls.amp:start()
 		-- a second to respond to pitch AND refresh grid; this helps a lot when voices are arpeggiating or looping
@@ -490,8 +514,10 @@ function init()
 							if uc4 then uc4:note_off(echo_uc4_note) end
 						end
 					end
-					arp_menu.keys[arp_source].level = gate and 2 or 0
-					if arp_menu.selected == arp_source then
+					local level = gate and 2 or 0
+					arp_menu.levels[arp_source] = level
+					source_menu.levels[g + 3] = level
+					if arp_menu.value == arp_source then
 						k:arp(gate)
 					end
 				end
@@ -925,7 +951,7 @@ function init()
 		event = function(n)
 			blink = (n % 7 < 3)
 			local x = 82
-			for p = 1, editor.dest do
+			for p = 1, dest_menu.value do
 				local dest = editor.dests[p]
 				if dest.has_divider then
 					x = x - 23
@@ -1002,7 +1028,7 @@ function init()
 		if held_keys[2] then
 			local message = midi.to_msg(data)
 			if message.cc == 9 then -- fader moved
-				editor.dest = message.ch
+				dest_menu:select_value(message.ch)
 			end
 		end
 	end
@@ -1056,50 +1082,51 @@ function redraw()
 	-- TODO: icons
 	
 	local voice = voice_states[k.selected_voice]
+	local source_name = editor.source_names[source_menu.value]
 
-	screen.level('amp' == editor.source_names[editor.source] and 15 or 3)
+	screen.level('amp' == source_name and 15 or 3)
 	screen.move(0, 5)
 	screen.text('Am')
 
-	screen.level('hand' == editor.source_names[editor.source] and 15 or 3)
+	screen.level('hand' == source_name and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('Hd')
 
-	screen.level('eg' == editor.source_names[editor.source] and 15 or 3)
+	screen.level('eg' == source_name and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('En')
 
-	screen.level('lfoA' == editor.source_names[editor.source] and 15 or 3)
+	screen.level('lfoA' == source_name and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('La')
 	screen.level(voice.lfoA_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level('lfoB' == editor.source_names[editor.source] and 15 or 3)
+	screen.level('lfoB' == source_name and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('Lb')
 	screen.level(voice.lfoB_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level('lfoC' == editor.source_names[editor.source] and 15 or 3)
+	screen.level('lfoC' == source_name and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('Lc')
 	screen.level(voice.lfoC_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level('lfoAB' == editor.source_names[editor.source] and 15 or 3)
+	screen.level('lfoAB' == source_name and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('Ab')
 	screen.level(voice.lfoAB_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level('lfoBC' == editor.source_names[editor.source] and 15 or 3)
+	screen.level('lfoBC' == source_name and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('Bc')
 	screen.level(voice.lfoBC_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level('lfoCA' == editor.source_names[editor.source] and 15 or 3)
+	screen.level('lfoCA' == source_name and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('Ca')
 	screen.level(voice.lfoCA_gate and 15 or 3)
@@ -1109,8 +1136,8 @@ function redraw()
 
 		local dest = editor.dests[d].name
 		local dest_slider = dest_sliders[dest]
-		local source_slider = source_sliders[dest][editor.source_names[editor.source]]
-		local active = editor.dest == d
+		local source_slider = source_sliders[dest][source_name]
+		local active = dest_menu.value == d
 		local active_and_held = active and held_keys[3]
 
 		source_slider.x = dest_slider.x - 1
@@ -1129,14 +1156,14 @@ end
 function enc(n, d)
 	if n == 1 then
 		clock.cancel(editor.dest_reset_coro)
-		editor.source = util.wrap(editor.source + d, 1, #editor.source_names)
+		source_menu:select_value(util.wrap(source_menu.value + d, 1, #editor.source_names))
 	elseif n == 2 then
 		clock.cancel(editor.dest_reset_coro)
-		editor.dest = util.wrap(editor.dest + d, 1, #editor.dests)
+		dest_menu:select_value(util.wrap(dest_menu.value + d, 1, #editor.dests))
 	elseif n == 3 then
-		local dest = editor.dests[editor.dest]
+		local dest = editor.dests[dest_menu.value]
 		if not held_keys[3] then
-			params:delta(editor.source_names[editor.source] .. '_' .. dest.name, d)
+			params:delta(editor.source_names[source_menu.value] .. '_' .. dest.name, d)
 		elseif dest.voice_param then
 			params:delta(dest.voice_param .. '_' .. k.selected_voice, d)
 		else
@@ -1149,14 +1176,14 @@ function key(n, z)
 	if n == 1 then
 		if z == 1 and held_keys[3] then
 			-- reset modulation from source
-			local source = editor.source_names[editor.source]
+			local source = editor.source_names[source_menu.value]
 			for d = 1, #editor.dests do
 				params:lookup_param(source .. '_' .. editor.dests[d].name):set_default()
 			end
 		end
 	elseif n == 2 then
 		if z == 1 and held_keys[3] then
-			local dest = editor.dests[editor.dest]
+			local dest = editor.dests[dest_menu.value]
 			editor.dest_reset_coro = clock.run(function()
 				clock.sleep(0.25)
 				-- reset modulation to destination
