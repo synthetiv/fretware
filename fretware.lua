@@ -21,13 +21,17 @@ arp_menu.on_select = function(source)
 		k.arping = false
 	end
 end
-source_menu = Menu.new(5, 5, 3, 3)
+source_menu = Menu.new(6, 5, 3, 3)
 source_menu:select(1)
-dest_menu = Menu.new(9, 5, 7, 3, {
+dest_menu = Menu.new(9, 1, 4, 7, {
 	-- map of dest numbers (in editor.dests) to keys
-	 1,  2,  3,  4,  5,  6,  7,
-	 8,  9, 10, 11,  _, 17, 18,
-	12, 13,  _, 14, 15, 16,  _
+	 1,  2,  3,  _,
+	 _,  _,  4,  _,
+	 5,  6,  7,  _,
+	 8,  9, 10, 11,
+	 _, 12, 13,  _,
+	 _, 14, 15, 16,
+	 _,  _, 17, 18
 })
 dest_menu:select(1)
 
