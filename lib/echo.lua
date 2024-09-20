@@ -1,6 +1,8 @@
 local Echo = {}
 Echo.__index = Echo
 
+local LFO = require 'lfo'
+
 Echo.RATE_SMOOTHING = 0.2
 Echo.LOOP_LENGTH = 10
 Echo.DRIFT_BASE = 1.1
@@ -20,11 +22,10 @@ function Echo.new()
 		div_dirty = false,
 		resolution = 0,
 		resolution_dirty = false,
+		wow = 0,
+		flutter = 0,
 		jump_amount = 0,
 		jump_div = 0,
-		drift_state = 0,
-		drift_amount = 0.15,
-		drift_leak = 0.8,
 		-- TODO: make sure head distance + loop length are an evenly divisible number of sample frames... if that's important
 		-- TODO: add control over playback pitch, relative to rec pitch
 		head_distance = 0.11,
@@ -46,12 +47,13 @@ function Echo:init()
 			-- (the tricky part will be handling this near the rec head's loop points...)
 			if self.div_dirty or self.resolution_dirty then
 				if self.resolution_dirty then
-					local drift_factor = math.pow(Echo.DRIFT_BASE, self.drift_state)
-					for scv = self.rec_voice, self.play_voice do
-						-- TODO: why doesn't this set the new rate instantaneously?
-						softcut.rate_slew_time(scv, 0.001)
-						softcut.rate(scv, math.pow(2, self.rate_smoothed + self.resolution) * drift_factor)
-					end
+					-- local drift_factor = math.pow(Echo.DRIFT_BASE, self.wow + self.flutter)
+					-- for scv = self.rec_voice, self.play_voice do
+					-- 	-- TODO: why doesn't this set the new rate instantaneously?
+					-- 	softcut.rate_slew_time(scv, 0.001)
+					-- 	softcut.rate(scv, math.pow(2, self.rate_smoothed + self.resolution) * drift_factor)
+					-- end
+					self:update_rate()
 					self.resolution_dirty = false
 				end
 				-- move the play head closer to or further from the record head, depending on echo_div
@@ -92,20 +94,56 @@ function Echo:init()
 
 	self:set_tone(0)
 
+	self.wowLFO = LFO:add {
+		shape = 'sine',
+		min = -1,
+		max = 1,
+		baseline = 'center',
+		depth = 0.1,
+		mode = 'free',
+		period = 1.6,
+		action = function(value)
+			local rand = math.min(math.random(), math.random(), math.random())
+			value = value * rand
+			self.wow = value
+		end
+	}
+	self.wowLFO:start()
+
+	self.flutterLFO = LFO:add {
+		shape = 'sine',
+		min = -1,
+		max = 1,
+		baseline = 'center',
+		depth = 0.1,
+		mode = 'free',
+		period = 0.15,
+		action = function(value)
+			local rand = (math.random() + math.random() + math.random()) / 3
+			local rate = 1 / params:get('echo_flutter_rate')
+			rate = rate * (1 + (rand * 0.5))
+			self.flutterLFO:set('period', rate)
+			self.flutter = value
+		end
+	}
+	self.flutterLFO:start()
+
 	clock.run(function()
 		while true do
 			self.rate_smoothed = self.rate_smoothed + (self.rate - self.rate_smoothed) * Echo.RATE_SMOOTHING
-			self.drift_state = self.drift_state * (1 - self.drift_leak)
-			self.drift_state = self.drift_state + (math.random() - 0.5) * self.drift_amount
-			local drift_factor = math.pow(Echo.DRIFT_BASE, self.drift_state)
-			for scv = self.rec_voice, self.play_voice do
-				softcut.rate_slew_time(scv, 0.3)
-				softcut.rate(scv, math.pow(2, self.rate_smoothed + self.resolution) * drift_factor)
-			end
+			self:update_rate()
 			clock.sleep(0.05)
 		end
 	end)
 
+end
+
+function Echo:update_rate()
+	local drift_factor = math.pow(Echo.DRIFT_BASE, self.wow + self.flutter)
+	for scv = self.rec_voice, self.play_voice do
+		softcut.rate_slew_time(scv, 0.3)
+		softcut.rate(scv, math.pow(2, self.rate_smoothed + self.resolution) * drift_factor)
+	end
 end
 
 function Echo:set_tone(tone)
@@ -145,7 +183,7 @@ end
 
 function Echo:add_params()
 
-	params:add_group('echo', 10)
+	params:add_group('echo', 12)
 
 	params:add {
 		name = 'echo tone',
@@ -236,26 +274,6 @@ function Echo:add_params()
 	}
 
 	params:add {
-		name = 'echo drift',
-		id = 'echo_drift',
-		type = 'control',
-		controlspec = controlspec.new(0, 0.7, 'lin', 0, 0.125),
-		action = function(value)
-			self.drift_amount = value
-		end
-	}
-
-	params:add {
-		name = 'echo drift leak',
-		id = 'echo_drift_leak',
-		type = 'control',
-		controlspec = controlspec.new(0, 1, 'lin', 0, 0.9),
-		action = function(value)
-			self.drift_leak = value
-		end
-	}
-
-	params:add {
 		name = 'echo resolution',
 		id = 'echo_resolution',
 		type = 'number',
@@ -273,6 +291,47 @@ function Echo:add_params()
 			params:delta('echo_time_div', -diff)
 		end
 	}
+
+	params:add {
+		name = 'echo wow depth',
+		id = 'echo_wow_depth',
+		type = 'control',
+		controlspec = controlspec.new(0, 1, 'lin', 0, 0.1, 'x'),
+		action = function(value)
+			self.wowLFO:set('depth', value)
+		end
+	}
+
+	params:add {
+		name = 'echo wow rate',
+		id = 'echo_wow_rate',
+		type = 'control',
+		controlspec = controlspec.new(0.3, 3, 'exp', 0, 1.6, 'Hz'),
+		action = function(value)
+			self.wowLFO:set('period', 1 / value)
+		end
+	}
+
+	params:add {
+		name = 'echo flutter depth',
+		id = 'echo_flutter_depth',
+		type = 'control',
+		controlspec = controlspec.new(0, 1, 'lin', 0, 0.1, 'x'),
+		action = function(value)
+			self.flutterLFO:set('depth', value)
+		end
+	}
+
+	params:add {
+		name = 'echo flutter rate',
+		id = 'echo_flutter_rate',
+		type = 'control',
+		controlspec = controlspec.new(2, 10, 'exp', 0, 6.7, 'Hz'),
+		action = function(value)
+			self.flutterLFO:set('period', 1 / value)
+		end
+	}
+
 end
 
 return Echo
