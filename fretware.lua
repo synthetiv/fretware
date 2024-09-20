@@ -306,7 +306,12 @@ end
 function grid_redraw()
 	g:all(0)
 	k:draw()
-	g:led(6, 8, arp_menu.open and 15 or (k.arping and 5 or 2))
+	local arp_source = arp_menu.keys[arp_menu.selected]
+	if arp_source then
+		g:led(6, 8, arp_menu.open and 15 or 5 + arp_source.level)
+	else
+		g:led(6, 8, arp_menu.open and 15 or 2)
+	end
 	arp_menu:draw()
 	for v = 1, n_voices do
 		local voice = voice_states[v]
