@@ -575,7 +575,7 @@ function init()
 		-- and polls for LFO updates, which will only fire when a voice is selected and an LFO is used as an arp clock
 		for g, name in ipairs(lfo_gate_names) do
 			local echo_jump_trigger = 1 + g
-			local echo_uc4_note = 15 + g
+			local echo_uc4_note = 11 + g
 			local arp_source = #arp_divs + g
 			voice.polls[name] = poll.set(name .. '_' .. v, function(gate)
 				gate = gate > 0
@@ -1012,7 +1012,7 @@ function init()
 	params:set('reverb', 1) -- off
 	params:set('input_level', 0) -- ADC input at unity
 	params:set('cut_input_adc', 0) -- feed echo from ext input
-	params:set('cut_input_eng', -18.99) -- feed echo from internal synth (this can also be MIDI mapped)
+	params:set('cut_input_eng', -8) -- feed echo from internal synth (this can also be MIDI mapped)
 	params:set('cut_input_tape', -math.huge) -- do NOT feed echo from tape
 	params:set('monitor_level', -math.huge) -- monitor off (ext. echo fully wet)
 
@@ -1109,30 +1109,44 @@ function init()
 		local message = midi.to_msg(data)
 		if message.ch == 1 then
 			if message.type == 'note_on' then
-				if message.note == 2 then
-					params:delta('echo_resolution', -1)
-				elseif message.note == 3 then
-					params:delta('echo_resolution', 1)
-				elseif message.note == 16 then
+				if message.note == 12 then
 					if params:get('echo_jump_trigger') == 2 then
 						params:set('echo_jump_trigger', 1)
 					else
 						params:set('echo_jump_trigger', 2)
 					end
-				elseif message.note == 17 then
+				elseif message.note == 13 then
 					if params:get('echo_jump_trigger') == 3 then
 						params:set('echo_jump_trigger', 1)
 					else
 						params:set('echo_jump_trigger', 3)
 					end
-				elseif message.note == 18 then
+				elseif message.note == 14 then
 					if params:get('echo_jump_trigger') == 4 then
 						params:set('echo_jump_trigger', 1)
 					else
 						params:set('echo_jump_trigger', 4)
 					end
-				elseif message.note == 19 then
-					params:set('echo_jump_trigger', 5)
+				elseif message.note == 15 then
+					if params:get('echo_jump_trigger') == 4 then
+						params:set('echo_jump_trigger', 1)
+					else
+						params:set('echo_jump_trigger', 5)
+					end
+				elseif message.note == 16 then
+					if params:get('echo_jump_trigger') == 4 then
+						params:set('echo_jump_trigger', 1)
+					else
+						params:set('echo_jump_trigger', 6)
+					end
+				elseif message.note == 17 then
+					if params:get('echo_jump_trigger') == 4 then
+						params:set('echo_jump_trigger', 1)
+					else
+						params:set('echo_jump_trigger', 7)
+					end
+				elseif message.note == 18 or message.note == 19 then
+					params:set('echo_jump_trigger', 1)
 					echo:jump()
 				end
 			end

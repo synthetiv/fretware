@@ -22,6 +22,8 @@ function Echo.new()
 		div_dirty = false,
 		resolution = 0,
 		resolution_dirty = false,
+		feedback_dirty = false,
+		tone_gain_compensation = 0.835,
 		wow = 0,
 		flutter = 0,
 		jump_amount = 0,
@@ -47,21 +49,24 @@ function Echo:init()
 			-- (the tricky part will be handling this near the rec head's loop points...)
 			if self.div_dirty or self.resolution_dirty then
 				if self.resolution_dirty then
-					-- local drift_factor = math.pow(Echo.DRIFT_BASE, self.wow + self.flutter)
-					-- for scv = self.rec_voice, self.play_voice do
-					-- 	-- TODO: why doesn't this set the new rate instantaneously?
-					-- 	softcut.rate_slew_time(scv, 0.001)
-					-- 	softcut.rate(scv, math.pow(2, self.rate_smoothed + self.resolution) * drift_factor)
-					-- end
 					self:update_rate()
 					self.resolution_dirty = false
 				end
 				-- move the play head closer to or further from the record head, depending on echo_div
-				-- TODO: use 'sync' instead?
-				local new_position = position - (self.head_distance * math.pow(2, self.div + self.jump_div + self.resolution))
+				self.div = params:get('echo_time_div') + self.jump_div
+				local new_position = position - (self.head_distance * math.pow(2, self.div + self.resolution))
 				new_position = new_position % Echo.LOOP_LENGTH
 				softcut.position(self.play_voice, new_position)
 				self.div_dirty = false
+				self.feedback_dirty = true
+			end
+			-- TODO: does this actually need to happen in the event_position callback?
+			if self.feedback_dirty then
+				local echo_rate = math.pow(2, self.rate - self.div)
+				local time = self.head_distance / echo_rate
+				local gain = math.exp(time * math.log(self.feedback)) * self.tone_gain_compensation
+				softcut.level_cut_cut(self.play_voice, self.rec_voice, gain)
+				self.feedback_dirty = false
 			end
 		end
 	end)
@@ -74,6 +79,7 @@ function Echo:init()
 	for scv = self.rec_voice, self.play_voice do
 		softcut.buffer(scv, 1)
 		softcut.rate(scv, 1)
+		softcut.rate_slew_time(scv, 0.3)
 		softcut.loop_start(scv, 0)
 		softcut.loop_end(scv, Echo.LOOP_LENGTH)
 		softcut.loop(scv, 1)
@@ -141,21 +147,23 @@ end
 function Echo:update_rate()
 	local drift_factor = math.pow(Echo.DRIFT_BASE, self.wow + self.flutter)
 	for scv = self.rec_voice, self.play_voice do
-		softcut.rate_slew_time(scv, 0.3)
 		softcut.rate(scv, math.pow(2, self.rate_smoothed + self.resolution) * drift_factor)
 	end
 end
 
 function Echo:set_tone(tone)
-	-- TODO: is it useful to try to compensate for lost volume?
 	if tone >= 0 then
 		softcut.post_filter_fc(self.play_voice, util.linexp(0, 1, 10, 10000, math.pow(tone, 2)))
+		self.tone_gain_compensation = util.linexp(0.3, 1, 0.835, 1.5, tone)
 	else
 		softcut.post_filter_fc(self.play_voice, util.linexp(0, 1, 23000, 230, math.pow(-tone, 0.5)))
+		self.tone_gain_compensation = util.linexp(0.1, 1, 0.835, 1.2, -tone)
 	end
 	softcut.post_filter_dry(self.play_voice, util.linlin(0, 0.9, 1, 0, math.abs(tone)))
 	softcut.post_filter_lp(self.play_voice, util.linlin(-0.9, 0, 1, 0, tone))
 	softcut.post_filter_hp(self.play_voice, util.linlin(0, 0.9, 0, 1, tone))
+	self.feedback_dirty = true
+	softcut.query_position(self.rec_voice)
 end
 
 function Echo:jump()
@@ -204,6 +212,8 @@ function Echo:add_params()
 		action = function(value)
 			-- softcut voice rates are set based on this, in a clock routine
 			self.rate = -value
+			self.feedback_dirty = true
+			softcut.query_position(self.rec_voice)
 		end
 	}
 
@@ -216,7 +226,6 @@ function Echo:add_params()
 		default = -2,
 		formatter = Echo.div_formatter('%d'),
 		action = function(value)
-			self.div = value
 			self.div_dirty = true
 			softcut.query_position(self.rec_voice)
 		end
@@ -226,14 +235,14 @@ function Echo:add_params()
 		name = 'echo jump trigger',
 		id = 'echo_jump_trigger',
 		type = 'option',
-		options = { 'none', 'lfoA', 'lfoB', 'lfoEqual', 'manual' },
+		options = { 'none', 'lfoA', 'lfoB', 'lfoC', 'lfoA=B', 'lfoB=C', 'lfoC=A' },
 		default = 1,
 		action = function(value)
 			if uc4 then
-				uc4:note_off(16)
-				uc4:note_off(17)
-				uc4:note_off(18)
-				uc4:note_off(19)
+				-- reset UC4 blinkenlights
+				for note = 12, 19 do
+					uc4:note_off(note)
+				end
 			end
 			self.jump_trigger = value
 		end
@@ -260,18 +269,35 @@ function Echo:add_params()
 	}
 
 	params:add {
-		name = 'echo feedback',
+		name = 'echo decay',
 		id = 'echo_feedback',
-		type = 'taper',
-		min = 0,
-		max = 1.1,
-		default = 0.5,
-		k = 2,
+		type = 'control',
+		controlspec = controlspec.new(0, 1.27, 'lin', 0, 0.1),
 		action = function(value)
-			-- TODO: automatically adjust feedback level to compensate for filtering
-			softcut.level_cut_cut(self.play_voice, self.rec_voice, value)
+			-- exponential-ize response below unity gain; linear response above
+			if value < 1 then
+				value = value * value * value
+			end
+			self.feedback = value
+			self.feedback_dirty = true
+			softcut.query_position(self.rec_voice)
 		end
 	}
+
+	--[[
+	params:add {
+		name = 'echo repeat time',
+		id = 'echo_feedback',
+		type = 'control',
+		controlspec = controlspec.new(0.01, 30, 'exp', 0, 1, 'sec'),
+		action = function(value)
+			-- TODO: automatically adjust feedback level to compensate for filtering
+			-- softcut.level_cut_cut(self.play_voice, self.rec_voice, value)
+			self.feedback_dirty = true
+			softcut.query_position(self.rec_voice)
+		end
+	}
+	--]]
 
 	params:add {
 		name = 'echo resolution',
@@ -285,10 +311,14 @@ function Echo:add_params()
 			local diff = value - self.resolution
 			self.resolution = value
 			self.resolution_dirty = true
+			self.feedback_dirty = true
 			-- 'div' setting is NOT relative to resolution. to retain the same looped
 			-- audio after a resolution change, we need to change resolution: use a
-			-- longer div if resolution has decreased, shorter div if increased.
-			params:delta('echo_time_div', -diff)
+			-- longer div if resolution has decreased.
+			if diff < 0 then
+				params:delta('echo_time_div', -diff)
+			end
+			softcut.query_position(self.rec_voice)
 		end
 	}
 
