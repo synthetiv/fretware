@@ -34,6 +34,12 @@ arp_menu.get_key_level = function(value, selected)
 	return level + (selected and 11 or 4)
 end
 
+arp_direction_menu = Menu.new(6, 4, 6, 1)
+arp_direction_menu.on_select = function(value)
+	params:set('arp_randomness', (value - 1) / 5 * 100)
+end
+arp_direction_menu.selected = 1 -- param doesn't exist yet
+
 source_menu = Menu.new(6, 5, 3, 3)
 source_menu:select(1)
 source_menu.get_key_level = function(value, selected)
@@ -345,22 +351,27 @@ function g.key(x, y, z)
 		-- keyon?
 		if z == 1 then
 			arp_menu.open = true
+			arp_direction_menu.open = true
 			source_menu.open = false
 			dest_menu.open = false
 		else
 			arp_menu.open = false
+			arp_direction_menu.open = false
 		end
 	elseif x == 9 and y == 8 then
 		if z == 1 then
 			source_menu.open = true
 			dest_menu.open = true
 			arp_menu.open = false
+			arp_direction_menu.open = false
 		else
 			source_menu.open = false
 			dest_menu.open = false
 		end
 	elseif arp_menu.open then
-		arp_menu:key(x, y, z)
+		if not arp_direction_menu:key(x, y, z) then
+			arp_menu:key(x, y, z)
+		end
 	elseif source_menu.open then
 		if not source_menu:key(x, y, z) then
 			dest_menu:key(x, y, z)
@@ -385,7 +396,7 @@ end
 function grid_redraw()
 	g:all(0)
 	k:draw()
-	if arp_menu.open or source_menu.open or dest_menu.open then
+	if arp_menu.open or arp_direction_menu.open or source_menu.open or dest_menu.open then
 		for x = 3, 16 do
 			for y = 1, 7 do
 				g:led(x, y, 0)
@@ -411,6 +422,7 @@ function grid_redraw()
 		g:led(6, 8, 2)
 	end
 	arp_menu:draw()
+	arp_direction_menu:draw()
 	g:led(9, 8, source_menu.open and 15 or 2)
 	source_menu:draw()
 	dest_menu:draw()
