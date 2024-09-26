@@ -386,7 +386,7 @@ function grid_redraw()
 	g:all(0)
 	k:draw()
 	if arp_menu.open or source_menu.open or dest_menu.open then
-		for x = 3, 15 do
+		for x = 3, 16 do
 			for y = 1, 7 do
 				g:led(x, y, 0)
 			end
