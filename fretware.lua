@@ -1140,19 +1140,19 @@ function init()
 						params:set('echo_jump_trigger', 4)
 					end
 				elseif message.note == 15 then
-					if params:get('echo_jump_trigger') == 4 then
+					if params:get('echo_jump_trigger') == 5 then
 						params:set('echo_jump_trigger', 1)
 					else
 						params:set('echo_jump_trigger', 5)
 					end
 				elseif message.note == 16 then
-					if params:get('echo_jump_trigger') == 4 then
+					if params:get('echo_jump_trigger') == 6 then
 						params:set('echo_jump_trigger', 1)
 					else
 						params:set('echo_jump_trigger', 6)
 					end
 				elseif message.note == 17 then
-					if params:get('echo_jump_trigger') == 4 then
+					if params:get('echo_jump_trigger') == 7 then
 						params:set('echo_jump_trigger', 1)
 					else
 						params:set('echo_jump_trigger', 7)
