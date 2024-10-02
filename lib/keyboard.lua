@@ -42,7 +42,7 @@ function Keyboard.new(x, y, width, height)
 		height = height,
 		x2 = x + width - 1,
 		y2 = y + height - 1,
-		x_center = 8, -- coordinates of the center pitch (0)
+		x_center = 9, -- coordinates of the center pitch (0)
 		y_center = 6,
 		row_offset = 5, -- each row's pitch is a fourth higher than the last
 		gliding = false,
