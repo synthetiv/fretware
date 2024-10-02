@@ -607,6 +607,13 @@ function Keyboard:draw()
 
 			local pitch = self:get_key_id_pitch_value(key_id)
 
+			local pitch_class = pitch % 1
+			if pitch_class == 0 then
+				level = led_blend(level, 2)
+			elseif pitch_class >= 0.583 and pitch_class <= 0.5866 then
+				level = led_blend(level, 2)
+			end
+
 			for v = 1, n_voices do
 				local voice = self.voice_data[v]
 				local is_control = self.selected_voice == v and 1 or 0
