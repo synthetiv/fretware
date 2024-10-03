@@ -1317,6 +1317,8 @@ function redraw()
 	screen.level(voice.lfoCA_gate and 15 or 3)
 	screen.text('.')
 
+	--[[
+
 	for d = 1, #editor.dests do
 
 		local dest = editor.dests[d].name
@@ -1334,6 +1336,7 @@ function redraw()
 		screen.text_rotate(dest_slider.x - 3, 63, editor.dests[d].label, -90)
 		screen.stroke()
 	end
+	--]]
 
 	screen.update()
 end
