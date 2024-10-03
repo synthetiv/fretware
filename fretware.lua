@@ -40,11 +40,10 @@ arp_direction_menu.on_select = function(value)
 end
 arp_direction_menu.selected = 1 -- param doesn't exist yet
 
-source_menu = Menu.new(3, 5, 14, 3, {
+source_menu = Menu.new(3, 6, 14, 2, {
 	-- map of source numbers (in editor.source_names) to keys
-	 2,  _,  _,  _,  _,  3,  _,  _,  4,  7,  _,  _,  _,  _,
-	 _,  _,  _,  _,  _,  _,  _,  _,  5,  8,  _,  _,  _,  _,
-	 _,  _,  _,  _,  _,  _,  _,  _,  6,  9,  _,  _,  _,  1,
+	 _,  2,  _,  _,  3,  _,  4,  5,  6,  _,  _,  _,  _,  1,
+	 _,  _,  _,  _,  _,  _,  7,  8,  9,  _,  _,  _,  _,  _,
 })
 source_menu:select(1)
 source_menu.get_key_level = function(value, selected, held)
@@ -61,13 +60,11 @@ source_menu.get_key_level = function(value, selected, held)
 	return level + (held and 11 or 4)
 end
 
-dest_menu = Menu.new(3, 3, 14, 5, {
+dest_menu = Menu.new(3, 3, 14, 3, {
 	-- map of dest numbers (in editor.dests) to keys
 	 1,  2,  3,  _,  4,  _,  5,  6,  7,  _,  8,  9, 10, 11,
 	 _,  _,  _,  _,  _,  _,  _,  _,  _,  _,  _,  _,  _,  _,
-	 _,  _,  _, 12, 13,  _,  _, 14,  _,  _,  _,  _, 17,  _,
-	 _,  _,  _,  _,  _,  _,  _, 15,  _,  _,  _,  _,  _,  _,
-	 _,  _,  _,  _,  _,  _,  _, 16,  _,  _,  _,  _, 18,  _,
+	 _,  _,  _, 12, 13,  _, 14, 15, 16,  _,  _, 17,  _, 18,
 })
 dest_menu:select(1)
 dest_menu.get_key_level = function(value, selected, held)
