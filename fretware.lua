@@ -47,7 +47,7 @@ source_menu = Menu.new(3, 5, 14, 3, {
 	 _,  _,  _,  _,  _,  _,  _,  _,  6,  9,  _,  _,  _,  1,
 })
 source_menu:select(1)
-source_menu.get_key_level = function(value, selected)
+source_menu.get_key_level = function(value, selected, held)
 	local level = 0
 	if value == 1 then
 		level = voice_states[k.selected_voice].amp >= 0.1 and 2 or 0
@@ -58,7 +58,7 @@ source_menu.get_key_level = function(value, selected)
 	else
 		level = voice_states[k.selected_voice][lfo_gate_names[value - 3]] and 2 or 0
 	end
-	return level + (selected and 11 or 4)
+	return level + (held and 11 or 4)
 end
 
 dest_menu = Menu.new(3, 3, 14, 5, {
@@ -70,13 +70,13 @@ dest_menu = Menu.new(3, 3, 14, 5, {
 	 _,  _,  _,  _,  _,  _,  _, 16,  _,  _,  _,  _, 18,  _,
 })
 dest_menu:select(1)
-dest_menu.get_key_level = function(value, selected)
+dest_menu.get_key_level = function(value, selected, held)
 	local level = 0
 	local source_name = editor.source_names[source_menu.value]
 	local dest = editor.dests[value]
 	local mod_amount = params:get(source_name .. '_' .. dest.name)
 	level = (math.abs(mod_amount) >= 0.1) and 3 or 0
-	return level + (selected and 11 or 3)
+	return level + (held and 11 or 3)
 end
 
 Echo = include 'lib/echo'
@@ -201,7 +201,10 @@ editor = {
 			voice_param = 'outLevel'
 		}
 	},
-	dest_reset_coro = -1
+	held_keys = {
+		inc = false,
+		dec = false
+	}
 }
 
 dest_sliders = {
@@ -363,20 +366,60 @@ function g.key(x, y, z)
 		end
 	elseif x == 9 and y == 8 then
 		if z == 1 then
-			source_menu.open = true
-			dest_menu.open = true
+			source_menu.open = not source_menu.open
+			dest_menu.open = source_menu.open
 			arp_menu.open = false
 			arp_direction_menu.open = false
-		else
-			source_menu.open = false
-			dest_menu.open = false
 		end
 	elseif arp_menu.open then
 		if not arp_direction_menu:key(x, y, z) then
 			arp_menu:key(x, y, z)
 		end
 	elseif source_menu.open then
-		if not source_menu:key(x, y, z) then
+		if y == 1 and x >= 15 then
+			editor.held_keys[x == 16 and 'inc' or 'dec'] = z == 1
+			if z == 1 then
+				local do_reset = editor.held_keys.dec and editor.held_keys.inc
+				local did_reset_route = false
+				local delta = (x - 15) * 2 - 1
+				for source = 1, #editor.source_names do
+					if source_menu.held[source] then
+						local source_name = editor.source_names[source]
+						for dest = 1, #editor.dests do
+							if dest_menu.held[dest] then
+								local dest_name = editor.dests[dest].name
+								if do_reset then
+									params:lookup_param(source_name .. '_' .. dest_name):set_default()
+									did_reset_route = true
+								else
+									params:delta(source_name .. '_' .. dest_name, delta * 10)
+								end
+							end
+						end
+					end
+				end
+				if do_reset and not did_reset_route then
+					for source = 1, #editor.source_names do
+						if source_menu.held[source] then
+							local source_name = editor.source_names[source]
+							for dest = 1, #editor.dests do
+								local dest_name = editor.dests[dest].name
+								params:lookup_param(source_name .. '_' .. dest_name):set_default()
+							end
+						end
+					end
+					for dest = 1, #editor.dests do
+						if dest_menu.held[dest] then
+							local dest_name = editor.dests[dest].name
+							for source = 1, #editor.source_names do
+								local source_name = editor.source_names[source]
+								params:lookup_param(source_name .. '_' .. dest_name):set_default()
+							end
+						end
+					end
+				end
+			end
+		elseif not source_menu:key(x, y, z) then
 			dest_menu:key(x, y, z)
 		end
 	else
@@ -426,9 +469,13 @@ function grid_redraw()
 	end
 	arp_menu:draw()
 	arp_direction_menu:draw()
-	g:led(9, 8, source_menu.open and 15 or 2)
+	g:led(9, 8, source_menu.open and 7 or 2)
 	source_menu:draw()
 	dest_menu:draw()
+	if source_menu.open then
+		g:led(15, 1, editor.held_keys.dec and 15 or 2)
+		g:led(16, 1, editor.held_keys.inc and 15 or 2)
+	end
 	for v = 1, n_voices do
 		local voice = voice_states[v]
 		local level = voice.amp
@@ -1271,10 +1318,8 @@ end
 
 function enc(n, d)
 	if n == 1 then
-		clock.cancel(editor.dest_reset_coro)
 		source_menu:select_value(util.wrap(source_menu.value + d, 1, #editor.source_names))
 	elseif n == 2 then
-		clock.cancel(editor.dest_reset_coro)
 		dest_menu:select_value(util.wrap(dest_menu.value + d, 1, #editor.dests))
 	elseif n == 3 then
 		local dest = editor.dests[dest_menu.value]
@@ -1300,23 +1345,6 @@ function key(n, z)
 	elseif n == 2 then
 		if z == 1 and held_keys[3] then
 			local dest = editor.dests[dest_menu.value]
-			editor.dest_reset_coro = clock.run(function()
-				clock.sleep(0.25)
-				-- reset modulation to destination
-				for s = 1, #editor.source_names do
-					params:lookup_param(editor.source_names[s] .. '_' .. dest.name):set_default()
-				end
-				-- reset param value
-				if dest.voice_param then
-					for v = 1, n_voices do
-						params:lookup_param(dest.voice_param .. '_' .. v):set_default()
-					end
-				else
-					params:lookup_param(dest.name):set_default()
-				end
-			end)
-		elseif z == 0 then
-			clock.cancel(editor.dest_reset_coro)
 		end
 	elseif n == 3 then
 		-- only used as a modifier
