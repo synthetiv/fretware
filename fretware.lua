@@ -45,7 +45,7 @@ source_menu = Menu.new(3, 6, 14, 2, {
 	 _,  2,  _,  _,  3,  _,  4,  5,  6,  _,  _,  _,  _,  1,
 	 _,  _,  _,  _,  _,  _,  7,  8,  9,  _,  _,  _,  _,  _,
 })
-source_menu:select(1)
+source_menu:select_value(1)
 source_menu.get_key_level = function(value, selected, held)
 	local level = 0
 	if value == 1 then
@@ -81,7 +81,7 @@ dest_menu = Menu.new(3, 3, 14, 3, {
 	 _,  _,  _,  _,  _,  _,  _,  _,  _,  _,  _,  _,  _,  _,
 	 _,  _,  _, 12, 13,  _, 14, 15, 16,  _,  _, 17,  _, 18,
 })
-dest_menu:select(1)
+dest_menu:select_value(3)
 dest_menu.get_key_level = function(value, selected, held)
 	local dest = editor.dests[value]
 	local is_modulated = false
@@ -1317,8 +1317,6 @@ function redraw()
 	screen.level(voice.lfoCA_gate and 15 or 3)
 	screen.text('.')
 
-	--[[
-
 	for d = 1, #editor.dests do
 
 		local dest = editor.dests[d].name
@@ -1336,7 +1334,6 @@ function redraw()
 		screen.text_rotate(dest_slider.x - 3, 63, editor.dests[d].label, -90)
 		screen.stroke()
 	end
-	--]]
 
 	screen.update()
 end
