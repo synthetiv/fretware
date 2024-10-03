@@ -595,10 +595,19 @@ function init()
 				if v == k.selected_voice then
 					if echo.jump_trigger == echo_jump_trigger then
 						if gate then
-							if uc4 then uc4:note_on(echo_uc4_note, 127) end
+							if uc4 then
+								uc4:note_off(echo_uc4_note)
+								clock.run(function()
+									clock.sleep(0.05)
+									-- double check trigger setting just in case it's changed in the last 20ms
+									if echo.jump_trigger == echo_jump_trigger then
+										uc4:note_on(echo_uc4_note, 127)
+									end
+								end)
+							end
 							echo:jump()
 						else
-							if uc4 then uc4:note_off(echo_uc4_note) end
+							if uc4 then uc4:note_on(echo_uc4_note, 127) end
 						end
 					end
 					if arp_menu.value == arp_source then
@@ -1126,36 +1135,42 @@ function init()
 						params:set('echo_jump_trigger', 1)
 					else
 						params:set('echo_jump_trigger', 2)
+						uc4:note_on(message.note, 127)
 					end
 				elseif message.note == 13 then
 					if params:get('echo_jump_trigger') == 3 then
 						params:set('echo_jump_trigger', 1)
 					else
 						params:set('echo_jump_trigger', 3)
+						uc4:note_on(message.note, 127)
 					end
 				elseif message.note == 14 then
 					if params:get('echo_jump_trigger') == 4 then
 						params:set('echo_jump_trigger', 1)
 					else
 						params:set('echo_jump_trigger', 4)
+						uc4:note_on(message.note, 127)
 					end
 				elseif message.note == 15 then
 					if params:get('echo_jump_trigger') == 5 then
 						params:set('echo_jump_trigger', 1)
 					else
 						params:set('echo_jump_trigger', 5)
+						uc4:note_on(message.note, 127)
 					end
 				elseif message.note == 16 then
 					if params:get('echo_jump_trigger') == 6 then
 						params:set('echo_jump_trigger', 1)
 					else
 						params:set('echo_jump_trigger', 6)
+						uc4:note_on(message.note, 127)
 					end
 				elseif message.note == 17 then
 					if params:get('echo_jump_trigger') == 7 then
 						params:set('echo_jump_trigger', 1)
 					else
 						params:set('echo_jump_trigger', 7)
+						uc4:note_on(message.note, 127)
 					end
 				elseif message.note == 18 or message.note == 19 then
 					params:set('echo_jump_trigger', 1)
@@ -1328,6 +1343,11 @@ function cleanup()
 			if poll then
 				poll:stop()
 			end
+		end
+	end
+	if uc4 then
+		for n = 12, 19 do
+			uc4:note_off(n)
 		end
 	end
 end
