@@ -43,11 +43,10 @@ function Menu:draw()
 	local k = 1
 	for y = self.y, self.y2 do
 		for x = self.x, self.x2 do
-			local level = 0
 			if self.values[k] then
-				level = self.get_key_level(self.values[k], self.selected == k)
+				local level = self.get_key_level(self.values[k], self.selected == k)
+				g:led(x, y, level)
 			end
-			g:led(x, y, level)
 			k = k + 1
 		end
 	end
@@ -60,13 +59,15 @@ function Menu:key(x, y, z)
 	x = x - self.x
 	y = y - self.y
 	local k = x + (y * self.width) + 1
-	if self.values[k] and z == 1 then
-		if self.toggle and self.selected == k then
-			k = false
+	if self.values[k] then
+		if z == 1 then
+			if self.toggle and self.selected == k then
+				k = false
+			end
+			self:select(k)
 		end
-		self:select(k)
+		return true
 	end
-	return true
 end
 
 function Menu:select(k)
