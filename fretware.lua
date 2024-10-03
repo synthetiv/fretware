@@ -57,7 +57,22 @@ source_menu.get_key_level = function(value, selected, held)
 	else
 		level = voice_states[k.selected_voice][lfo_gate_names[value - 3]] and 2 or 0
 	end
-	return level + (held and 11 or 4)
+	local source_name = editor.source_names[value]
+	local is_modulating = false
+	for dest = 1, #editor.dests do
+		local dest = editor.dests[dest]
+		local mod_amount = params:get(source_name .. '_' .. dest.name)
+		if (math.abs(mod_amount) >= 0.1) then
+			is_modulating = true
+			if dest_menu.held[dest] then
+				return level + (held and 13 or 10)
+			end
+		end
+	end
+	if is_modulating then
+		return level + (held and 11 or 6)
+	end
+	return level + (held and 11 or 3)
 end
 
 dest_menu = Menu.new(3, 3, 14, 3, {
@@ -68,12 +83,22 @@ dest_menu = Menu.new(3, 3, 14, 3, {
 })
 dest_menu:select(1)
 dest_menu.get_key_level = function(value, selected, held)
-	local level = 0
-	local source_name = editor.source_names[source_menu.value]
 	local dest = editor.dests[value]
-	local mod_amount = params:get(source_name .. '_' .. dest.name)
-	level = (math.abs(mod_amount) >= 0.1) and 3 or 0
-	return level + (held and 11 or 3)
+	local is_modulated = false
+	for source = 1, #editor.source_names do
+		local source_name = editor.source_names[source]
+		local mod_amount = params:get(source_name .. '_' .. dest.name)
+		if (math.abs(mod_amount) >= 0.1) then
+			is_modulated = true
+			if source_menu.held[source] then
+				return held and 15 or 11
+			end
+		end
+	end
+	if is_modulated then
+		return held and 15 or 7
+	end
+	return held and 11 or 3
 end
 
 Echo = include 'lib/echo'
