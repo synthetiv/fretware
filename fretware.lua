@@ -396,7 +396,7 @@ function g.key(x, y, z)
 									params:lookup_param(source_name .. '_' .. dest_name):set_default()
 									did_reset_route = true
 								else
-									params:delta(source_name .. '_' .. dest_name, delta * 10)
+									params:delta(source_name .. '_' .. dest_name, delta * 6.25)
 								end
 							end
 						end
