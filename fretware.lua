@@ -45,34 +45,20 @@ source_menu = Menu.new(3, 6, 14, 2, {
 	 _,  2,  _,  _,  3,  _,  4,  5,  6,  _,  _,  _,  _,  1,
 	 _,  _,  _,  _,  _,  _,  7,  8,  9,  _,  _,  _,  _,  _,
 })
+source_menu.multi = true
 source_menu:select_value(1)
-source_menu.get_key_level = function(value, selected, held)
-	local level = 0
-	if value == 1 then
-		level = voice_states[k.selected_voice].amp >= 0.1 and 2 or 0
-	elseif value == 2 then
-		-- TODO: hand
-	elseif value == 3 then
-		-- TODO: env
-	else
-		level = voice_states[k.selected_voice][lfo_gate_names[value - 3]] and 2 or 0
-	end
+source_menu.get_key_level = function(value, selected)
 	local source_name = editor.source_names[value]
-	local is_modulating = false
 	for dest = 1, #editor.dests do
-		local dest = editor.dests[dest]
-		local mod_amount = params:get(source_name .. '_' .. dest.name)
-		if (math.abs(mod_amount) >= 0.1) then
-			is_modulating = true
-			if dest_menu.held[dest] then
-				return level + (held and 13 or 10)
+		if dest_menu.held[dest] then
+			local dest = editor.dests[dest]
+			local mod_amount = params:get(source_name .. '_' .. dest.name)
+			if (math.abs(mod_amount) >= 0.1) then
+				return selected and 15 or 8
 			end
 		end
 	end
-	if is_modulating then
-		return level + (held and 11 or 6)
-	end
-	return level + (held and 11 or 3)
+	return selected and 11 or 3
 end
 
 dest_menu = Menu.new(3, 3, 14, 3, {
@@ -81,24 +67,20 @@ dest_menu = Menu.new(3, 3, 14, 3, {
 	 _,  _,  _,  _,  _,  _,  _,  _,  _,  _,  _,  _,  _,  _,
 	 _,  _,  _, 12, 13,  _, 14, 15, 16,  _,  _, 17,  _, 18,
 })
+dest_menu.multi = true
 dest_menu:select_value(3)
-dest_menu.get_key_level = function(value, selected, held)
+dest_menu.get_key_level = function(value, selected)
 	local dest = editor.dests[value]
-	local is_modulated = false
 	for source = 1, #editor.source_names do
-		local source_name = editor.source_names[source]
-		local mod_amount = params:get(source_name .. '_' .. dest.name)
-		if (math.abs(mod_amount) >= 0.1) then
-			is_modulated = true
-			if source_menu.held[source] then
-				return held and 15 or 11
+		if source_menu.held[source] then
+			local source_name = editor.source_names[source]
+			local mod_amount = params:get(source_name .. '_' .. dest.name)
+			if (math.abs(mod_amount) >= 0.1) then
+				return selected and 15 or 6
 			end
 		end
 	end
-	if is_modulated then
-		return held and 15 or 7
-	end
-	return held and 11 or 3
+	return selected and 11 or 4
 end
 
 Echo = include 'lib/echo'
@@ -405,10 +387,10 @@ function g.key(x, y, z)
 				local did_reset_route = false
 				local delta = (x - 15) * 2 - 1
 				for source = 1, #editor.source_names do
-					if source_menu.held[source] then
+					if source_menu:is_selected(source) then
 						local source_name = editor.source_names[source]
 						for dest = 1, #editor.dests do
-							if dest_menu.held[dest] then
+							if dest_menu:is_selected(dest) then
 								local dest_name = editor.dests[dest].name
 								if do_reset then
 									params:lookup_param(source_name .. '_' .. dest_name):set_default()
@@ -1116,10 +1098,9 @@ function init()
 		event = function(n)
 			blink = (n % 7 < 3)
 			local x = 66
-			if dest_menu.n_held > 0 then
+			if dest_menu.n_held > 1 then
 				-- offset x based on n_held so that as many as possible fit on screen at once
-				local offset = (dest_menu.n_held - 1) * 8
-				x = x - offset
+				x = x - (dest_menu.n_held - 1) * 8
 			else
 				for p = 1, dest_menu.value - 1 do
 					if editor.dests[p].has_divider then
@@ -1132,14 +1113,14 @@ function init()
 			for p = 1, #editor.dests do
 				local dest = editor.dests[p]
 				local slider = dest_sliders[dest.name]
-				if dest_menu.n_held == 0 or dest_menu.held[p] then
+				if dest_menu.n_held <= 1 or dest_menu.held[p] then
 					if slider.hidden then
 						slider.x = x
 						slider.hidden = false
 					elseif slider.x ~= x then
 						slider.x = math.floor(slider.x + (x - slider.x) * 0.6)
 					end
-					if dest_menu.n_held == 0 and dest.has_divider then
+					if dest_menu.n_held <= 1 and dest.has_divider then
 						x = x + 23
 					else
 						x = x + 16
@@ -1281,49 +1262,49 @@ function redraw()
 	local voice = voice_states[k.selected_voice]
 	local source_name = editor.source_names[source_menu.value]
 
-	screen.level((source_menu.held[1] or source_menu.value == 1) and 15 or 3)
+	screen.level(source_menu:is_selected(1) and 15 or 3)
 	screen.move(0, 5)
 	screen.text('Am')
 
-	screen.level((source_menu.held[2] or source_menu.value == 2) and 15 or 3)
+	screen.level(source_menu:is_selected(2) and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('Hd')
 
-	screen.level((source_menu.held[3] or source_menu.value == 3) and 15 or 3)
+	screen.level(source_menu:is_selected(3) and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('En')
 
-	screen.level((source_menu.held[4] or source_menu.value == 4) and 15 or 3)
+	screen.level(source_menu:is_selected(4) and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('La')
 	screen.level(voice.lfoA_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level((source_menu.held[5] or source_menu.value == 5) and 15 or 3)
+	screen.level(source_menu:is_selected(5) and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('Lb')
 	screen.level(voice.lfoB_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level((source_menu.held[6] or source_menu.value == 6) and 15 or 3)
+	screen.level(source_menu:is_selected(6) and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('Lc')
 	screen.level(voice.lfoC_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level((source_menu.held[7] or source_menu.value == 7) and 15 or 3)
+	screen.level(source_menu:is_selected(7) and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('Ab')
 	screen.level(voice.lfoAB_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level((source_menu.held[8] or source_menu.value == 8) and 15 or 3)
+	screen.level(source_menu:is_selected(8) and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('Bc')
 	screen.level(voice.lfoBC_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level((source_menu.held[9] or source_menu.value == 9) and 15 or 3)
+	screen.level(source_menu:is_selected(9) and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('Ca')
 	screen.level(voice.lfoCA_gate and 15 or 3)
@@ -1332,9 +1313,9 @@ function redraw()
 	for d = 1, #editor.dests do
 
 		local dest = editor.dests[d].name
-		local active = dest_menu.held[d] or (dest_menu.value == d)
+		local active = dest_menu:is_selected(d)
 
-		if dest_menu.n_held == 0 or active then
+		if dest_menu.n_held <= 1 or active then
 			-- TODO: ditch held_keys stuff in favor of ONLY editing from XVIm + grid?
 			local active_and_held = active and held_keys[3]
 			local dest_slider = dest_sliders[dest]

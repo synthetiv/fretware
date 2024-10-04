@@ -21,12 +21,12 @@ function Menu.new(x, y, width, height, arg_values)
 		height = height,
 		x2 = x + width - 1,
 		y2 = y + height - 1,
-		toggle = toggle or false,
+		toggle = false,
+		multi = false,
 		values = values,
 		n_values = width * height,
 		held = {},
 		n_held = 0,
-		selected = false,
 		value = false,
 		open = false,
 		on_select = function() end
@@ -35,7 +35,7 @@ function Menu.new(x, y, width, height, arg_values)
 	return menu
 end
 
-function Menu.get_key_level(value, selected, held)
+function Menu.get_key_level(value, selected)
 	return selected and 13 or 4
 end
 
@@ -48,8 +48,11 @@ function Menu:draw()
 		for x = self.x, self.x2 do
 			local v = self.values[k]
 			if v then
-				local level = self.get_key_level(self.values[k], self.selected == k, self.held[v])
-				g:led(x, y, level)
+				local selected = self.value == v
+				if self.multi and self.n_held > 0 then
+					selected = self.held[v]
+				end
+				g:led(x, y, self.get_key_level(self.values[k], selected))
 			end
 			k = k + 1
 		end
@@ -68,7 +71,7 @@ function Menu:key(x, y, z)
 		if z == 1 then
 			self.held[v] = true
 			self.n_held = self.n_held + 1
-			if self.toggle and self.selected == k then
+			if self.toggle and self.value == v then
 				k = false
 			end
 			self:select(k)
@@ -91,7 +94,6 @@ end
 function Menu:select(k)
 	local value = self.values[k]
 	if value or k == false then
-		self.selected = k
 		self.value = value
 		self.on_select(value)
 	end
@@ -104,6 +106,13 @@ function Menu:select_value(v)
 			return
 		end
 	end
+end
+
+function Menu:is_selected(v)
+	if self.multi and self.n_held > 0 then
+		return self.held[v]
+	end
+	return self.value == v
 end
 
 return Menu
