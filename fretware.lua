@@ -429,16 +429,11 @@ function g.key(x, y, z)
 	else
 		k:key(x, y, z)
 	end
-	-- TODO: sync the whole note stack with TT
-	-- I think you'll need to trigger events from the keyboard class, and... urgh...
-	-- it's more information than you can easily send to TT
 	grid_redraw()
 	screen.ping()
 end
 
-function send_pitch_volts()
-	-- TODO: this added offset for the quantizer really shouldn't be necessary; what's going on here?
-	crow.output[1].volts = k.bent_pitch + (k.quantizing and 1/24 or 0)
+function send_pitch()
 	engine.pitch(k.selected_voice, k.bent_pitch)
 end
 
@@ -493,25 +488,6 @@ function grid_redraw()
 	end
 	g:refresh()
 end
-
--- function crow_init()
--- 
--- 	print('crow add')
--- 	params:bang()
--- 
--- 	crow.input[1].change = function(gate)
--- 		gate_in = gate
--- 		if arp_menu.value == ?? and k.n_sustained_keys > 0 then
--- 			k:arp(gate)
--- 		end
--- 	end
--- 	crow.input[1].mode('change', 1, 0.01, 'both')
--- 
--- 	crow.input[2].stream = function(v)
--- 		k:transpose(v)
--- 	end
--- 	crow.input[2].mode('stream', 0.01)
--- end
 
 function reset_loop_clock()
 	if loop_clock then
@@ -587,7 +563,7 @@ function init()
 		engine.select_voice(v)
 		dest_sliders.amp:set_value(params:get_raw('outLevel_' .. v) * 2 - 1)
 		dest_sliders.pan:set_value(params:get_raw('pan_' .. v) * 2 - 1)
-		send_pitch_volts()
+		send_pitch()
 	end
 
 	k.on_voice_shift = function(v, d)
@@ -602,17 +578,13 @@ function init()
 
 	k.on_pitch = function()
 		local pitch = k.active_pitch
-		send_pitch_volts()
+		send_pitch()
 		grid_redraw()
 	end
 
 	k.on_gate = function(gate)
-		crow.output[4](gate)
 		engine.gate(k.selected_voice, gate and 1 or 0)
 	end
-
-	-- TODO: why doesn't crow.add() work anymore?
-	-- crow_init()
 
 	-- set up softcut echo
 	softcut.reset()
@@ -674,9 +646,6 @@ function init()
 
 	params:add_group('tuning', 7)
 
-	-- TODO: add params for tt and crow transposition
-	-- ...and yeah, control from keyboard. you'll want that again
-
 	params:add {
 		name = 'base frequency (C)',
 		id = 'base_freq',
@@ -728,7 +697,7 @@ function init()
 			k.bend_range = value / 12
 			k:set_bend_targets()
 			k:bend(k.bend_amount)
-			send_pitch_volts()
+			send_pitch()
 		end
 	}
 
@@ -1002,85 +971,6 @@ function init()
 		}
 	end
 
-	params:add_group('crow', 6)
-
-	-- TODO: damp base + range are a way to avoid using an extra attenuator + offset,
-	-- but is that worth it?
-	params:add {
-		name = 'damp range',
-		id = 'crow_damp_range',
-		type = 'control',
-		controlspec = controlspec.new(-10, 10, 'lin', 0, -5, 'v')
-	}
-
-	params:add {
-		name = 'damp base',
-		id = 'crow_damp_base',
-		type = 'control',
-		controlspec = controlspec.new(-10, 10, 'lin', 0, 0, 'v')
-	}
-
-	params:add {
-		name = 'pitch slew',
-		id = 'crow_pitch_slew',
-		type = 'control',
-		controlspec = controlspec.new(0, 0.1, 'lin', 0, 0, 's'),
-		action = function(value)
-			crow.output[1].slew = value
-		end
-	}
-
-	params:add {
-		name = 'amp/damp slew',
-		id = 'crow_amp_slew',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 1, 'exp', 0, 0.05, 's'),
-		action = function(value)
-			crow.output[2].slew = value
-			crow.output[3].slew = value
-		end
-	}
-
-	params:add {
-		name = 'gate mode',
-		id = 'crow_gate_mode',
-		type = 'option',
-		options = { 'legato', 'retrig' },
-		default = 2,
-		action = function(value)
-			k.retrig = value == 2
-			if not k.retrig then
-				crow.output[4].action = [[{
-					held { to(8, dyn { delay = 0 }, 'wait') },
-					to(0, 0)
-				}]]
-				crow.output[4].dyn.delay = params:get('crow_gate_delay')
-				crow.output[4](false)
-			else
-				crow.output[4].action = [[{
-					to(0, dyn { delay = 0 }, 'now'),
-					held { to(8, 0) },
-					to(0, 0)
-				}]]
-				crow.output[4].dyn.delay = params:get('crow_gate_delay')
-				crow.output[4](false)
-			end
-		end
-	}
-
-	params:add {
-		name = 'gate delay',
-		id = 'crow_gate_delay',
-		type = 'control',
-		controlspec = controlspec.new(0.001, 0.05, 'lin', 0, 0.001, 's'),
-		action = function(value)
-			crow.output[4].dyn.delay = value
-		end
-	}
-
-	-- TODO: global transpose, for working with oscillators that aren't tuned to C
-	-- TODO: quantize lock on/off: apply post-bend quantization to keyboard notes
-
 	params:bang()
 
 	params:set('reverb', 1) -- off
@@ -1159,7 +1049,6 @@ function init()
 					tip = tip * tip
 				end
 				engine.tip(k.selected_voice, tip)
-				crow.output[2].volts = 10 * math.sqrt(tip)
 			elseif message.cc == 16 then
 				palm = message.val / 126
 				local scaled_palm
@@ -1169,13 +1058,12 @@ function init()
 					scaled_palm = palm * palm
 				end
 				engine.palm(k.selected_voice, palm)
-				crow.output[3].volts = palm * params:get('crow_damp_range') + params:get('crow_damp_base')
 			elseif message.cc == 18 then
 				k:bend(-math.min(1, message.val / 126)) -- TODO: not sure why 126 is the max value I'm getting from Touche...
-				send_pitch_volts()
+				send_pitch()
 			elseif message.cc == 19 then
 				k:bend(math.min(1, message.val / 126))
-				send_pitch_volts()
+				send_pitch()
 			end
 		end
 	end
