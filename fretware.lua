@@ -375,11 +375,11 @@ function g.key(x, y, z)
 			arp_menu.open = false
 			arp_direction_menu.open = false
 		end
-	elseif arp_menu.open then
+	elseif arp_menu.open and x > 2 and y < 8 then
 		if not arp_direction_menu:key(x, y, z) then
 			arp_menu:key(x, y, z)
 		end
-	elseif source_menu.open then
+	elseif source_menu.open and x > 2 and y < 8 then
 		if y == 1 and x >= 15 then
 			editor.held_keys[x == 16 and 'inc' or 'dec'] = z == 1
 			if z == 1 then
