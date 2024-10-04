@@ -1115,25 +1115,37 @@ function init()
 		time = 1 / 30,
 		event = function(n)
 			blink = (n % 7 < 3)
-			local x = 82
-			for p = 1, dest_menu.value do
-				local dest = editor.dests[p]
-				if dest.has_divider then
-					x = x - 23
-				else
-					x = x - 16
+			local x = 66
+			if dest_menu.n_held > 0 then
+				-- offset x based on n_held so that as many as possible fit on screen at once
+				local offset = (dest_menu.n_held - 1) * 8
+				x = x - offset
+			else
+				for p = 1, dest_menu.value - 1 do
+					if editor.dests[p].has_divider then
+						x = x - 23
+					else
+						x = x - 16
+					end
 				end
 			end
 			for p = 1, #editor.dests do
 				local dest = editor.dests[p]
 				local slider = dest_sliders[dest.name]
-				if slider.x ~= x then
-					slider.x = math.floor(slider.x + (x - slider.x) * 0.6)
-				end
-				if dest.has_divider then
-					x = x + 23
+				if dest_menu.n_held == 0 or dest_menu.held[p] then
+					if slider.hidden then
+						slider.x = x
+						slider.hidden = false
+					elseif slider.x ~= x then
+						slider.x = math.floor(slider.x + (x - slider.x) * 0.6)
+					end
+					if dest_menu.n_held == 0 and dest.has_divider then
+						x = x + 23
+					else
+						x = x + 16
+					end
 				else
-					x = x + 16
+					slider.hidden = true
 				end
 			end
 			redraw()
@@ -1269,49 +1281,49 @@ function redraw()
 	local voice = voice_states[k.selected_voice]
 	local source_name = editor.source_names[source_menu.value]
 
-	screen.level('amp' == source_name and 15 or 3)
+	screen.level((source_menu.held[1] or source_menu.value == 1) and 15 or 3)
 	screen.move(0, 5)
 	screen.text('Am')
 
-	screen.level('hand' == source_name and 15 or 3)
+	screen.level((source_menu.held[2] or source_menu.value == 2) and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('Hd')
 
-	screen.level('eg' == source_name and 15 or 3)
+	screen.level((source_menu.held[3] or source_menu.value == 3) and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('En')
 
-	screen.level('lfoA' == source_name and 15 or 3)
+	screen.level((source_menu.held[4] or source_menu.value == 4) and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('La')
 	screen.level(voice.lfoA_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level('lfoB' == source_name and 15 or 3)
+	screen.level((source_menu.held[5] or source_menu.value == 5) and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('Lb')
 	screen.level(voice.lfoB_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level('lfoC' == source_name and 15 or 3)
+	screen.level((source_menu.held[6] or source_menu.value == 6) and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('Lc')
 	screen.level(voice.lfoC_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level('lfoAB' == source_name and 15 or 3)
+	screen.level((source_menu.held[7] or source_menu.value == 7) and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('Ab')
 	screen.level(voice.lfoAB_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level('lfoBC' == source_name and 15 or 3)
+	screen.level((source_menu.held[8] or source_menu.value == 8) and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('Bc')
 	screen.level(voice.lfoBC_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level('lfoCA' == source_name and 15 or 3)
+	screen.level((source_menu.held[9] or source_menu.value == 9) and 15 or 3)
 	screen.move_rel(4, 0)
 	screen.text('Ca')
 	screen.level(voice.lfoCA_gate and 15 or 3)
@@ -1320,19 +1332,23 @@ function redraw()
 	for d = 1, #editor.dests do
 
 		local dest = editor.dests[d].name
-		local dest_slider = dest_sliders[dest]
-		local source_slider = source_sliders[dest][source_name]
-		local active = dest_menu.value == d
-		local active_and_held = active and held_keys[3]
+		local active = dest_menu.held[d] or (dest_menu.value == d)
 
-		source_slider.x = dest_slider.x - 1
-		source_slider:redraw(active and 2 or 1, active_and_held and 5 or (active and 15 or 4))
+		if dest_menu.n_held == 0 or active then
+			-- TODO: ditch held_keys stuff in favor of ONLY editing from XVIm + grid?
+			local active_and_held = active and held_keys[3]
+			local dest_slider = dest_sliders[dest]
 
-		dest_slider:redraw(active and 1 or 0, active_and_held and 15 or (active and 3 or 1))
+			local source_slider = source_sliders[dest][source_name]
+			source_slider.x = dest_slider.x - 1
+			source_slider:redraw(active and 2 or 1, active_and_held and 5 or (active and 15 or 4))
 
-		screen.level(active and 10 or 1)
-		screen.text_rotate(dest_slider.x - 3, 63, editor.dests[d].label, -90)
-		screen.stroke()
+			dest_slider:redraw(active and 1 or 0, active_and_held and 15 or (active and 3 or 1))
+
+			screen.level(active and 10 or 1)
+			screen.text_rotate(dest_slider.x - 3, 63, editor.dests[d].label, -90)
+			screen.stroke()
+		end
 	end
 
 	screen.update()

@@ -25,6 +25,7 @@ function Menu.new(x, y, width, height, arg_values)
 		values = values,
 		n_values = width * height,
 		held = {},
+		n_held = 0,
 		selected = false,
 		value = false,
 		open = false,
@@ -64,12 +65,24 @@ function Menu:key(x, y, z)
 	local k = x + (y * self.width) + 1
 	local v = self.values[k]
 	if v then
-		self.held[v] = z == 1
 		if z == 1 then
+			self.held[v] = true
+			self.n_held = self.n_held + 1
 			if self.toggle and self.selected == k then
 				k = false
 			end
 			self:select(k)
+		else
+			self.held[v] = false
+			self.n_held = self.n_held - 1
+			if self.n_held > 0 then
+				for k = self.n_values, 1, -1 do
+					if self.held[self.values[k]] then
+						self:select(k)
+						return true
+					end
+				end
+			end
 		end
 		return true
 	end
