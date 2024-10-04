@@ -253,7 +253,7 @@ for s = 1, #editor.dests do
 	}
 end
 
-held_keys = { false, false, false }
+-- held_keys = { false, false, false }
 
 voice_states = {}
 for v = 1, n_voices do
@@ -619,7 +619,6 @@ function init()
 	echo:init()
 
 	-- set up polls
-	-- TODO: stop these at cleanup
 	for v = 1, n_voices do
 		local voice = voice_states[v]
 		-- one poll to respond to voice amplitude info
@@ -1181,16 +1180,6 @@ function init()
 		end
 	end
 
-	function xvi.event(data)
-		-- when k2 is held and a fader is moved, select that parameter for editing
-		if held_keys[2] then
-			local message = midi.to_msg(data)
-			if message.cc == 9 then -- fader moved
-				dest_menu:select_value(message.ch)
-			end
-		end
-	end
-
 	function uc4.event(data)
 		local message = midi.to_msg(data)
 		if message.ch == 1 then
@@ -1316,15 +1305,13 @@ function redraw()
 		local active = dest_menu:is_selected(d)
 
 		if dest_menu.n_held <= 1 or active then
-			-- TODO: ditch held_keys stuff in favor of ONLY editing from XVIm + grid?
-			local active_and_held = active and held_keys[3]
 			local dest_slider = dest_sliders[dest]
 
 			local source_slider = source_sliders[dest][source_name]
 			source_slider.x = dest_slider.x - 1
-			source_slider:redraw(active and 2 or 1, active_and_held and 5 or (active and 15 or 4))
+			source_slider:redraw(active and 2 or 1, active and 15 or 4)
 
-			dest_slider:redraw(active and 1 or 0, active_and_held and 15 or (active and 3 or 1))
+			dest_slider:redraw(active and 1 or 0, active and 3 or 1)
 
 			screen.level(active and 10 or 1)
 			screen.text_rotate(dest_slider.x - 3, 63, editor.dests[d].label, -90)
@@ -1342,33 +1329,12 @@ function enc(n, d)
 		dest_menu:select_value(util.wrap(dest_menu.value + d, 1, #editor.dests))
 	elseif n == 3 then
 		local dest = editor.dests[dest_menu.value]
-		if not held_keys[3] then
-			params:delta(editor.source_names[source_menu.value] .. '_' .. dest.name, d)
-		elseif dest.voice_param then
-			params:delta(dest.voice_param .. '_' .. k.selected_voice, d)
-		else
-			params:delta(dest.name, d)
-		end
+		params:delta(editor.source_names[source_menu.value] .. '_' .. dest.name, d)
 	end
 end
 
 function key(n, z)
-	if n == 1 then
-		if z == 1 and held_keys[3] then
-			-- reset modulation from source
-			local source = editor.source_names[source_menu.value]
-			for d = 1, #editor.dests do
-				params:lookup_param(source .. '_' .. editor.dests[d].name):set_default()
-			end
-		end
-	elseif n == 2 then
-		if z == 1 and held_keys[3] then
-			local dest = editor.dests[dest_menu.value]
-		end
-	elseif n == 3 then
-		-- only used as a modifier
-	end
-	held_keys[n] = z == 1 and util.time() or false
+	-- held_keys[n] = z == 1 and util.time() or false
 end
 
 function cleanup()
