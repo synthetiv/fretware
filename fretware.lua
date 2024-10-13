@@ -922,17 +922,29 @@ function init()
 		for d = 1, #editor.dests do
 			local dest = editor.dests[d]
 			local engine_command = engine[source .. '_' .. dest.name]
+			local action = function(value)
+				source_sliders[dest.name][source]:set_value(value)
+				-- create a dead zone near 0.0
+				value = (value > 0 and 1 or -1) * (1 - math.min(1, (1 - math.abs(value)) * 1.1))
+				engine_command(value)
+			end
+			if dest.name == 'detuneA' or dest.name == 'detuneB' then
+				-- set detune modulation on a curve
+				action = function(value)
+					source_sliders[dest.name][source]:set_value(value)
+					-- create a dead zone near 0.0
+					local sign = (value > 0 and 1 or -1)
+					value = 1 - math.min(1, (1 - math.abs(value)) * 1.1)
+					value = sign * value * value
+					engine_command(value)
+				end
+			end
 			params:add {
 				name = source .. ' -> ' .. dest.label,
 				id = source .. '_' .. dest.name,
 				type = 'control',
 				controlspec = controlspec.new(-1, 1, 'lin', 0, (dest.source_defaults and dest.source_defaults[source]) or 0),
-				action = function(value)
-					source_sliders[dest.name][source]:set_value(value)
-					-- create a dead zone near 0.0
-					value = (value > 0 and 1 or -1) * (1 - math.min(1, (1 - math.abs(value)) * 1.1))
-					engine_command(value)
-				end
+				action = action
 			}
 		end
 	end
