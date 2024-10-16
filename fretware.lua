@@ -360,13 +360,10 @@ function g.key(x, y, z)
 		-- first priority in key handler to keyboard keyoffs, then menu keyon, then keyboard
 		-- keyon?
 		if z == 1 then
-			arp_menu.open = true
-			arp_direction_menu.open = true
+			arp_menu.open = not arp_menu.open
+			arp_direction_menu.open = arp_menu.open
 			source_menu.open = false
 			dest_menu.open = false
-		else
-			arp_menu.open = false
-			arp_direction_menu.open = false
 		end
 	elseif x == 9 and y == 8 then
 		if z == 1 then
