@@ -319,6 +319,8 @@ function Echo:add_params()
 			-- longer div if resolution has decreased.
 			if diff < 0 then
 				params:delta('echo_time_div', -diff)
+			else
+				params:lookup_param('echo_time_div'):bang()
 			end
 			softcut.query_position(self.rec_voice)
 		end
