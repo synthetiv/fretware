@@ -34,11 +34,16 @@ arp_menu.get_key_level = function(value, selected)
 	return level + (selected and 11 or 4)
 end
 
-arp_direction_menu = Menu.new(6, 4, 6, 1)
+arp_direction_menu = Menu.new(5, 3, 4, 1, {
+	100, 50, 15, 0
+})
 arp_direction_menu.on_select = function(value)
-	params:set('arp_randomness', (value - 1) / 5 * 100)
+	-- param doesn't exist when this is initialized
+	if params.lookup['arp_randomness'] then
+		params:set('arp_randomness', value)
+	end
 end
-arp_direction_menu.selected = 1 -- param doesn't exist yet
+arp_direction_menu:select_value(0)
 
 source_menu = Menu.new(3, 6, 14, 2, {
 	-- map of source numbers (in editor.source_names) to keys
