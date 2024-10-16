@@ -4,7 +4,7 @@ Echo.__index = Echo
 local LFO = require 'lfo'
 
 Echo.RATE_SMOOTHING = 0.2
-Echo.LOOP_LENGTH = 10
+Echo.LOOP_LENGTH = 60
 Echo.DRIFT_BASE = 1.1
 Echo.last_used_voice = 0
 
@@ -55,7 +55,8 @@ function Echo:init()
 				-- move the play head closer to or further from the record head, depending on echo_div
 				self.div = params:get('echo_time_div') + self.jump_div
 				local new_position = position - (self.head_distance * math.pow(2, self.div + self.resolution))
-				new_position = new_position % Echo.LOOP_LENGTH
+				-- wrap to within loop boundaries
+				new_position = (new_position - 1) % Echo.LOOP_LENGTH + 1
 				softcut.position(self.play_voice, new_position)
 				self.div_dirty = false
 				self.feedback_dirty = true
@@ -71,8 +72,8 @@ function Echo:init()
 		end
 	end)
 
-	softcut.position(self.rec_voice, 0)
-	softcut.position(self.play_voice, (-self.head_distance) % Echo.LOOP_LENGTH)
+	softcut.position(self.rec_voice, 1)
+	softcut.position(self.play_voice, (-self.head_distance) % Echo.LOOP_LENGTH + 1)
 
 	softcut.level(self.play_voice, 1)
 
@@ -80,8 +81,8 @@ function Echo:init()
 		softcut.buffer(scv, 1)
 		softcut.rate(scv, 1)
 		softcut.rate_slew_time(scv, 0.3)
-		softcut.loop_start(scv, 0)
-		softcut.loop_end(scv, Echo.LOOP_LENGTH)
+		softcut.loop_start(scv, 1)
+		softcut.loop_end(scv, 1 + Echo.LOOP_LENGTH)
 		softcut.loop(scv, 1)
 		softcut.fade_time(scv, 0.01)
 		softcut.play(scv, 1)
@@ -222,7 +223,7 @@ function Echo:add_params()
 		id = 'echo_time_div',
 		type = 'number',
 		min = -7,
-		max = 4,
+		max = 7,
 		default = -2,
 		formatter = Echo.div_formatter('%d'),
 		action = function(value)
