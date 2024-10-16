@@ -2,6 +2,7 @@
 
 engine.name = 'Cule'
 musicutil = require 'musicutil'
+Lattice = require 'lattice'
 
 Slider = include 'lib/slider'
 
@@ -12,23 +13,27 @@ k = Keyboard.new(1, 1, 16, 8)
 
 Menu = include 'lib/menu'
 
-arp_menu = Menu.new(6, 6, 6, 2)
+arp_menu = Menu.new(5, 5, 9, 2, {
+	1,  2,  3,  4,  5,  6,  7,  8, 9,
+	_, 10, 11, 12,  _, 13, 14, 15
+})
 arp_menu.toggle = true
 arp_menu.on_select = function(source)
 	-- enable arp when a source is selected, disable when toggled off
 	if source and not k.arping then
 		k.arping = true
 	elseif not source then
+		k:arp(false)
 		k.arping = false
 	end
 end
 arp_menu.get_key_level = function(value, selected)
 	local level = 0
-	if value <= 6 then
-		if arp_clocks[value].gate then
+	if value <= #arp_divs then
+		if arp_gates[value] then
 			level = 2
 		end
-	elseif voice_states[k.selected_voice][lfo_gate_names[value - 6]] then
+	elseif voice_states[k.selected_voice][lfo_gate_names[value - #arp_divs]] then
 		level = 2
 	end
 	return level + (selected and 11 or 4)
@@ -295,26 +300,35 @@ palm = 0
 expo_scaling = false
 gate_in = false
 
-arp_divs = { 1, 3/4, 1/2, 3/8, 1/4, 1/8 }
-arp_clocks = {}
+arp_divs = { 1/2, 3/8, 1/4, 3/16, 1/8, 3/32, 1/16, 1/24, 1/32 }
+arp_gates = {}
+arp_lattice = Lattice.new()
 for d = 1, #arp_divs do
 	local rate = arp_divs[d]
-	local arp_clock = {}
-	arp_clock.coro = clock.run(function()
-		while true do
-			clock.sync(rate)
-			arp_clock.gate = true
+	arp_gates[d] = false
+	arp_lattice:new_sprocket {
+		division = rate,
+		action = function()
+			arp_gates[d] = true
 			if arp_menu.value == d then
 				k:arp(true)
 			end
-			clock.sync(rate / 2)
-			arp_clock.gate = false
+		end
+	}
+	arp_lattice:new_sprocket {
+		division = rate,
+		delay = 0.5,
+		action = function()
+			arp_gates[d] = false
 			if arp_menu.value == d then
 				k:arp(false)
 			end
 		end
-	end)
-	arp_clocks[d] = arp_clock
+	}
+end
+
+clock.transport.start = function()
+	arp_lattice:hard_restart()
 end
 
 loop_clock = false
@@ -456,11 +470,11 @@ function grid_redraw()
 		-- an arp clock source is selected; blink
 		local v = arp_menu.value
 		local level = 5
-		if v <= 6 then
-			if arp_clocks[v].gate then
+		if v <= #arp_divs then
+			if arp_gates[v] then
 				level = level + 2
 			end
-		elseif voice_states[k.selected_voice][lfo_gate_names[v - 6]] then
+		elseif voice_states[k.selected_voice][lfo_gate_names[v - #arp_divs]] then
 			level = level + 2
 		end
 		g:led(6, 8, level)
@@ -995,6 +1009,10 @@ function init()
 	params:set('monitor_level', -math.huge) -- monitor off (ext. echo fully wet)
 
 	reset_loop_clock()
+	clock.run(function()
+		clock.sync(4)
+		arp_lattice:start()
+	end)
 
 	redraw_metro = metro.init {
 		time = 1 / 30,
