@@ -154,14 +154,14 @@ end
 function Echo:set_tone(tone)
 	if tone >= 0 then
 		softcut.post_filter_fc(self.play_voice, util.linexp(0, 1, 10, 10000, math.pow(tone, 2)))
-		self.tone_gain_compensation = util.linexp(0.2, 1, 0.833, 1.2, tone)
+		self.tone_gain_compensation = util.linlin(0.2, 1, 0.835, 1.2, tone)
 	else
 		softcut.post_filter_fc(self.play_voice, util.linexp(0, 1, 23000, 230, math.pow(-tone, 0.5)))
-		self.tone_gain_compensation = util.linexp(0.1, 1, 0.833, 1.2, -tone)
+		self.tone_gain_compensation = util.linlin(0.1, 1, 0.835, 1.2, -tone)
 	end
-	softcut.post_filter_dry(self.play_voice, util.linlin(0, 0.9, 1, 0, math.abs(tone)))
-	softcut.post_filter_lp(self.play_voice, util.linlin(-0.9, 0, 1, 0, tone))
-	softcut.post_filter_hp(self.play_voice, util.linlin(0, 0.9, 0, 1, tone))
+	softcut.post_filter_dry(self.play_voice, util.linlin(0.1, 1, 1, 0, math.abs(tone)))
+	softcut.post_filter_lp(self.play_voice, util.linlin(-1, 0.1, 1, 0, tone))
+	softcut.post_filter_hp(self.play_voice, util.linlin(0.1, 1, 0, 1, tone))
 	self.feedback_dirty = true
 	softcut.query_position(self.rec_voice)
 end
