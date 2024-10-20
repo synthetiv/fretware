@@ -426,7 +426,6 @@ function g.key(x, y, z)
 			editor.held_keys[x == 16 and 'inc' or 'dec'] = z == 1
 			if z == 1 then
 				local do_reset = editor.held_keys.dec and editor.held_keys.inc
-				local did_reset_route = false
 				local delta = (x - 15) * 2 - 1
 				for source = 1, #editor.source_names do
 					if source_menu:is_selected(source) then
@@ -436,7 +435,6 @@ function g.key(x, y, z)
 								local dest_name = editor.dests[dest].name
 								if do_reset then
 									params:lookup_param(source_name .. '_' .. dest_name):set_default()
-									did_reset_route = true
 								else
 									params:delta(source_name .. '_' .. dest_name, delta * 6.25)
 								end
@@ -444,7 +442,8 @@ function g.key(x, y, z)
 						end
 					end
 				end
-				if do_reset and not did_reset_route then
+				-- if there are any held sources or dests, reset ALL routes involving them
+				if do_reset then
 					for source = 1, #editor.source_names do
 						if source_menu.held[source] then
 							local source_name = editor.source_names[source]
