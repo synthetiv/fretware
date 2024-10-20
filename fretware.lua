@@ -327,6 +327,24 @@ for d = 1, #arp_divs do
 	}
 end
 
+arp_lattice_reset = {
+	key_held = false,
+	interval = false,
+	clocks = {}
+}
+for c = 1, 3 do
+	local rate = math.pow(2, -c)
+	arp_lattice_reset.clocks[c] = clock.run(function()
+		while true do
+			clock.sync(rate)
+			if arp_lattice_reset.interval == c and not arp_lattice_reset.key_held then
+				arp_lattice:start()
+				arp_lattice_reset.interval = false
+			end
+		end
+	end)
+end
+
 clock.transport.start = function()
 	arp_lattice:hard_restart()
 end
@@ -392,7 +410,15 @@ function g.key(x, y, z)
 			arp_direction_menu.open = false
 		end
 	elseif arp_menu.open and x > 2 and y < 8 then
-		if not arp_direction_menu:key(x, y, z) then
+		if x >= 11 and x <= 13 and y == 3 then
+			if z == 1 then
+				arp_lattice_reset.interval = x - 10
+				arp_lattice_reset.key_held = true
+			else
+				arp_lattice:reset()
+				arp_lattice_reset.key_held = false
+			end
+		elseif not arp_direction_menu:key(x, y, z) then
 			arp_menu:key(x, y, z)
 		end
 	elseif source_menu.open and x > 2 and y < 8 then
@@ -484,6 +510,11 @@ function grid_redraw()
 	end
 	arp_menu:draw()
 	arp_direction_menu:draw()
+	if arp_menu.open then
+		for c = 1, 3 do
+			g:led(10 + c, 3, arp_lattice_reset.interval == c and 9 or 5)
+		end
+	end
 	g:led(9, 8, source_menu.open and 7 or 2)
 	source_menu:draw()
 	dest_menu:draw()
