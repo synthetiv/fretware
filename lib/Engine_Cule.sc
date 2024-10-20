@@ -179,6 +179,7 @@ Engine_Cule : CroneEngine {
 				lfoAB, lfoBC, lfoCA,
 				lfoSHAB, lfoSHBC, lfoSHCA,
 				hz, fmInput, opB, fmMix, opA,
+				hpRQ, lpRQ,
 				voiceOutput,
 				highPriorityUpdate;
 
@@ -326,13 +327,19 @@ Engine_Cule : CroneEngine {
 			voiceOutput = WaveLoss.ar(voiceOutput, loss.lincurve(-1, 1, 0, 127, 4), 127, mode: 2);
 			voiceOutput = Squiz.ar(voiceOutput, squiz.lincurve(-1, 1, 1, 16, 4), 2);
 
+			hpCutoff = hpCutoff.linexp(-1, 1, 4, 24000);
+			hpRQ = \hpRQ.kr(0.7);
+			hpRQ = hpCutoff.linlin(SampleRate.ir * 0.25 / hpRQ, SampleRate.ir * 0.5, hpRQ, 0.5).min(hpRQ);
 			voiceOutput = Select.ar(\hpOn.kr(1), [
 				voiceOutput,
-				RHPF.ar(voiceOutput, hpCutoff.linexp(-1, 1, 8, 22000), \hpQ.kr(1.414).reciprocal)
+				RHPF.ar(voiceOutput, hpCutoff, hpRQ)
 			]);
+			lpCutoff = lpCutoff.linexp(-1, 1, 4, 24000);
+			lpRQ = \lpRQ.kr(0.7);
+			lpRQ = lpCutoff.linlin(SampleRate.ir * 0.25 / lpRQ, SampleRate.ir * 0.5, lpRQ, 0.5).min(lpRQ);
 			voiceOutput = Select.ar(\lpOn.kr(1), [
 				voiceOutput,
-				RLPF.ar(voiceOutput, lpCutoff.linexp(-1, 1, 8, 22000), \lpQ.kr(1.414).reciprocal)
+				RLPF.ar(voiceOutput, lpCutoff, lpRQ)
 			]);
 
 			// scale by amplitude control value

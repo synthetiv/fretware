@@ -833,7 +833,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(1, 5, 'exp', 0, 1.414),
 		action = function(value)
-			engine.lpQ(value)
+			engine.lpRQ(1 / value)
 		end
 	}
 
@@ -854,7 +854,7 @@ function init()
 		type = 'control',
 		controlspec = controlspec.new(1, 5, 'exp', 0, 1.414),
 		action = function(value)
-			engine.hpQ(value)
+			engine.hpRQ(1 / value)
 		end
 	}
 
