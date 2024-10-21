@@ -22,8 +22,7 @@ function Echo.new()
 		div_dirty = false,
 		resolution = 0,
 		resolution_dirty = false,
-		feedback_dirty = false,
-		tone_gain_compensation = 0.835,
+		tone_gain_compensation = 0.838,
 		wow = 0,
 		flutter = 0,
 		jump_amount = 0,
@@ -43,32 +42,37 @@ function Echo:init()
 	softcut.level_input_cut(2, self.rec_voice, 1)
 	softcut.rec(self.rec_voice, 1)
 	softcut.rec_level(self.rec_voice, 1)
+	-- this is called once every 0.0125 seconds by a clock routine
 	softcut.event_position(function(voice, position)
 		if voice == self.rec_voice then
+			-- apply drift
+			local drift_factor = math.pow(Echo.DRIFT_BASE, self.wow + self.flutter)
+			local rate = math.pow(2, self.rate_smoothed + self.resolution) * drift_factor
+			-- update voice rates
+			for scv = self.rec_voice, self.play_voice do
+				softcut.rate(scv, rate)
+			end
 			-- TODO: update play head's loop points to avoid overlap with rec head when playback pitch != 1x?
 			-- (the tricky part will be handling this near the rec head's loop points...)
-			if self.div_dirty or self.resolution_dirty then
-				if self.resolution_dirty then
-					self:update_rate()
-					self.resolution_dirty = false
-				end
+			local div_jump_compensation = 1
+			if self.div_dirty then
+				-- TODO: reduce feedback
 				-- move the play head closer to or further from the record head, depending on echo_div
 				self.div = params:get('echo_time_div') + self.jump_div
 				local new_position = position - (self.head_distance * math.pow(2, self.div + self.resolution))
 				-- wrap to within loop boundaries
 				new_position = (new_position - 1) % Echo.LOOP_LENGTH + 1
 				softcut.position(self.play_voice, new_position)
+				-- when jumping, duck feedback by sqrt(0.5), to compensate for equal power fade.
+				-- equal power will eventually make feedback blow up, especially when div is small,
+				-- so this basically creates an equal gain fade instead.
+				div_jump_compensation = 0.7071
 				self.div_dirty = false
-				self.feedback_dirty = true
 			end
-			-- TODO: does this actually need to happen in the event_position callback?
-			if self.feedback_dirty then
-				local echo_rate = math.pow(2, self.rate - self.div)
-				local time = self.head_distance / echo_rate
-				local gain = math.exp(time * math.log(self.feedback)) * self.tone_gain_compensation
-				softcut.level_cut_cut(self.play_voice, self.rec_voice, gain)
-				self.feedback_dirty = false
-			end
+			local rate_scale = math.pow(2, self.div - rate)
+			local time = self.head_distance * rate_scale
+			local gain = math.exp(time * math.log(self.feedback)) * self.tone_gain_compensation
+			softcut.level_cut_cut(self.play_voice, self.rec_voice, gain * div_jump_compensation)
 		end
 	end)
 
@@ -80,11 +84,13 @@ function Echo:init()
 	for scv = self.rec_voice, self.play_voice do
 		softcut.buffer(scv, 1)
 		softcut.rate(scv, 1)
-		softcut.rate_slew_time(scv, 0.3)
+		softcut.rate_slew_time(scv, 0.05)
 		softcut.loop_start(scv, 1)
 		softcut.loop_end(scv, 1 + Echo.LOOP_LENGTH)
 		softcut.loop(scv, 1)
-		softcut.fade_time(scv, 0.01)
+		softcut.fade_time(scv, 0.05)
+		softcut.level_slew_time(scv, 0.05)
+		softcut.recpre_slew_time(scv, 0.05)
 		softcut.play(scv, 1)
 		softcut.pre_filter_dry(scv, 1)
 		softcut.pre_filter_lp(scv, 0)
@@ -138,40 +144,33 @@ function Echo:init()
 	clock.run(function()
 		while true do
 			self.rate_smoothed = self.rate_smoothed + (self.rate - self.rate_smoothed) * Echo.RATE_SMOOTHING
-			self:update_rate()
-			clock.sleep(0.05)
+			softcut.query_position(self.rec_voice)
+			clock.sleep(0.0125)
 		end
 	end)
 
 end
 
-function Echo:update_rate()
-	local drift_factor = math.pow(Echo.DRIFT_BASE, self.wow + self.flutter)
-	for scv = self.rec_voice, self.play_voice do
-		softcut.rate(scv, math.pow(2, self.rate_smoothed + self.resolution) * drift_factor)
-	end
-end
-
 function Echo:set_tone(tone)
-	if tone >= 0 then
-		softcut.post_filter_fc(self.play_voice, util.linexp(0, 1, 10, 10000, math.pow(tone, 2)))
-		self.tone_gain_compensation = util.linlin(0.2, 1, 0.835, 1.2, tone)
-	else
-		softcut.post_filter_fc(self.play_voice, util.linexp(0, 1, 23000, 230, math.pow(-tone, 0.5)))
-		self.tone_gain_compensation = util.linlin(0.1, 1, 0.835, 1.2, -tone)
-	end
-	softcut.post_filter_dry(self.play_voice, util.linlin(0.1, 1, 1, 0, math.abs(tone)))
-	softcut.post_filter_lp(self.play_voice, util.linlin(-1, 0.1, 1, 0, tone))
-	softcut.post_filter_hp(self.play_voice, util.linlin(0.1, 1, 0, 1, tone))
-	self.feedback_dirty = true
-	softcut.query_position(self.rec_voice)
+	-- if tone >= 0 then
+	-- 	softcut.post_filter_fc(self.play_voice, util.linexp(0, 1, 10, 10000, math.pow(tone, 2)))
+	-- 	self.tone_gain_compensation = util.linlin(0.2, 1, 0.835, 1.2, tone)
+	-- else
+	-- 	softcut.post_filter_fc(self.play_voice, util.linexp(0, 1, 23000, 230, math.pow(-tone, 0.5)))
+	-- 	self.tone_gain_compensation = util.linlin(0.1, 1, 0.835, 1.2, -tone)
+	-- end
+	-- softcut.post_filter_dry(self.play_voice, util.linlin(0.1, 1, 1, 0, math.abs(tone)))
+	-- softcut.post_filter_lp(self.play_voice, util.linlin(-1, 0.1, 1, 0, tone))
+	-- softcut.post_filter_hp(self.play_voice, util.linlin(0.1, 1, 0, 1, tone))
+	softcut.post_filter_dry(self.play_voice, 1)
+	softcut.post_filter_lp(self.play_voice, 0)
+	softcut.post_filter_hp(self.play_voice, 0)
 end
 
 function Echo:jump()
 	if self.jump_amount > 0 then
 		self.jump_div = self.jump_amount * (math.random() - 0.5)
 		self.div_dirty = true
-		softcut.query_position(self.rec_voice)
 	end
 end
 
@@ -213,8 +212,6 @@ function Echo:add_params()
 		action = function(value)
 			-- softcut voice rates are set based on this, in a clock routine
 			self.rate = -value
-			self.feedback_dirty = true
-			softcut.query_position(self.rec_voice)
 		end
 	}
 
@@ -228,7 +225,6 @@ function Echo:add_params()
 		formatter = Echo.div_formatter('%d'),
 		action = function(value)
 			self.div_dirty = true
-			softcut.query_position(self.rec_voice)
 		end
 	}
 
@@ -260,16 +256,6 @@ function Echo:add_params()
 	}
 
 	params:add {
-		name = 'echo div fade',
-		id = 'echo_div_fade',
-		type = 'control',
-		controlspec = controlspec.new(0, 250, 'lin', 0, 15, 'ms'),
-		action = function(time)
-			softcut.fade_time(self.play_voice, time * 0.001)
-		end
-	}
-
-	params:add {
 		name = 'echo decay',
 		id = 'echo_feedback',
 		type = 'control',
@@ -282,25 +268,8 @@ function Echo:add_params()
 				value = value * value
 			end
 			self.feedback = value
-			self.feedback_dirty = true
-			softcut.query_position(self.rec_voice)
 		end
 	}
-
-	--[[
-	params:add {
-		name = 'echo repeat time',
-		id = 'echo_feedback',
-		type = 'control',
-		controlspec = controlspec.new(0.01, 30, 'exp', 0, 1, 'sec'),
-		action = function(value)
-			-- TODO: automatically adjust feedback level to compensate for filtering
-			-- softcut.level_cut_cut(self.play_voice, self.rec_voice, value)
-			self.feedback_dirty = true
-			softcut.query_position(self.rec_voice)
-		end
-	}
-	--]]
 
 	params:add {
 		name = 'echo resolution',
@@ -311,19 +280,9 @@ function Echo:add_params()
 		max = 2,
 		formatter = Echo.div_formatter('%d'),
 		action = function(value)
-			local diff = value - self.resolution
 			self.resolution = value
 			self.resolution_dirty = true
-			self.feedback_dirty = true
-			-- 'div' setting is NOT relative to resolution. to retain the same looped
-			-- audio after a resolution change, we need to change resolution: use a
-			-- longer div if resolution has decreased.
-			if diff < 0 then
-				params:delta('echo_time_div', -diff)
-			else
-				params:lookup_param('echo_time_div'):bang()
-			end
-			softcut.query_position(self.rec_voice)
+			self.div_dirty = true
 		end
 	}
 
