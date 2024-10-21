@@ -329,14 +329,14 @@ Engine_Cule : CroneEngine {
 
 			hpCutoff = hpCutoff.linexp(-1, 1, 4, 24000);
 			hpRQ = \hpRQ.kr(0.7);
-			hpRQ = hpCutoff.linlin(SampleRate.ir * 0.25 / hpRQ, SampleRate.ir * 0.5, hpRQ, 0.5).min(hpRQ);
+			hpRQ = hpCutoff.linexp(SampleRate.ir * 0.25 / hpRQ, SampleRate.ir * 0.5, hpRQ, 0.5).min(hpRQ);
 			voiceOutput = Select.ar(\hpOn.kr(1), [
 				voiceOutput,
 				RHPF.ar(voiceOutput, hpCutoff, hpRQ)
 			]);
 			lpCutoff = lpCutoff.linexp(-1, 1, 4, 24000);
 			lpRQ = \lpRQ.kr(0.7);
-			lpRQ = lpCutoff.linlin(SampleRate.ir * 0.25 / lpRQ, SampleRate.ir * 0.5, lpRQ, 0.5).min(lpRQ);
+			lpRQ = lpCutoff.linexp(SampleRate.ir * 0.25 / lpRQ, SampleRate.ir * 0.5, lpRQ, 0.5).min(lpRQ);
 			voiceOutput = Select.ar(\lpOn.kr(1), [
 				voiceOutput,
 				RLPF.ar(voiceOutput, lpCutoff, lpRQ)
