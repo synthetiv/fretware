@@ -22,7 +22,14 @@ function Echo.new()
 		div_dirty = false,
 		resolution = 0,
 		resolution_dirty = false,
-		tone_gain_compensation = 0.838,
+		cutoff_hp = 300,
+		cutoff_lp = 8000,
+		tone = 0,
+		tone_dirty = false,
+		gain_compensation = 0.838,
+		gain_base = 0.838,
+		gain_hp = 0.855,
+		gain_lp = 0.855,
 		wow = 0,
 		flutter = 0,
 		jump_amount = 0,
@@ -45,12 +52,27 @@ function Echo:init()
 	-- this is called once every 0.0125 seconds by a clock routine
 	softcut.event_position(function(voice, position)
 		if voice == self.rec_voice then
-			-- apply drift
+			-- apply drift and resolution
 			local drift_factor = math.pow(Echo.DRIFT_BASE, self.wow + self.flutter)
 			local rate = math.pow(2, self.rate_smoothed + self.resolution) * drift_factor
 			-- update voice rates
 			for scv = self.rec_voice, self.play_voice do
 				softcut.rate(scv, rate)
+			end
+			-- update filter mix
+			if self.tone_dirty then
+				if self.tone >= 0 then
+					softcut.post_filter_fc(self.play_voice, self.cutoff_hp)
+					self.gain_compensation = util.linexp(0.1, 1, self.gain_base, self.gain_hp, self.tone)
+				else
+					softcut.post_filter_fc(self.play_voice, self.cutoff_lp)
+					self.gain_compensation = util.linexp(0.1, 1, self.gain_base, self.gain_lp, -self.tone)
+				end
+				softcut.post_filter_dry(self.play_voice, util.linlin(0.1, 1, 1, 0, math.abs(self.tone)))
+				softcut.post_filter_lp(self.play_voice, util.linlin(0.1, 1, 0, 1, -self.tone))
+				softcut.post_filter_hp(self.play_voice, util.linlin(0.1, 1, 0, 1, self.tone))
+				softcut.post_filter_rq(self.play_voice, 4)
+				self.tone_dirty = false
 			end
 			-- TODO: update play head's loop points to avoid overlap with rec head when playback pitch != 1x?
 			-- (the tricky part will be handling this near the rec head's loop points...)
@@ -71,8 +93,10 @@ function Echo:init()
 			end
 			local rate_scale = math.pow(2, self.div - rate)
 			local time = self.head_distance * rate_scale
-			local gain = math.exp(time * math.log(self.feedback)) * self.tone_gain_compensation
+			local gain = math.exp(time * math.log(self.feedback)) * self.gain_compensation
 			softcut.level_cut_cut(self.play_voice, self.rec_voice, gain * div_jump_compensation)
+			-- TODO: it seems like every once in a while, levels aren't set properly, though they MOSTLY are.
+			-- check for dropped OSC messages somehow?
 		end
 	end)
 
@@ -105,8 +129,6 @@ function Echo:init()
 	softcut.pre_filter_fc(self.rec_voice, 30)
 	softcut.pre_filter_rq(self.rec_voice, 6)
 
-	self:set_tone(0)
-
 	self.wowLFO = LFO:add {
 		shape = 'sine',
 		min = -1,
@@ -132,6 +154,7 @@ function Echo:init()
 		mode = 'free',
 		period = 0.15,
 		action = function(value)
+			-- TODO: randomize flutter rate more effectively, this isn't really working
 			local rand = (math.random() + math.random() + math.random()) / 3
 			local rate = 1 / params:get('echo_flutter_rate')
 			rate = rate * (1 + (rand * 0.5))
@@ -149,22 +172,6 @@ function Echo:init()
 		end
 	end)
 
-end
-
-function Echo:set_tone(tone)
-	-- if tone >= 0 then
-	-- 	softcut.post_filter_fc(self.play_voice, util.linexp(0, 1, 10, 10000, math.pow(tone, 2)))
-	-- 	self.tone_gain_compensation = util.linlin(0.2, 1, 0.835, 1.2, tone)
-	-- else
-	-- 	softcut.post_filter_fc(self.play_voice, util.linexp(0, 1, 23000, 230, math.pow(-tone, 0.5)))
-	-- 	self.tone_gain_compensation = util.linlin(0.1, 1, 0.835, 1.2, -tone)
-	-- end
-	-- softcut.post_filter_dry(self.play_voice, util.linlin(0.1, 1, 1, 0, math.abs(tone)))
-	-- softcut.post_filter_lp(self.play_voice, util.linlin(-1, 0.1, 1, 0, tone))
-	-- softcut.post_filter_hp(self.play_voice, util.linlin(0.1, 1, 0, 1, tone))
-	softcut.post_filter_dry(self.play_voice, 1)
-	softcut.post_filter_lp(self.play_voice, 0)
-	softcut.post_filter_hp(self.play_voice, 0)
 end
 
 function Echo:jump()
@@ -199,7 +206,8 @@ function Echo:add_params()
 		type = 'control',
 		controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 		action = function(value)
-			self:set_tone(value)
+			self.tone = value
+			self.tone_dirty = true
 		end
 	}
 
@@ -277,7 +285,7 @@ function Echo:add_params()
 		type = 'number',
 		default = -2,
 		min = -7,
-		max = 2,
+		max = 1,
 		formatter = Echo.div_formatter('%d'),
 		action = function(value)
 			self.resolution = value
