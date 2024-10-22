@@ -263,9 +263,9 @@ function Echo:add_params()
 		action = function(value)
 			-- exponential-ize response below unity gain; linear response above
 			if value < 1 then
-				value = value * value * value
+				value = value * value * value * value
 			else
-				value = value * value
+				value = value * value * value
 			end
 			self.feedback = value
 		end
