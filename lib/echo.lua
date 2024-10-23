@@ -5,7 +5,7 @@ local LFO = require 'lfo'
 
 Echo.RATE_SMOOTHING = 0.2
 Echo.LOOP_LENGTH = 60
-Echo.DRIFT_BASE = 1.1
+Echo.DRIFT_BASE = 0.13
 Echo.last_used_voice = 0
 
 function Echo.new()
@@ -19,9 +19,8 @@ function Echo.new()
 		rate = 0,
 		rate_smoothed = 0,
 		div = 0,
-		div_dirty = false,
+		div_dirty = true,
 		resolution = 0,
-		resolution_dirty = false,
 		cutoff_hp = 300,
 		cutoff_lp = 8000,
 		tone = 0,
@@ -50,15 +49,8 @@ function Echo:init()
 	softcut.rec(self.rec_voice, 1)
 	softcut.rec_level(self.rec_voice, 1)
 	-- this is called once every 0.0125 seconds by a clock routine
-	softcut.event_position(function(voice, position)
+	softcut.event_position(function(voice, rec_position)
 		if voice == self.rec_voice then
-			-- apply drift and resolution
-			local drift_factor = math.pow(Echo.DRIFT_BASE, self.wow + self.flutter)
-			local rate = math.pow(2, self.rate_smoothed + self.resolution) * drift_factor
-			-- update voice rates
-			for scv = self.rec_voice, self.play_voice do
-				softcut.rate(scv, rate)
-			end
 			-- update filter mix
 			if self.tone_dirty then
 				if self.tone >= 0 then
@@ -74,35 +66,47 @@ function Echo:init()
 				softcut.post_filter_rq(self.play_voice, 4)
 				self.tone_dirty = false
 			end
-			-- TODO: update play head's loop points to avoid overlap with rec head when playback pitch != 1x?
-			-- (the tricky part will be handling this near the rec head's loop points...)
+			-- jump to a new division, if needed
 			local div_jump_compensation = 1
 			if self.div_dirty then
 				-- move the play head closer to or further from the record head, depending on echo_div
 				self.div = params:get('echo_time_div') + self.jump_div
-				local new_position = position - (self.head_distance * math.pow(2, self.div + self.resolution))
+				local play_position = rec_position - (self.head_distance * math.pow(2, self.div))
 				-- wrap to within loop boundaries
-				new_position = (new_position - 1) % Echo.LOOP_LENGTH + 1
-				softcut.position(self.play_voice, new_position)
+				play_position = (play_position - 1) % Echo.LOOP_LENGTH + 1
+				softcut.position(self.play_voice, play_position)
 				-- when jumping, duck feedback by sqrt(0.5), to compensate for equal power fade.
 				-- equal power will eventually make feedback blow up, especially when div is small,
 				-- so this basically creates an equal gain fade instead.
 				div_jump_compensation = 0.7071
 				self.div_dirty = false
 			end
-			local rate_scale = math.pow(2, self.div - rate)
-			local time = self.head_distance * rate_scale
-			local gain = math.exp(time * math.log(self.feedback)) * self.gain_compensation
-			softcut.level_cut_cut(self.play_voice, self.rec_voice, gain * div_jump_compensation)
-			-- TODO: it seems like every once in a while, levels aren't set properly, though they MOSTLY are.
-			-- check for dropped OSC messages somehow?
+			-- apply drift and resolution scaling to rate
+			local rate_factor = self.rate_smoothed + self.resolution + Echo.DRIFT_BASE * (self.wow + self.flutter)
+			local rate = math.pow(2, rate_factor)
+			-- update voice rates
+			for scv = self.rec_voice, self.play_voice do
+				softcut.rate(scv, rate)
+			end
+			-- adjust feedback relative to time
+			-- TODO: where'd I even get this exp(x * log(y)) idea?
+			local time = self.head_distance * math.pow(2, self.div - rate_factor)
+			local gain = math.exp(time * math.log(self.feedback))
+			if self.feedback > 1 then
+				-- the main problem with the above approach is that when delay time is long,
+				-- feedback settings > 1.0x lead to very high gain values.
+				-- so use the lower of the two (time-scaled and non-time-scaled) feedback settings.
+				gain = math.min(self.feedback, gain)
+			end
+			softcut.level_cut_cut(self.play_voice, self.rec_voice, gain * self.gain_compensation * div_jump_compensation)
+			-- adjust play voice output level too, to help monitor when feedback is too high over unity
+			-- but prevent output level from ever dropping below -3db
+			softcut.level(self.play_voice, math.max(0.707, gain))
 		end
 	end)
 
 	softcut.position(self.rec_voice, 1)
-	softcut.position(self.play_voice, (-self.head_distance) % Echo.LOOP_LENGTH + 1)
-
-	softcut.level(self.play_voice, 1)
+	-- play voice position and level will be set by clock routine above
 
 	for scv = self.rec_voice, self.play_voice do
 		softcut.buffer(scv, 1)
@@ -166,9 +170,9 @@ function Echo:init()
 
 	clock.run(function()
 		while true do
+			clock.sleep(0.0125)
 			self.rate_smoothed = self.rate_smoothed + (self.rate - self.rate_smoothed) * Echo.RATE_SMOOTHING
 			softcut.query_position(self.rec_voice)
-			clock.sleep(0.0125)
 		end
 	end)
 
@@ -264,16 +268,14 @@ function Echo:add_params()
 	}
 
 	params:add {
-		name = 'echo decay',
+		name = 'echo decay time',
 		id = 'echo_feedback',
 		type = 'control',
 		controlspec = controlspec.new(0, 1.27, 'lin', 0, 0.1),
 		action = function(value)
-			-- exponential-ize response below unity gain; linear response above
+			-- square response below unity, linear response above
 			if value < 1 then
-				value = value * value * value * value
-			else
-				value = value * value * value
+				value = value * value
 			end
 			self.feedback = value
 		end
@@ -289,8 +291,6 @@ function Echo:add_params()
 		formatter = Echo.div_formatter('%d'),
 		action = function(value)
 			self.resolution = value
-			self.resolution_dirty = true
-			self.div_dirty = true
 		end
 	}
 
