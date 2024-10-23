@@ -154,11 +154,13 @@ function Echo:init()
 		mode = 'free',
 		period = 0.15,
 		action = function(value)
-			-- TODO: randomize flutter rate more effectively, this isn't really working
-			local rand = (math.random() + math.random() + math.random()) / 3
-			local rate = 1 / params:get('echo_flutter_rate')
-			rate = rate * (1 + (rand * 0.5))
-			self.flutterLFO:set('period', rate)
+			-- randomize rate at zero crossings
+			if (self.flutter <= 0 and value >= 0) or (self.flutter >= 0 and value <= 0) then
+				local rand = (math.random() + math.random() + math.random()) / 3
+				local rate = 1 / params:get('echo_flutter_rate')
+				rate = rate * (1 + (rand * 0.5))
+				self.flutterLFO:set('period', rate)
+			end
 			self.flutter = value
 		end
 	}
