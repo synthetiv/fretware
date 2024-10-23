@@ -297,7 +297,6 @@ lfo_gate_names = {
 
 tip = 0
 palm = 0
-expo_scaling = false
 gate_in = false
 
 arp_divs = { 1/2, 3/8, 1/4, 3/16, 1/8, 3/32, 1/16, 1/24, 1/32 }
@@ -891,16 +890,7 @@ function init()
 		end
 	}
 
-	params:add {
-		name = 'expo tip/palm scaling',
-		id = 'expo_scaling',
-		type = 'option',
-		options = { 'off', 'on' },
-		default = 1,
-		action = function(value)
-			expo_scaling = value == 2
-		end
-	}
+	params:add_group('voice params', #editor.dests - 7)
 
 	for d = 1, #editor.dests do
 		local dest = editor.dests[d]
@@ -995,7 +985,7 @@ function init()
 		end
 	end
 
-	params:add_group('voices', n_voices)
+	params:add_group('voice mix', n_voices * 2)
 
 	for v = 1, n_voices do
 
@@ -1107,18 +1097,11 @@ function init()
 			if message.cc == 17 then
 				tip = message.val / 126
 				local scaled_tip = tip
-				if expo_scaling then
-					tip = tip * tip
-				end
 				engine.tip(k.selected_voice, tip)
 			elseif message.cc == 16 then
 				palm = message.val / 126
 				local scaled_palm
-				if expo_scaling then
-					scaled_palm = palm * palm * palm
-				else
-					scaled_palm = palm * palm
-				end
+				scaled_palm = palm * palm
 				engine.palm(k.selected_voice, palm)
 			elseif message.cc == 18 then
 				k:bend(-math.min(1, message.val / 126)) -- TODO: not sure why 126 is the max value I'm getting from Touche...
