@@ -78,7 +78,6 @@ function Echo:init()
 			-- (the tricky part will be handling this near the rec head's loop points...)
 			local div_jump_compensation = 1
 			if self.div_dirty then
-				-- TODO: reduce feedback
 				-- move the play head closer to or further from the record head, depending on echo_div
 				self.div = params:get('echo_time_div') + self.jump_div
 				local new_position = position - (self.head_distance * math.pow(2, self.div + self.resolution))
@@ -123,7 +122,6 @@ function Echo:init()
 		softcut.enable(scv, 1)
 	end
 
-	-- TODO: change mix and/or freq with resolution... and/or rate
 	softcut.pre_filter_dry(self.rec_voice, 0.8)
 	softcut.pre_filter_hp(self.rec_voice, 0.2)
 	softcut.pre_filter_fc(self.rec_voice, 30)
