@@ -73,6 +73,7 @@ Engine_Cule : CroneEngine {
 			\amp,
 			\hand,
 			\eg,
+			\eg2,
 			\lfoA,
 			\lfoB,
 			\lfoC,
@@ -174,7 +175,7 @@ Engine_Cule : CroneEngine {
 				loopStart, loopPhase, loopTrigger, loopOffset,
 				modulation = Dictionary.new,
 				recPitch, recTip, recHand, recGate, recTrig,
-				hand, freezeWithoutGate, eg, amp,
+				hand, freezeWithoutGate, eg, eg2, amp,
 				lfoA, lfoB, lfoC,
 				lfoAB, lfoBC, lfoCA,
 				lfoSHAB, lfoSHBC, lfoSHCA,
@@ -283,7 +284,18 @@ Engine_Cule : CroneEngine {
 			]) * (1 + modulation[\amp])).clip(0, 1);
 
 			// now save the modulation values for the next block
-			LocalOut.kr([amp, hand, eg, lfoA, lfoB, lfoC, lfoSHAB, lfoSHBC, lfoSHCA]);
+			LocalOut.kr([
+				amp,
+				hand,
+				eg,
+				eg * eg,
+				lfoA,
+				lfoB,
+				lfoC,
+				lfoSHAB,
+				lfoSHBC,
+				lfoSHCA
+			]);
 
 			pitch = pitch + shift;
 

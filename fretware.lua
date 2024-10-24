@@ -52,8 +52,8 @@ arp_direction_menu:select_value(0)
 
 source_menu = Menu.new(3, 6, 14, 2, {
 	-- map of source numbers (in editor.source_names) to keys
-	 _,  2,  _,  _,  3,  _,  4,  5,  6,  _,  _,  _,  _,  1,
-	 _,  _,  _,  _,  _,  _,  7,  8,  9,  _,  _,  _,  _,  _,
+	 _,  2,  _,  _,  3,  _,  5,  6,  7,  _,  _,  _,  _,  1,
+	 _,  _,  _,  _,  4,  _,  8,  9, 10,  _,  _,  _,  _,  _,
 })
 source_menu.multi = true
 source_menu:select_value(1)
@@ -106,6 +106,7 @@ editor = {
 		'amp',
 		'hand',
 		'eg',
+		'eg2',
 		'lfoA',
 		'lfoB',
 		'lfoC',
@@ -254,6 +255,7 @@ for s = 1, #editor.dests do
 		amp   = Slider.new(82, 7, 4, 57, 0),
 		hand  = Slider.new(82, 7, 4, 57, 0),
 		eg    = Slider.new(82, 7, 4, 57, 0),
+		eg2   = Slider.new(82, 7, 4, 57, 0),
 		lfoA  = Slider.new(82, 7, 4, 57, 0),
 		lfoB  = Slider.new(82, 7, 4, 57, 0),
 		lfoC  = Slider.new(82, 7, 4, 57, 0),
@@ -919,7 +921,7 @@ function init()
 				name = 'attack',
 				id = 'attack',
 				type = 'control',
-				controlspec = controlspec.new(0.001, 3, 'exp', 0, 0.001, 's'),
+				controlspec = controlspec.new(0.001, 7, 'exp', 0, 0.001, 's'),
 				action = function(value)
 					dest_sliders.attack:set_value(params:get_raw('attack') * 2 - 1)
 					engine.attack(value)
@@ -929,7 +931,7 @@ function init()
 				name = 'release',
 				id = 'release',
 				type = 'control',
-				controlspec = controlspec.new(0.001, 12, 'exp', 0, 1, 's'),
+				controlspec = controlspec.new(0.001, 26, 'exp', 0, 1, 's'),
 				action = function(value)
 					dest_sliders.release:set_value(params:get_raw('release') * 2 - 1)
 					engine.release(value)
@@ -1189,45 +1191,49 @@ function redraw()
 	screen.text('Am')
 
 	screen.level(source_menu:is_selected(2) and 15 or 3)
-	screen.move_rel(4, 0)
+	screen.move_rel(3, 0)
 	screen.text('Hd')
 
 	screen.level(source_menu:is_selected(3) and 15 or 3)
-	screen.move_rel(4, 0)
+	screen.move_rel(3, 0)
 	screen.text('En')
 
 	screen.level(source_menu:is_selected(4) and 15 or 3)
-	screen.move_rel(4, 0)
+	screen.move_rel(3, 0)
+	screen.text('En2')
+
+	screen.level(source_menu:is_selected(5) and 15 or 3)
+	screen.move_rel(3, 0)
 	screen.text('La')
 	screen.level(voice.lfoA_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level(source_menu:is_selected(5) and 15 or 3)
-	screen.move_rel(4, 0)
+	screen.level(source_menu:is_selected(6) and 15 or 3)
+	screen.move_rel(3, 0)
 	screen.text('Lb')
 	screen.level(voice.lfoB_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level(source_menu:is_selected(6) and 15 or 3)
-	screen.move_rel(4, 0)
+	screen.level(source_menu:is_selected(7) and 15 or 3)
+	screen.move_rel(3, 0)
 	screen.text('Lc')
 	screen.level(voice.lfoC_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level(source_menu:is_selected(7) and 15 or 3)
-	screen.move_rel(4, 0)
+	screen.level(source_menu:is_selected(8) and 15 or 3)
+	screen.move_rel(3, 0)
 	screen.text('Ab')
 	screen.level(voice.lfoAB_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level(source_menu:is_selected(8) and 15 or 3)
-	screen.move_rel(4, 0)
+	screen.level(source_menu:is_selected(9) and 15 or 3)
+	screen.move_rel(3, 0)
 	screen.text('Bc')
 	screen.level(voice.lfoBC_gate and 15 or 3)
 	screen.text('.')
 
-	screen.level(source_menu:is_selected(9) and 15 or 3)
-	screen.move_rel(4, 0)
+	screen.level(source_menu:is_selected(10) and 15 or 3)
+	screen.move_rel(3, 0)
 	screen.text('Ca')
 	screen.level(voice.lfoCA_gate and 15 or 3)
 	screen.text('.')
