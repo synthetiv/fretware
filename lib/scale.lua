@@ -23,7 +23,7 @@ function Scale:init(pitch_class_values, length)
 	self.span = self.values[length]
 end
 
-function Scale:get_nearest_pitch_id(value, get_pair, do_debug)
+function Scale:get_nearest_pitch_id(value, get_pair)
 	local values = self.values
 	-- constrain to 1 scale span (octave or other)
 	local span = math.floor(value / self.span)
