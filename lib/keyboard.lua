@@ -593,6 +593,7 @@ function Keyboard:draw()
 		self.voice_data[v].high = high
 		self.voice_data[v].weight = weight
 		self.voice_data[v].amp = voice_states[v].amp
+		self.voice_data[v].mix_level = voice_states[v].mix_level
 		has_voice_key_held = has_voice_key_held or self.held_keys.voice_loops[v]
 		g:led(2, 8 - v, self.selected_voice == v and 8 or 2)
 	end
@@ -620,9 +621,13 @@ function Keyboard:draw()
 				local is_control = self.selected_voice == v and 1 or 0
 				if p == voice.low or p == voice.high then
 					local voice_level = ((is_control * 4) + (is_control * 3 + 16) * math.sqrt(voice.amp))
-					-- when any voice's loop key is held, dim OTHER voices
-					if has_voice_key_held and not self.held_keys.voice_loops[v] then
-						voice_level = voice_level * 0.1
+					if not self.held_keys.voice_loops[v] then
+						-- when this voice's loop key is not held, scale brightness by output level in mix
+						voice_level = voice_level * voice.mix_level
+						-- when any OTHER voice's loop key is held, dim non-held voices
+						if has_voice_key_held then
+							voice_level = voice_level * 0.1
+						end
 					end
 					-- scale levels of high + low approximations of this voice's pitch by weight
 					if p == voice.low then

@@ -265,13 +265,14 @@ for s = 1, #editor.dests do
 	}
 end
 
--- held_keys = { false, false, false }
+held_keys = { false, false, false }
 
 voice_states = {}
 for v = 1, n_voices do
 	voice_states[v] = {
 		pitch = 0,
 		amp = 0,
+		mix_level = 1,
 		shift = 0,
 		looping = false,
 		looping_next = false,
@@ -1003,6 +1004,7 @@ function init()
 				if v == k.selected_voice then
 					dest_sliders.amp:set_value(params:get_raw('outLevel_' .. v) * 2 - 1)
 				end
+				voice_states[v].mix_level = value
 				engine.outLevel(v, value)
 			end
 		}
@@ -1268,12 +1270,18 @@ function enc(n, d)
 		dest_menu:select_value(util.wrap(dest_menu.value + d, 1, #editor.dests))
 	elseif n == 3 then
 		local dest = editor.dests[dest_menu.value]
-		params:delta(editor.source_names[source_menu.value] .. '_' .. dest.name, d)
+		if not held_keys[3] then
+			params:delta(editor.source_names[source_menu.value] .. '_' .. dest.name, d)
+		elseif dest.voice_param then
+			params:delta(dest.voice_param .. '_' .. k.selected_voice, d)
+		else
+			params:delta(dest.name, d)
+		end
 	end
 end
 
 function key(n, z)
-	-- held_keys[n] = z == 1 and util.time() or false
+	held_keys[n] = z == 1 and util.time() or false
 end
 
 function cleanup()
