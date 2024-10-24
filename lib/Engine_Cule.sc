@@ -114,7 +114,7 @@ Engine_Cule : CroneEngine {
 
 		// control-rate outputs for pitch, amp, trigger, and LFO states, to feed polls
 		voiceStateBuses = Array.fill(nVoices, {
-			Bus.control(context.server, 9);
+			Bus.control(context.server, 6);
 		});
 
 		controlBuffers = Array.fill(nVoices, {
@@ -177,7 +177,6 @@ Engine_Cule : CroneEngine {
 				recPitch, recTip, recHand, recGate, recTrig,
 				hand, freezeWithoutGate, eg, eg2, amp,
 				lfoA, lfoB, lfoC,
-				lfoAB, lfoBC, lfoCA,
 				lfoSHAB, lfoSHBC, lfoSHCA,
 				hz, fmInput, opB, fmMix, opA,
 				hpRQ, lpRQ,
@@ -248,12 +247,9 @@ Engine_Cule : CroneEngine {
 			lfoCFreq = lfoCFreq * 8.pow(modulation[\lfoCFreq]);
 			lfoC = LFTri.kr(lfoCFreq, 4.rand);
 
-			lfoAB = BinaryOpUGen('>=', lfoA, lfoB);
-			lfoBC = BinaryOpUGen('>=', lfoB, lfoC);
-			lfoCA = BinaryOpUGen('>=', lfoC, lfoA);
-			lfoSHAB = Latch.kr(lfoA, Changed.kr(lfoAB));
-			lfoSHBC = Latch.kr(lfoB, Changed.kr(lfoBC));
-			lfoSHCA = Latch.kr(lfoC, Changed.kr(lfoCA));
+			lfoSHAB = Latch.kr(lfoB, lfoA > 0);
+			lfoSHBC = Latch.kr(lfoC, lfoB > 0);
+			lfoSHCA = Latch.kr(lfoA, lfoC > 0);
 
 			// params with additive modulation
 			detuneA  = detuneA.cubed.lag(lag) + modulation[\detuneA];
@@ -300,7 +296,7 @@ Engine_Cule : CroneEngine {
 			pitch = pitch + shift;
 
 			// send control values to bus for polling
-			Out.kr(\voiceStateBus.ir, [amp, pitch, t_trig, lfoA > 0, lfoB > 0, lfoC > 0, lfoAB, lfoBC, lfoCA]);
+			Out.kr(\voiceStateBus.ir, [amp, pitch, t_trig, lfoA > 0, lfoB > 0, lfoC > 0]);
 
 			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
 			// if I try that, SC seems to just hang forever, no error message
@@ -369,8 +365,8 @@ Engine_Cule : CroneEngine {
 			var replyTrig = Impulse.kr(replyRate);
 			nVoices.do({ |v|
 				var isSelected = BinaryOpUGen('==', selectedVoice, v);
-				var amp, pitch, trig, lfoA, lfoB, lfoC, lfoAB, lfoBC, lfoCA, pitchTrig;
-				# amp, pitch, trig, lfoA, lfoB, lfoC, lfoAB, lfoBC, lfoCA = In.kr(voiceStateBuses[v], 9);
+				var amp, pitch, trig, lfoA, lfoB, lfoC, pitchTrig;
+				# amp, pitch, trig, lfoA, lfoB, lfoC = In.kr(voiceStateBuses[v], 6);
 
 				// what's important is peak amplitude, not exact current amplitude at poll time
 				amp = Peak.kr(amp, replyTrig);
@@ -384,9 +380,6 @@ Engine_Cule : CroneEngine {
 				SendReply.kr(Changed.kr(lfoA) * isSelected, '/lfoGate', [v, 0, lfoA]);
 				SendReply.kr(Changed.kr(lfoB) * isSelected, '/lfoGate', [v, 1, lfoB]);
 				SendReply.kr(Changed.kr(lfoC) * isSelected, '/lfoGate', [v, 2, lfoC]);
-				SendReply.kr(Changed.kr(lfoAB) * isSelected, '/lfoGate', [v, 3, lfoAB]);
-				SendReply.kr(Changed.kr(lfoBC) * isSelected, '/lfoGate', [v, 4, lfoBC]);
-				SendReply.kr(Changed.kr(lfoCA) * isSelected, '/lfoGate', [v, 5, lfoCA]);
 			});
 		}).add;
 
