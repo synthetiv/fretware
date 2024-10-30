@@ -26,9 +26,9 @@ function Echo.new()
 		tone = 0,
 		tone_dirty = false,
 		gain_compensation = 0.838,
-		gain_base = 0.838,
-		gain_hp = 0.855,
-		gain_lp = 0.855,
+		--gain_base = 0.838,
+		--gain_hp = 0.855,
+		--gain_lp = 0.855,
 		wow = 0,
 		flutter = 0,
 		jump_amount = 0,
@@ -55,10 +55,10 @@ function Echo:init()
 			if self.tone_dirty then
 				if self.tone >= 0 then
 					softcut.post_filter_fc(self.play_voice, self.cutoff_hp)
-					self.gain_compensation = util.linexp(0.1, 1, self.gain_base, self.gain_hp, self.tone)
+					-- self.gain_compensation = util.linexp(0.1, 1, self.gain_base, self.gain_hp, self.tone)
 				else
 					softcut.post_filter_fc(self.play_voice, self.cutoff_lp)
-					self.gain_compensation = util.linexp(0.1, 1, self.gain_base, self.gain_lp, -self.tone)
+					-- self.gain_compensation = util.linexp(0.1, 1, self.gain_base, self.gain_lp, -self.tone)
 				end
 				softcut.post_filter_dry(self.play_voice, util.linlin(0.1, 1, 1, 0, math.abs(self.tone)))
 				softcut.post_filter_lp(self.play_voice, util.linlin(0.1, 1, 0, 1, -self.tone))
