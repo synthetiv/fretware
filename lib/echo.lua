@@ -298,7 +298,7 @@ function Echo:add_params()
 		name = 'echo wow depth',
 		id = 'echo_wow_depth',
 		type = 'control',
-		controlspec = controlspec.new(0, 1, 'lin', 0, 0.1, 'x'),
+		controlspec = controlspec.new(0, 1, 'lin', 0, 0.02, 'x'),
 		action = function(value)
 			self.wowLFO:set('depth', value)
 		end
@@ -318,7 +318,7 @@ function Echo:add_params()
 		name = 'echo flutter depth',
 		id = 'echo_flutter_depth',
 		type = 'control',
-		controlspec = controlspec.new(0, 1, 'lin', 0, 0.1, 'x'),
+		controlspec = controlspec.new(0, 1, 'lin', 0, 0.02, 'x'),
 		action = function(value)
 			self.flutterLFO:set('depth', value)
 		end
