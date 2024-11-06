@@ -342,6 +342,8 @@ for c = 1, 3 do
 			if arp_lattice_reset.interval == c and not arp_lattice_reset.key_held then
 				arp_lattice:start()
 				arp_lattice_reset.interval = false
+				-- send transport start signal to any devices connected to UC4
+				uc4:start()
 			end
 		end
 	end)
