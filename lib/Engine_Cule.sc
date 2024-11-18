@@ -17,7 +17,6 @@ Engine_Cule : CroneEngine {
 	var nRatios;
 
 	var baseFreqBus;
-	var controlBuffers;
 	var voiceSynths;
 	var patchBuses;
 	var replySynth;
@@ -117,15 +116,10 @@ Engine_Cule : CroneEngine {
 			Bus.control(context.server, 6);
 		});
 
-		controlBuffers = Array.fill(nVoices, {
-			Buffer.alloc(context.server, context.server.sampleRate / context.server.options.blockSize * maxLoopTime * bufferRateScale, nRecordedModulators);
-		});
-
 		// TODO: LFOs as separate synths
 		voiceDef = SynthDef.new(\line, {
 
 			arg voiceIndex,
-				buffer,
 				pitch = 0,
 				gate = 0,
 				t_trig = 0,
@@ -171,7 +165,7 @@ Engine_Cule : CroneEngine {
 
 				outLevel = 0.2;
 
-			var bufferRate, bufferLength, bufferPhase,
+			var bufferRate, bufferLength, bufferPhase, buffer,
 				loopStart, loopPhase, loopTrigger, loopOffset,
 				modulation = Dictionary.new,
 				recPitch, recTip, recHand, recGate, recTrig,
@@ -190,8 +184,9 @@ Engine_Cule : CroneEngine {
 
 			// create buffer for looping pitch/amp/control data
 			bufferRate = ControlRate.ir * bufferRateScale;
-			bufferLength = BufFrames.kr(buffer);
+			bufferLength = context.server.sampleRate / context.server.options.blockSize * maxLoopTime * bufferRateScale;
 			bufferPhase = Phasor.kr(rate: bufferRateScale * (1 - freeze), end: bufferLength);
+			buffer = LocalBuf.new(bufferLength, nRecordedModulators);
 			loopStart = bufferPhase - (loopLength * bufferRate).min(bufferLength);
 			loopPhase = Phasor.kr(Trig.kr(freeze) + t_loopReset, bufferRateScale * loopRateScale, loopStart, bufferPhase, loopStart);
 			// TODO: confirm that this is really firing when it's supposed to (i.e. when loopPhase
@@ -403,7 +398,6 @@ Engine_Cule : CroneEngine {
 			arg i;
 			var synth = Synth.new(\line, [
 				\voiceIndex, i,
-				\buffer, controlBuffers[i],
 				\voiceStateBus, voiceStateBuses[i],
 			], context.og, \addToTail); // "output" group
 			patchArgs.do({ |name| synth.map(name, patchBuses[name]) });
@@ -513,7 +507,6 @@ Engine_Cule : CroneEngine {
 	free {
 		replySynth.free;
 		voiceSynths.do({ |synth| synth.free });
-		controlBuffers.do({ |buffer| buffer.free });
 		patchBuses.do({ |bus| bus.free });
 		voiceAmpReplyFunc.free;
 		voicePitchReplyFunc.free;
