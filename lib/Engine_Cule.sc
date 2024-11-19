@@ -106,7 +106,8 @@ Engine_Cule : CroneEngine {
 		// declared as one array, but stored as two arrays, one with odd and one with even
 		// members of the original; this allows operators to crossfade between two ratios
 		// (see harmonicOsc function)
-		fmRatios = [1/8, 1/4, 1/2, 1, 2, 4, 6, 7, 8, 9, 11, 13].clump(2).flop;
+		fmRatios = [1/128, 1/64, 1/32, 1/16, 1/8, 1/4, 1/2,
+			1, 2, /* 3, */ 4, /* 5, */ 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].clump(2).flop;
 		// fmRatios = ([1, 2, 4, 6, 7, 8, 9, 11, 12, 13, 14, 16] / 8).clump(2).flop;
 		nRatios = fmRatios.flatten.size;
 
