@@ -5,8 +5,7 @@ Engine_Cule : CroneEngine {
 	classvar bufferRateScale = 0.5;
 	classvar maxLoopTime = 32;
 
-	var voiceDef;
-	var replyDef;
+	var controlDef;
 
 	var parameterNames;
 	var modulatorNames;
@@ -17,6 +16,8 @@ Engine_Cule : CroneEngine {
 	var nRatios;
 
 	var baseFreqBus;
+	var audioBuses;
+	var controlBuses;
 	var controlBuffers;
 	var voiceSynths;
 	var patchBuses;
@@ -84,7 +85,6 @@ Engine_Cule : CroneEngine {
 
 		// non-patch, single-voice-specific args
 		voiceArgs = [
-			\voiceIndex,
 			\voiceStateBus,
 			\buffer,
 			\pitch,
@@ -118,15 +118,25 @@ Engine_Cule : CroneEngine {
 			Bus.control(context.server, 6);
 		});
 
+		audioBuses = Array.fill(nVoices, {
+			Bus.audio(context.server, 3);
+		});
+
+		controlBuses = Array.fill(nVoices, {
+			Bus.control(context.server, 19);
+		});
+
 		controlBuffers = Array.fill(nVoices, {
 			Buffer.alloc(context.server, context.server.sampleRate / context.server.options.blockSize * maxLoopTime * bufferRateScale, nRecordedModulators);
 		});
 
-		// TODO: LFOs as separate synths
-		voiceDef = SynthDef.new(\line, {
+		// TODO: separate synths for:
+		// - operators (switchable: FM, self-FM, maybe xfaded band limited waves)
+		// - LFOs (mainly to keep things Dry)
+		// - effects (squiz, waveloss, tuned comb filter? streson?)
+		controlDef = SynthDef.new(\voiceControls, {
 
-			arg voiceIndex,
-				buffer,
+			arg buffer,
 				pitch = 0,
 				gate = 0,
 				t_trig = 0,
@@ -139,8 +149,6 @@ Engine_Cule : CroneEngine {
 				loopPosition = 0,
 				loopRateScale = 1,
 
-				shift = 0,
-				pitchSlew = 0.01,
 				hpCutoff = 0.0,
 				lpCutoff = 0.8,
 
@@ -168,9 +176,7 @@ Engine_Cule : CroneEngine {
 				loss = 0,
 
 				pan = 0,
-				lag = 0.1,
-
-				outLevel = 0.2;
+				lag = 0.1;
 
 			var bufferRate, bufferLength, bufferPhase,
 				loopStart, loopPhase, loopTrigger, loopOffset,
@@ -180,7 +186,6 @@ Engine_Cule : CroneEngine {
 				lfoA, lfoB, lfoC,
 				lfoSHAB, lfoSHBC, lfoSHCA,
 				hz, fmInput, opB, fmMix, opA,
-				hpRQ, lpRQ,
 				voiceOutput,
 				highPriorityUpdate;
 
@@ -294,56 +299,95 @@ Engine_Cule : CroneEngine {
 				lfoSHCA
 			]);
 
-			pitch = pitch + shift;
+			pitch = pitch + \shift.kr;
 
 			// send control values to bus for polling
 			Out.kr(\voiceStateBus.ir, [amp, pitch, t_trig, lfoA > 0, lfoB > 0, lfoC > 0]);
 
 			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
 			// if I try that, SC seems to just hang forever, no error message
-			pitch = Lag.kr(pitch, pitchSlew);
+			pitch = Lag.kr(pitch, \pitchSlew.kr);
 
-			hz = 2.pow(pitch) * In.kr(baseFreqBus);
-			opB = this.harmonicOsc(
+			Out.kr(\controlBus.ir, [
+				// grouped in fives for easy counting
+				pitch, amp, pan, ratioA, fadeSizeA,
+				detuneA, fmIndex, ratioB, fadeSizeB, detuneB,
+				fbB, opMix, squiz, loss, hpCutoff,
+				\hpRQ.kr(0.7), lpCutoff, lpRQ.kr(0.7), \outLevel.kr(0.2)
+			]);
+		}).add;
+
+		// Self-FM operator
+		SynthDef.new(\operatorFB, {
+			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus);
+			var output = this.harmonicOsc(
 				SinOscFB,
-				hz * (9 / 4).pow(detuneB),
-				ratioB,
-				fadeSizeB,
-				fbB.lincurve(-1, 1, 0, pi, 3, \min)
+				hz * (9 / 4).pow(\detune.kr),
+				\ratio.kr,
+				\fadeSize.kr,
+				\fb.kr.lincurve(-1, 1, 0, pi, 3, \min)
 			);
-			// FM index gets scaled by a factor of 0.7 per octave (exponential). this
-			// makes timbre feel more evenly balanced across a range of several octaves.
-			fmMix = opB * fmIndex.lincurve(-1, 1, 0, 10pi, 4, \min) * 0.7.pow(pitch);
-			fmMix = fmMix.mod(2pi);
-			opA = this.harmonicOsc(
+			Out.ar(\outBus.ir, output);
+		}).add;
+
+		// External-FM operator
+		SynthDef.new(\operatorFM, {
+			var pitch = \pitch.kr;
+			var hz = 2.pow(pitch) * In.kr(baseFreqBus);
+			var output = this.harmonicOsc(
 				SinOsc,
-				hz * (9 / 4).pow(detuneA),
-				ratioA,
-				fadeSizeA,
-				fmMix
+				hz * (9 / 4).pow(\detune.kr),
+				\ratio.kr,
+				\fadeSize.kr,
+				(In.ar(\inBus.ir) * \fm.kr.lincurve(-1, 1, 0, 10pi, 4, \min) * 0.7.pow(pitch)).mod(2pi)
 			);
+			Out.ar(\outBus.ir, output);
+		}).add;
 
-
-			// gotta convert to audio rate before wrapping or we get glitches when crossing the wrap point
-			voiceOutput = SelectX.ar(K2A.ar(opMix.linlin(-1, 1, 0, 4, nil)).wrap(0, 3), [
+		SynthDef.new(\operatorMixer, {
+			var opA = In.ar(\opA.ir);
+			var opB = In.ar(\opB.ir);
+			// mix param is audio rate so it can be wrapped without audible glitches when wrapping
+			// TODO: make sure using \mix.ar does the proper KR->AR conversion -- test by listening for
+			// glitches when crossing the wrap point
+			var output = SelectX.ar(\mix.ar.linlin(-1, 1, 0, 4, nil).wrap(0, 3), [
 				opA,
 				opB,
 				opA * opB * 3.dbamp, // compensate for amplitude loss from sine * sine
-				opA,
+				opA
 			]);
+			Out.ar(\bus.ir, output);
+		}).add;
 
-			// apply FX
-			voiceOutput = WaveLoss.ar(voiceOutput, loss.lincurve(-1, 1, 0, 127, 4), 127, mode: 2);
-			voiceOutput = Squiz.ar(voiceOutput, squiz.lincurve(-1, 1, 1, 16, 4), 2);
+		SynthDef.new(\fxSquiz, {
+			var bus = \bus.ir;
+			ReplaceOut.ar(bus, Squiz.ar(In.ar(bus), \intensity.kr.lincurve(-1, 1, 1, 16, 4), 2));
+		}).add;
 
-			hpCutoff = hpCutoff.linexp(-1, 1, 4, 24000);
+		SynthDef.new(\fxWaveLoss, {
+			var bus = \bus.ir;
+			ReplaceOut.ar(bus,
+				WaveLoss.ar(In.ar(bus), \intensity.kr.lincurve(-1, 1, 0, 127, 4), 127, mode: 2)
+			);
+		}).add;
+
+		SynthDef.new(\voiceOutputStage, {
+
+			var hpCutoff, hpRQ,
+				lpCutoff, lpRQ;
+			var voiceOutput = In.ar(\bus.ir);
+
+			// HPF
+			hpCutoff = \hpCutoff.kr(-1).linexp(-1, 1, 4, 24000);
 			hpRQ = \hpRQ.kr(0.7);
 			hpRQ = hpCutoff.linexp(SampleRate.ir * 0.25 / hpRQ, SampleRate.ir * 0.5, hpRQ, 0.5).min(hpRQ);
 			voiceOutput = Select.ar(\hpOn.kr(1), [
 				voiceOutput,
 				RHPF.ar(voiceOutput, hpCutoff, hpRQ)
 			]);
-			lpCutoff = lpCutoff.linexp(-1, 1, 4, 24000);
+
+			// LPF
+			lpCutoff = \lpCutoff.kr(1).linexp(-1, 1, 4, 24000);
 			lpRQ = \lpRQ.kr(0.7);
 			lpRQ = lpCutoff.linexp(SampleRate.ir * 0.25 / lpRQ, SampleRate.ir * 0.5, lpRQ, 0.5).min(lpRQ);
 			voiceOutput = Select.ar(\lpOn.kr(1), [
@@ -352,15 +396,15 @@ Engine_Cule : CroneEngine {
 			]);
 
 			// scale by amplitude control value
-			voiceOutput = voiceOutput * amp;
+			voiceOutput = voiceOutput * \amp.kr;
 
 			// filter and write to main outs
-			Out.ar(context.out_b, Pan2.ar(voiceOutput * Lag.kr(outLevel, 0.05), pan));
+			Out.ar(context.out_b, Pan2.ar(voiceOutput * Lag.kr(\outLevel.kr, 0.05), \pan.kr));
 		}).add;
 
-		patchArgs = voiceDef.allControlNames.collect({ |control| control.name }).difference(voiceArgs);
+		patchArgs = controlDef.allControlNames.collect({ |control| control.name }).difference(voiceArgs);
 
-		replyDef = SynthDef.new(\reply, {
+		SynthDef.new(\reply, {
 			arg selectedVoice = 0,
 				replyRate = 15;
 			var replyTrig = Impulse.kr(replyRate);
@@ -391,7 +435,7 @@ Engine_Cule : CroneEngine {
 		baseFreqBus.setSynchronous(60.midicps);
 
 		patchBuses = Dictionary.new;
-		voiceDef.allControlNames.do({
+		controlDef.allControlNames.do({
 			arg control;
 			if(patchArgs.includes(control.name), {
 				var bus = Bus.control(context.server);
@@ -402,13 +446,67 @@ Engine_Cule : CroneEngine {
 
 		voiceSynths = Array.fill(nVoices, {
 			arg i;
-			var synth = Synth.new(\line, [
-				\voiceIndex, i,
+
+			var controlSynth = Synth.new(\voiceControls, [
 				\buffer, controlBuffers[i],
+				\controlBus, controlBuses[i],
 				\voiceStateBus, voiceStateBuses[i],
 			], context.og, \addToTail); // "output" group
-			patchArgs.do({ |name| synth.map(name, patchBuses[name]) });
-			synth;
+			patchArgs.do({ |name| controlSynth.map(name, patchBuses[name]) });
+
+			var opBBus = Bus.newFrom(audioBuses[i], 2);
+			var opB = Synth.new(\operatorFB, [
+				\outBus, opBBus
+			], context.og, \addToTail);
+			opB.map(\pitch,    Bus.newFrom(controlBuses[i], 0));
+			opB.map(\ratio,    Bus.newFrom(controlBuses[i], 7));
+			opB.map(\fadeSize, Bus.newFrom(controlBuses[i], 8));
+			opB.map(\detune,   Bus.newFrom(controlBuses[i], 9));
+			opB.map(\fb,       Bus.newFrom(controlBuses[i], 10));
+
+			var opABus = Bus.newFrom(audioBuses[i], 1);
+			var opA = Synth.new(\operatorFB, [
+				\inBus, opBBus,
+				\outBus, opABus
+			], context.og, \addToTail);
+			opA.map(\pitch,    Bus.newFrom(controlBuses[i], 0));
+			opA.map(\ratio,    Bus.newFrom(controlBuses[i], 3));
+			opA.map(\fadeSize, Bus.newFrom(controlBuses[i], 4));
+			opA.map(\detune,   Bus.newFrom(controlBuses[i], 5));
+			opA.map(\fm,       Bus.newFrom(controlBuses[i], 6));
+
+			var mixBus = Bus.newFrom(controlBuses[i], 11);
+			var opMixer = Synth.new(\operatorMixer, [
+				\opA, opABus,
+				\opB, opBBus
+			], context.og, \addToTail);
+			opMixer.map(\mix, mixBus);
+
+			// TODO: try switching the order of Squiz and WaveLoss!
+			var fxB = Synth.new(\fxWaveLoss, [
+				\bus, mixBus
+			], context.og, \addToTail);
+			fxB.map(\intensity, Bus.newFrom(controlBuses[i], 13));
+
+			var fxA = Synth.new(\fxWaveLoss, [
+				\bus, mixBus
+			], context.og, \addToTail);
+			fxA.map(\intensity, Bus.newFrom(controlBuses[i], 12));
+
+			var out = Synth.new(\voiceOutputStage, [
+				\bus, mixBus
+			], context.og, \addToTail);
+			out.map(\amp,      Bus.newFrom(controlBuses[i], 1));
+			out.map(\pan,      Bus.newFrom(controlBuses[i], 2));
+			out.map(\hpCutoff, Bus.newFrom(controlBuses[i], 14));
+			out.map(\hpRQ,     Bus.newFrom(controlBuses[i], 15));
+			out.map(\lpCutoff, Bus.newFrom(controlBuses[i], 16));
+			out.map(\lpRQ,     Bus.newFrom(controlBuses[i], 17));
+			out.map(\outLevel, Bus.newFrom(controlBuses[i], 18));
+
+			// TODO: return ALL synths so they can be freed, and replaced...
+			// AND/OR, assign them all to a group so the whole group can be freed
+			[ controlSynth, opB, opA, opMixer, fxB, fxA, out ];
 		});
 
 		replySynth = Synth.new(\reply, [], context.og, \addToTail);
@@ -470,7 +568,7 @@ Engine_Cule : CroneEngine {
 
 		this.addCommand(\setLoop, "if", {
 			arg msg;
-			voiceSynths[msg[1] - 1].set(
+			voiceSynths[msg[1] - 1][0].set(
 				\loopLength, msg[2],
 				\loopRateScale, 1,
 				\freeze, 1
@@ -479,12 +577,12 @@ Engine_Cule : CroneEngine {
 
 		this.addCommand(\resetLoopPhase, "i", {
 			arg msg;
-			voiceSynths[msg[1] - 1].set(\t_loopReset, 1);
+			voiceSynths[msg[1] - 1][0].set(\t_loopReset, 1);
 		});
 
 		this.addCommand(\clearLoop, "i", {
 			arg msg;
-			voiceSynths[msg[1] - 1].set(\freeze, 0);
+			voiceSynths[msg[1] - 1][0].set(\freeze, 0);
 		});
 
 		patchArgs.do({
@@ -498,14 +596,14 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\gate, "ii", {
 			arg msg;
 			var value = msg[2];
-			voiceSynths[msg[1] - 1].set(\gate, value, \t_trig, value);
+			voiceSynths[msg[1] - 1][0].set(\gate, value, \t_trig, value);
 		});
 
 		voiceArgs.do({
 			arg name;
 			if(name !== \gate, {
 				this.addCommand(name, "if", { |msg|
-					voiceSynths[msg[1] - 1].set(name, msg[2]);
+					voiceSynths[msg[1] - 1][0].set(name, msg[2]);
 				});
 			});
 		});
@@ -513,7 +611,7 @@ Engine_Cule : CroneEngine {
 
 	free {
 		replySynth.free;
-		voiceSynths.do({ |synth| synth.free });
+		voiceSynths.do({ |synths| synths.do({ |synth| synth.free }) });
 		controlBuffers.do({ |buffer| buffer.free });
 		patchBuses.do({ |bus| bus.free });
 		voiceAmpReplyFunc.free;
