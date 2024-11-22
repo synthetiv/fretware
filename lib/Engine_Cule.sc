@@ -3,7 +3,7 @@ Engine_Cule : CroneEngine {
 	classvar nVoices = 5;
 	classvar nRecordedModulators = 6;
 	classvar bufferRateScale = 0.5;
-	classvar maxLoopTime = 32;
+	classvar maxLoopTime = 60;
 
 	var voiceDef;
 	var replyDef;
