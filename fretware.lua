@@ -439,8 +439,10 @@ function g.key(x, y, z)
 								local dest_name = editor.dests[dest].name
 								if do_reset then
 									params:lookup_param(source_name .. '_' .. dest_name):set_default()
+									_menu.set_mode(false)
 								else
 									params:delta(source_name .. '_' .. dest_name, delta * 6.25)
+									_menu.set_mode(false)
 								end
 							end
 						end
@@ -454,6 +456,7 @@ function g.key(x, y, z)
 							for dest = 1, #editor.dests do
 								local dest_name = editor.dests[dest].name
 								params:lookup_param(source_name .. '_' .. dest_name):set_default()
+								_menu.set_mode(false)
 							end
 						end
 					end
@@ -463,6 +466,7 @@ function g.key(x, y, z)
 							for source = 1, #editor.source_names do
 								local source_name = editor.source_names[source]
 								params:lookup_param(source_name .. '_' .. dest_name):set_default()
+								_menu.set_mode(false)
 							end
 						end
 					end
