@@ -824,34 +824,12 @@ function init()
 	params:add_group('filter settings', 4)
 
 	params:add {
-		name = 'lp on',
-		id = 'lpOn',
-		type = 'option',
-		options = { 'off', 'on' },
-		default = 2,
-		action = function(value)
-			engine.lpOn(value - 1)
-		end
-	}
-
-	params:add {
 		name = 'lp q',
 		id = 'lpQ',
 		type = 'control',
 		controlspec = controlspec.new(1, 5, 'exp', 0, 1.414),
 		action = function(value)
 			engine.lpRQ(1 / value)
-		end
-	}
-
-	params:add {
-		name = 'hp on',
-		id = 'hpOn',
-		type = 'option',
-		options = { 'off', 'on' },
-		default = 2,
-		action = function(value)
-			engine.hpOn(value - 1)
 		end
 	}
 
