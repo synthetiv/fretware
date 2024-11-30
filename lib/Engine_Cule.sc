@@ -336,8 +336,8 @@ Engine_Cule : CroneEngine {
 				SinOscFB,
 				hz * (9 / 4).pow(\detune.kr),
 				\ratio.kr,
-				\fadeSize.kr,
-				\index.kr.lincurve(-1, 1, 0, pi, 3, \min)
+				\fadeSize.kr(1),
+				\index.kr(-1).lincurve(-1, 1, 0, pi, 3, \min)
 			);
 			Out.ar(\outBus.ir, output);
 		}).add;
@@ -350,8 +350,8 @@ Engine_Cule : CroneEngine {
 				SinOsc,
 				hz * (9 / 4).pow(\detune.kr),
 				\ratio.kr,
-				\fadeSize.kr,
-				(InFeedback.ar(\inBus.ir) * \index.kr.lincurve(-1, 1, 0, 10pi, 4, \min) * 0.7.pow(pitch)).mod(2pi)
+				\fadeSize.kr(1),
+				(InFeedback.ar(\inBus.ir) * \index.kr(-1).lincurve(-1, 1, 0, 10pi, 4, \min) * 0.7.pow(pitch)).mod(2pi)
 			);
 			Out.ar(\outBus.ir, output);
 		}).add;
