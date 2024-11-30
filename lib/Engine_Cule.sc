@@ -44,6 +44,24 @@ Engine_Cule : CroneEngine {
 		);
 	}
 
+	swapOp {
+		arg op, defName; // op A = 0, B = 1
+		nVoices.do({ |v|
+			var thisBus = Bus.newFrom(audioBuses[v], op + 1);
+			var thatBus = Bus.newFrom(audioBuses[v], (op + 1).mod(2) + 1);
+			var newOp = Synth.replace(voiceSynths[v][op + 1], defName, [
+				\inBus, thatBus,
+				\outBus, thisBus
+			]);
+			newOp.map(\pitch,    Bus.newFrom(controlBuses[v], 0));
+			newOp.map(\ratio,    Bus.newFrom(controlBuses[v], op * 4 + 3));
+			newOp.map(\fadeSize, Bus.newFrom(controlBuses[v], op * 4 + 4));
+			newOp.map(\detune,   Bus.newFrom(controlBuses[v], op * 4 + 5));
+			newOp.map(\index,    Bus.newFrom(controlBuses[v], op * 4 + 6));
+			voiceSynths[v].put(op + 1, newOp);
+		});
+	}
+
 	alloc {
 
 		// modulatable parameters for audio synths
@@ -52,10 +70,10 @@ Engine_Cule : CroneEngine {
 			\pan,
 			\ratioA,
 			\detuneA,
-			\fmIndex,
+			\indexA,
 			\ratioB,
 			\detuneB,
-			\fbB,
+			\indexB,
 			\opMix,
 			\squiz,
 			\loss,
@@ -156,14 +174,14 @@ Engine_Cule : CroneEngine {
 				ratioA = 0,
 				fadeSizeA = 0.5,
 				detuneA = 0,
-				fmIndex = 0,
+				indexA = 0,
 
 				opMix = 0,
 
 				ratioB = 0.3,
 				fadeSizeB = 0.5,
 				detuneB = 0,
-				fbB = 0,
+				indexB = 0,
 
 				squiz = 0,
 				loss = 0,
@@ -253,10 +271,10 @@ Engine_Cule : CroneEngine {
 
 			// params with additive modulation
 			detuneA  = detuneA.cubed.lag(lag) + modulation[\detuneA];
-			fmIndex  = fmIndex.lag(lag) + modulation[\fmIndex];
+			indexA   = indexA.lag(lag) + modulation[\indexA];
 			opMix    = opMix.lag(lag) + modulation[\opMix];
 			detuneB  = detuneB.cubed.lag(lag) + modulation[\detuneB];
-			fbB      = fbB.lag(lag) + modulation[\fbB];
+			indexB   = indexB.lag(lag) + modulation[\indexB];
 			hpCutoff = hpCutoff.lag(lag) + modulation[\hpCutoff];
 			lpCutoff = lpCutoff.lag(lag) + modulation[\lpCutoff];
 
@@ -305,8 +323,8 @@ Engine_Cule : CroneEngine {
 			Out.kr(\controlBus.ir, [
 				// grouped in fives for easy counting
 				pitch, amp, pan, ratioA, fadeSizeA,
-				detuneA, fmIndex, ratioB, fadeSizeB, detuneB,
-				fbB, opMix, squiz, loss, hpCutoff,
+				detuneA, indexA, ratioB, fadeSizeB, detuneB,
+				indexB, opMix, squiz, loss, hpCutoff,
 				\hpRQ.kr(0.7), lpCutoff, \lpRQ.kr(0.7), \outLevel.kr(0.2)
 			]);
 		}).add;
@@ -319,7 +337,7 @@ Engine_Cule : CroneEngine {
 				hz * (9 / 4).pow(\detune.kr),
 				\ratio.kr,
 				\fadeSize.kr,
-				\fb.kr.lincurve(-1, 1, 0, pi, 3, \min)
+				\index.kr.lincurve(-1, 1, 0, pi, 3, \min)
 			);
 			Out.ar(\outBus.ir, output);
 		}).add;
@@ -333,7 +351,7 @@ Engine_Cule : CroneEngine {
 				hz * (9 / 4).pow(\detune.kr),
 				\ratio.kr,
 				\fadeSize.kr,
-				(In.ar(\inBus.ir) * \fm.kr.lincurve(-1, 1, 0, 10pi, 4, \min) * 0.7.pow(pitch)).mod(2pi)
+				(InFeedback.ar(\inBus.ir) * \index.kr.lincurve(-1, 1, 0, 10pi, 4, \min) * 0.7.pow(pitch)).mod(2pi)
 			);
 			Out.ar(\outBus.ir, output);
 		}).add;
@@ -447,17 +465,19 @@ Engine_Cule : CroneEngine {
 			patchArgs.do({ |name| controlSynth.map(name, patchBuses[name]) });
 
 			opBBus = Bus.newFrom(audioBuses[i], 2);
+			opABus = Bus.newFrom(audioBuses[i], 1);
+
 			opB = Synth.new(\operatorFB, [
+				\inBus, opABus,
 				\outBus, opBBus
 			], context.og, \addToTail);
 			opB.map(\pitch,    Bus.newFrom(controlBuses[i], 0));
 			opB.map(\ratio,    Bus.newFrom(controlBuses[i], 7));
 			opB.map(\fadeSize, Bus.newFrom(controlBuses[i], 8));
 			opB.map(\detune,   Bus.newFrom(controlBuses[i], 9));
-			opB.map(\fb,       Bus.newFrom(controlBuses[i], 10));
+			opB.map(\index,    Bus.newFrom(controlBuses[i], 10));
 
-			opABus = Bus.newFrom(audioBuses[i], 1);
-			opA = Synth.new(\operatorFM, [
+			opA = Synth.new(\operatorFB, [
 				\inBus, opBBus,
 				\outBus, opABus
 			], context.og, \addToTail);
@@ -465,7 +485,7 @@ Engine_Cule : CroneEngine {
 			opA.map(\ratio,    Bus.newFrom(controlBuses[i], 3));
 			opA.map(\fadeSize, Bus.newFrom(controlBuses[i], 4));
 			opA.map(\detune,   Bus.newFrom(controlBuses[i], 5));
-			opA.map(\fm,       Bus.newFrom(controlBuses[i], 6));
+			opA.map(\index,    Bus.newFrom(controlBuses[i], 6));
 
 			mixBus = Bus.newFrom(audioBuses[i], 0);
 			opMixer = Synth.new(\operatorMixer, [
@@ -557,6 +577,12 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\baseFreq, "f", {
 			arg msg;
 			baseFreqBus.setSynchronous(msg[1]);
+		});
+
+		this.addCommand(\opType, "ii", {
+			arg msg;
+			var def = if(msg[2] - 1 == 1, \operatorFB, \operatorFM);
+			this.swapOp(msg[1] - 1, def);
 		});
 
 		this.addCommand(\setLoop, "if", {

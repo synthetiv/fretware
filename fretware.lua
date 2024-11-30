@@ -126,8 +126,8 @@ editor = {
 			default = 0
 		},
 		{
-			name = 'fmIndex',
-			label = 'fm index',
+			name = 'indexA',
+			label = 'index A',
 			default = -1,
 			source_defaults = {
 				amp = 0.2
@@ -149,8 +149,8 @@ editor = {
 			default = 0
 		},
 		{
-			name = 'fbB',
-			label = 'feedback B',
+			name = 'indexB',
+			label = 'index B',
 			default = -1,
 			has_divider = true
 		},
@@ -225,13 +225,13 @@ editor = {
 dest_sliders = {
 	ratioA   = Slider.new(82, 8, 2, 55),
 	detuneA  = Slider.new(101, 8, 2, 55, 0),
-	fmIndex  = Slider.new(120, 8, 2, 55),
+	indexA   = Slider.new(120, 8, 2, 55),
 
 	opMix    = Slider.new(196, 8, 2, 55, 0),
 
 	ratioB   = Slider.new(139, 8, 2, 55),
 	detuneB  = Slider.new(158, 8, 2, 55, 0),
-	fbB      = Slider.new(177, 8, 2, 55),
+	indexB   = Slider.new(177, 8, 2, 55),
 
 	squiz    = Slider.new(215, 8, 2, 55),
 	loss     = Slider.new(234, 8, 2, 55),
@@ -776,12 +776,34 @@ function init()
 	}
 
 	params:add {
+		name = 'op type A',
+		id = 'opTypeA',
+		type = 'option',
+		options = { 'FM', 'FB' },
+		default = 1,
+		action = function(value)
+			engine.opType(1, value)
+		end
+	}
+
+	params:add {
 		name = 'harmonic fade size B',
 		id = 'fadeSizeB',
 		type = 'control',
 		controlspec = controlspec.new(0.01, 1, 'lin', 0, 0.8),
 		action = function(value)
 			engine.fadeSizeB(value)
+		end
+	}
+
+	params:add {
+		name = 'op type B',
+		id = 'opTypeB',
+		type = 'option',
+		options = { 'FM', 'FB' },
+		default = 2,
+		action = function(value)
+			engine.opType(2, value)
 		end
 	}
 
