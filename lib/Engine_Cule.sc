@@ -62,6 +62,18 @@ Engine_Cule : CroneEngine {
 		});
 	}
 
+	swapFx {
+		arg slot, defName;
+		nVoices.do({ |v|
+			var bus = Bus.newFrom(audioBuses[v], 0);
+			var newFx = Synth.replace(voiceSynths[v][slot + 4], defName, [
+				\bus, bus
+			]);
+			newFx.map(\intensity, Bus.newFrom(controlBuses[v], 12 + slot));
+			voiceSynths[v].put(slot + 4, newFx);
+		});
+	}
+
 	alloc {
 
 		// modulatable parameters for audio synths
@@ -75,8 +87,8 @@ Engine_Cule : CroneEngine {
 			\detuneB,
 			\indexB,
 			\opMix,
-			\squiz,
-			\loss,
+			\fxA,
+			\fxB,
 			\hpCutoff,
 			\lpCutoff,
 			\attack,
@@ -142,10 +154,6 @@ Engine_Cule : CroneEngine {
 			Bus.control(context.server, 19);
 		});
 
-		// TODO: separate synths for:
-		// - operators (switchable: FM, self-FM, maybe xfaded band limited waves)
-		// - LFOs (mainly to keep things Dry)
-		// - effects (squiz, waveloss, tuned comb filter? streson?)
 		controlDef = SynthDef.new(\voiceControls, {
 
 			arg pitch = 0,
@@ -183,8 +191,8 @@ Engine_Cule : CroneEngine {
 				detuneB = 0,
 				indexB = 0,
 
-				squiz = 0,
-				loss = 0,
+				fxA = 0,
+				fxB = 0,
 
 				pan = 0,
 				lag = 0.1;
@@ -279,7 +287,8 @@ Engine_Cule : CroneEngine {
 			lpCutoff = lpCutoff.lag(lag) + modulation[\lpCutoff];
 
 			// multiplicative modulation
-			squiz    = squiz.lag(lag) * 4.pow(modulation[\squiz]);
+			fxA      = fxA.lag(lag) * 4.pow(modulation[\fxA]);
+			fxB      = fxB.lag(lag) * 4.pow(modulation[\fxB]);
 
 			// this weird-looking LinSelectX pattern scales modulation signals so that
 			// final parameter values (base + modulation) can reach [-1, 1], but not go beyond
@@ -324,7 +333,7 @@ Engine_Cule : CroneEngine {
 				// grouped in fives for easy counting
 				pitch, amp, pan, ratioA, fadeSizeA,
 				detuneA, indexA, ratioB, fadeSizeB, detuneB,
-				indexB, opMix, squiz, loss, hpCutoff,
+				indexB, opMix, fxA, fxB, hpCutoff,
 				\hpRQ.kr(0.7), lpCutoff, \lpRQ.kr(0.7), \outLevel.kr(0.2)
 			]);
 		}).add;
@@ -373,14 +382,32 @@ Engine_Cule : CroneEngine {
 
 		SynthDef.new(\fxSquiz, {
 			var bus = \bus.ir;
-			ReplaceOut.ar(bus, Squiz.ar(In.ar(bus), \intensity.kr.lincurve(-1, 1, 1, 16, 4), 2));
+			ReplaceOut.ar(bus, Squiz.ar(In.ar(bus), \intensity.kr.lincurve(-1, 1, 1, 16, 4, 'min'), 2));
 		}).add;
 
 		SynthDef.new(\fxWaveLoss, {
 			var bus = \bus.ir;
 			ReplaceOut.ar(bus,
-				WaveLoss.ar(In.ar(bus), \intensity.kr.lincurve(-1, 1, 0, 127, 4), 127, mode: 2)
+				WaveLoss.ar(In.ar(bus), \intensity.kr.lincurve(-1, 1, 0, 127, 4, 'min'), 127, mode: 2)
 			);
+		}).add;
+
+		SynthDef.new(\fxFold, {
+			var bus = \bus.ir;
+			ReplaceOut.ar(bus, (In.ar(bus) * \intensity.kr.linexp(-1, 1, 1, 27, 'min')).fold2);
+		}).add;
+
+		// Dimension C-style chorus
+		SynthDef.new(\fxChorus, {
+			var bus = \bus.ir;
+			var sig = In.ar(bus);
+			var intensity = \intensity.kr;
+			var lfo = LFTri.kr(intensity.linexp(-1, 1, 0.03, 2, nil)).lag(\lag.kr(0.1)) * [-1, 1];
+			sig = Mix([
+				sig,
+				DelayL.ar(sig, 0.05, lfo * intensity.linexp(-1, 1, 0.0019, 0.005, nil) + [\d1.kr(0.01), \d2.kr(0.007)])
+			].flatten);
+			ReplaceOut.ar(bus, sig * -6.dbamp);
 		}).add;
 
 		SynthDef.new(\voiceOutputStage, {
@@ -495,16 +522,15 @@ Engine_Cule : CroneEngine {
 			], context.og, \addToTail);
 			opMixer.map(\mix, Bus.newFrom(controlBuses[i], 11));
 
-			// TODO: try switching the order of Squiz and WaveLoss!
-			fxB = Synth.new(\fxWaveLoss, [
-				\bus, mixBus
-			], context.og, \addToTail);
-			fxB.map(\intensity, Bus.newFrom(controlBuses[i], 13));
-
 			fxA = Synth.new(\fxSquiz, [
 				\bus, mixBus
 			], context.og, \addToTail);
 			fxA.map(\intensity, Bus.newFrom(controlBuses[i], 12));
+
+			fxB = Synth.new(\fxWaveLoss, [
+				\bus, mixBus
+			], context.og, \addToTail);
+			fxB.map(\intensity, Bus.newFrom(controlBuses[i], 13));
 
 			out = Synth.new(\voiceOutputStage, [
 				\bus, mixBus
@@ -519,7 +545,7 @@ Engine_Cule : CroneEngine {
 
 			// TODO: return ALL synths so they can be freed, and replaced...
 			// AND/OR, assign them all to a group so the whole group can be freed
-			[ controlSynth, opB, opA, opMixer, fxB, fxA, out ];
+			[ controlSynth, opB, opA, opMixer, fxA, fxB, out ];
 		});
 
 		replySynth = Synth.new(\reply, [], context.og, \addToTail);
@@ -583,6 +609,12 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			var def = if(msg[2] - 1 == 1, \operatorFB, \operatorFM);
 			this.swapOp(msg[1] - 1, def);
+		});
+
+		this.addCommand(\fxType, "ii", {
+			arg msg;
+			var def = [\fxSquiz, \fxWaveLoss, \fxFold, \fxChorus].at(msg[2] - 1);
+			this.swapFx(msg[1] - 1, def);
 		});
 
 		this.addCommand(\setLoop, "if", {

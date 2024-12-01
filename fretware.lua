@@ -155,13 +155,13 @@ editor = {
 			has_divider = true
 		},
 		{
-			name = 'squiz',
-			label = 'squiz',
+			name = 'fxA',
+			label = 'fx A',
 			default = -1
 		},
 		{
-			name = 'loss',
-			label = 'loss',
+			name = 'fxB',
+			label = 'fx B',
 			default = -1
 		},
 		{
@@ -233,8 +233,8 @@ dest_sliders = {
 	detuneB  = Slider.new(158, 8, 2, 55, 0),
 	indexB   = Slider.new(177, 8, 2, 55),
 
-	squiz    = Slider.new(215, 8, 2, 55),
-	loss     = Slider.new(234, 8, 2, 55),
+	fxA      = Slider.new(215, 8, 2, 55),
+	fxB      = Slider.new(234, 8, 2, 55),
 	hpCutoff = Slider.new(253, 8, 2, 55),
 	lpCutoff = Slider.new(253, 8, 2, 55, 1),
 
@@ -776,6 +776,18 @@ function init()
 	}
 
 	params:add {
+		name = 'harmonic fade size B',
+		id = 'fadeSizeB',
+		type = 'control',
+		controlspec = controlspec.new(0.01, 1, 'lin', 0, 0.8),
+		action = function(value)
+			engine.fadeSizeB(value)
+		end
+	}
+
+	params:add_group('modes', 4)
+
+	params:add {
 		name = 'op type A',
 		id = 'opTypeA',
 		type = 'option',
@@ -787,16 +799,6 @@ function init()
 	}
 
 	params:add {
-		name = 'harmonic fade size B',
-		id = 'fadeSizeB',
-		type = 'control',
-		controlspec = controlspec.new(0.01, 1, 'lin', 0, 0.8),
-		action = function(value)
-			engine.fadeSizeB(value)
-		end
-	}
-
-	params:add {
 		name = 'op type B',
 		id = 'opTypeB',
 		type = 'option',
@@ -804,6 +806,28 @@ function init()
 		default = 2,
 		action = function(value)
 			engine.opType(2, value)
+		end
+	}
+
+	params:add {
+		name = 'fx type A',
+		id = 'fxTypeA',
+		type = 'option',
+		options = { 'squiz', 'fold' },
+		default = 1,
+		action = function(value)
+			engine.fxType(1, value == 1 and 1 or 3)
+		end
+	}
+
+	params:add {
+		name = 'fx type B',
+		id = 'fxTypeB',
+		type = 'option',
+		options = { 'waveloss', 'chorus' },
+		default = 1,
+		action = function(value)
+			engine.fxType(2, value == 1 and 2 or 4)
 		end
 	}
 
