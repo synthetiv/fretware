@@ -285,10 +285,8 @@ Engine_Cule : CroneEngine {
 			indexB   = indexB.lag(lag) + modulation[\indexB];
 			hpCutoff = hpCutoff.lag(lag) + modulation[\hpCutoff];
 			lpCutoff = lpCutoff.lag(lag) + modulation[\lpCutoff];
-
-			// multiplicative modulation
-			fxA      = fxA.lag(lag) * 4.pow(modulation[\fxA]);
-			fxB      = fxB.lag(lag) * 4.pow(modulation[\fxB]);
+			fxA      = fxA.lag(lag) + modulation[\fxA];
+			fxB      = fxB.lag(lag) + modulation[\fxB];
 
 			// this weird-looking LinSelectX pattern scales modulation signals so that
 			// final parameter values (base + modulation) can reach [-1, 1], but not go beyond
