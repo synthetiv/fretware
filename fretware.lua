@@ -1279,15 +1279,17 @@ function redraw()
 		if dest_menu.n_held <= 1 or active then
 			local dest_slider = dest_sliders[dest]
 
-			local source_slider = source_sliders[dest][source_name]
-			source_slider.x = dest_slider.x - 1
-			source_slider:redraw(active and 2 or 1, active and 15 or 4)
+			if dest_slider.x >= -4 and dest_slider.x <= 132 then
+				local source_slider = source_sliders[dest][source_name]
+				source_slider.x = dest_slider.x - 1
+				source_slider:redraw(active and 2 or 1, active and 15 or 4)
 
-			dest_slider:redraw(active and 1 or 0, active and 3 or 1)
+				dest_slider:redraw(active and 1 or 0, active and 3 or 1)
 
-			screen.level(active and 10 or 1)
-			screen.text_rotate(dest_slider.x - 3, 63, editor.dests[d].label, -90)
-			screen.stroke()
+				screen.level(active and 10 or 1)
+				screen.text_rotate(dest_slider.x - 3, 63, editor.dests[d].label, -90)
+				screen.stroke()
+			end
 		end
 	end
 
