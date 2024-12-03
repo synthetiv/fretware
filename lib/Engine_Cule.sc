@@ -293,7 +293,6 @@ Engine_Cule : CroneEngine {
 			lfoSHBC = Latch.kr(lfoC, lfoB > 0);
 			lfoSHCA = Latch.kr(lfoA, lfoC > 0);
 
-			// params with additive modulation
 			detuneA  = detuneA.cubed.lag(lag) + modulation[\detuneA];
 			indexA   = indexA.lag(lag) + modulation[\indexA];
 			opMix    = opMix.lag(lag) + modulation[\opMix];
@@ -303,12 +302,9 @@ Engine_Cule : CroneEngine {
 			lpCutoff = lpCutoff.lag(lag) + modulation[\lpCutoff];
 			fxA      = fxA.lag(lag) + modulation[\fxA];
 			fxB      = fxB.lag(lag) + modulation[\fxB];
-
-			// this weird-looking LinSelectX pattern scales modulation signals so that
-			// final parameter values (base + modulation) can reach [-1, 1], but not go beyond
-			ratioA   = LinSelectX.kr(1 + modulation[\ratioA],   [-1, ratioA.lag(lag),   1 ]);
-			ratioB   = LinSelectX.kr(1 + modulation[\ratioB],   [-1, ratioB.lag(lag),   1 ]);
-			pan      = LinSelectX.kr(1 + modulation[\pan],      [-1, pan.lag(lag),      1 ]);
+			pan      = pan.lag(lag) + modulation[\pan];
+			ratioA   = ratioA.lag(lag) + modulation[\ratioA];
+			ratioB   = ratioB.lag(lag) + modulation[\ratioB];
 
 			// slew tip for direct control of amplitude -- otherwise there will be audible steppiness
 			tip = Lag.kr(tip, 0.05);
@@ -446,7 +442,7 @@ Engine_Cule : CroneEngine {
 			voiceOutput = voiceOutput * \amp.kr;
 
 			// filter and write to main outs
-			Out.ar(context.out_b, Pan2.ar(voiceOutput * Lag.kr(\outLevel.kr, 0.05), \pan.kr));
+			Out.ar(context.out_b, Pan2.ar(voiceOutput * Lag.kr(\outLevel.kr, 0.05), \pan.kr.fold2));
 		}).add;
 
 		patchArgs = controlDef.allControlNames.collect({ |control| control.name }).difference(voiceArgs);
