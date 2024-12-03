@@ -340,8 +340,9 @@ for c = 1, 3 do
 		while true do
 			clock.sync(rate)
 			if arp_lattice_reset.interval == c and not arp_lattice_reset.key_held then
-				arp_lattice:start()
 				arp_lattice_reset.interval = false
+				arp_lattice:reset()
+				arp_lattice:start()
 				-- send transport start signal to any devices connected to UC4
 				uc4:start()
 			end
@@ -419,7 +420,7 @@ function g.key(x, y, z)
 				arp_lattice_reset.interval = x - 10
 				arp_lattice_reset.key_held = true
 			else
-				arp_lattice:reset()
+				arp_lattice:stop()
 				arp_lattice_reset.key_held = false
 			end
 		elseif not arp_direction_menu:key(x, y, z) then
