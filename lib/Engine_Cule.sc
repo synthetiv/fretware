@@ -441,8 +441,11 @@ Engine_Cule : CroneEngine {
 			// scale by amplitude control value
 			voiceOutput = voiceOutput * \amp.kr;
 
-			// filter and write to main outs
-			Out.ar(context.out_b, Pan2.ar(voiceOutput * Lag.kr(\outLevel.kr, 0.05), \pan.kr.fold2));
+			// scale by output level
+			voiceOutput * Lag.kr(\outLevel.kr, 0.05)
+
+			// pan and write to main outs
+			Out.ar(context.out_b, Pan2.ar(voiceOutput, \pan.kr.fold2));
 		}).add;
 
 		patchArgs = controlDef.allControlNames.collect({ |control| control.name }).difference(voiceArgs);
