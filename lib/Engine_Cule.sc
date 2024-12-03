@@ -200,6 +200,7 @@ Engine_Cule : CroneEngine {
 			var bufferRate, bufferLength, bufferPhase, buffer,
 				loopStart, loopPhase, loopTrigger, loopOffset,
 				modulation = Dictionary.new,
+				amp_indexA, amp_indexB, amp_hpCutoff, amp_lpCutoff,
 				recPitch, recTip, recHand, recGate, recTrig,
 				hand, freezeWithoutGate, eg, eg2, amp,
 				lfoA, lfoB, lfoC,
@@ -244,7 +245,13 @@ Engine_Cule : CroneEngine {
 			// build a dictionary of summed modulation signals to apply to parameters
 			parameterNames.do({ |paramName|
 				modulation.put(paramName, Mix.fill(modulatorNames.size, { |m|
-					modulators[m] * NamedControl.kr((modulatorNames[m].asString ++ '_' ++ paramName.asString).asSymbol, 0, lag);
+					var modulatorName = modulatorNames[m];
+					// amp modulates index and cutoff differently -- we'll handle that later
+					if(\amp === modulatorName && [\indexA, \indexB, \hpCutoff, \lpCutoff].includes(paramName), {
+						DC.kr(0);
+					}, {
+						modulators[m] * NamedControl.kr((modulatorName.asString ++ '_' ++ paramName.asString).asSymbol, 0, lag);
+					});
 				}));
 			});
 
@@ -287,6 +294,31 @@ Engine_Cule : CroneEngine {
 			lpCutoff = lpCutoff.lag(lag) + modulation[\lpCutoff];
 			fxA      = fxA.lag(lag) + modulation[\fxA];
 			fxB      = fxB.lag(lag) + modulation[\fxB];
+
+			// handle special amp modulation of index and cutoff.
+			// essentially, amp should always *limit* these parameters, never increase them.
+			// (HP works in reverse, so amp only raises the cutoff.)
+			amp = modulators[0];
+			amp_indexA = \amp_indexA.kr(0, lag);
+			indexA = Select.kr(BinaryOpUGen('>', amp_indexA, 0), [
+				indexA + (amp * amp_indexA),
+				indexA + ((amp - 1) * amp_indexA)
+			]);
+			amp_indexB = \amp_indexB.kr(0, lag);
+			indexB = Select.kr(BinaryOpUGen('>', amp_indexB, 0), [
+				indexB + (amp * amp_indexB),
+				indexB + ((amp - 1) * amp_indexB)
+			]);
+			amp_hpCutoff = \amp_hpCutoff.kr(0, lag);
+			hpCutoff = Select.kr(BinaryOpUGen('>', amp_hpCutoff, 0), [
+				hpCutoff + ((amp - 1) * amp_hpCutoff),
+				hpCutoff + (amp * amp_hpCutoff)
+			]);
+			amp_lpCutoff = \amp_lpCutoff.kr(0, lag);
+			lpCutoff = Select.kr(BinaryOpUGen('>', amp_lpCutoff, 0), [
+				lpCutoff + (amp * amp_lpCutoff),
+				lpCutoff + ((amp - 1) * amp_lpCutoff)
+			]);
 
 			// this weird-looking LinSelectX pattern scales modulation signals so that
 			// final parameter values (base + modulation) can reach [-1, 1], but not go beyond
