@@ -11,6 +11,7 @@ Engine_Cule : CroneEngine {
 	var modulatorNames;
 	var voiceArgs;
 	var patchArgs;
+	var selectedVoiceArgs;
 
 	var fmRatios;
 	var nRatios;
@@ -26,6 +27,8 @@ Engine_Cule : CroneEngine {
 	var voiceAmpReplyFunc;
 	var voicePitchReplyFunc;
 	var lfoGateReplyFunc;
+
+	var selectedVoice = 0;
 
 	*new { arg context, doneCallback;
 		^super.new(context, doneCallback);
@@ -115,11 +118,6 @@ Engine_Cule : CroneEngine {
 		// non-patch, single-voice-specific args
 		voiceArgs = [
 			\voiceStateBus,
-			\pitch,
-			\gate,
-			\t_trig,
-			\tip,
-			\palm,
 			\freeze,
 			\t_loopReset,
 			\loopLength,
@@ -128,6 +126,14 @@ Engine_Cule : CroneEngine {
 			\shift,
 			\pan,
 			\outLevel,
+		];
+
+		// non-patch, single-voice-specific args that only need to be set on one voice at a time
+		selectedVoiceArgs = [
+			\pitch,
+			\tip,
+			\palm,
+			// gate and t_trig are handled this way too, but separately
 		];
 
 		// frequency ratios used by the two FM operators of each voice
@@ -442,13 +448,16 @@ Engine_Cule : CroneEngine {
 			voiceOutput = voiceOutput * \amp.kr;
 
 			// scale by output level
-			voiceOutput * Lag.kr(\outLevel.kr, 0.05)
+			voiceOutput = voiceOutput * Lag.kr(\outLevel.kr, 0.05);
 
 			// pan and write to main outs
 			Out.ar(context.out_b, Pan2.ar(voiceOutput, \pan.kr.fold2));
 		}).add;
 
-		patchArgs = controlDef.allControlNames.collect({ |control| control.name }).difference(voiceArgs);
+		patchArgs = controlDef.allControlNames.collect({ |control| control.name })
+			.difference(voiceArgs)
+			.difference(selectedVoiceArgs)
+			.difference([\gate, \t_trig]);
 
 		SynthDef.new(\reply, {
 			arg selectedVoice = 0,
@@ -605,7 +614,16 @@ Engine_Cule : CroneEngine {
 
 		this.addCommand(\select_voice, "i", {
 			arg msg;
-			replySynth.set(\selectedVoice, msg[1] - 1);
+			// reset currently selected voice
+			voiceSynths[selectedVoice][0].set(
+				\gate, 0,
+				\tip, 0,
+				\palm, 0
+				// we intentionally do NOT reset pitch, so that note doesn't change if envelope is still decaying
+			);
+			// select new voice
+			selectedVoice = msg[1] - 1;
+			replySynth.set(\selectedVoice, selectedVoice);
 		});
 
 		this.addCommand(\poll_rate, "f", {
@@ -657,10 +675,17 @@ Engine_Cule : CroneEngine {
 			});
 		});
 
-		this.addCommand(\gate, "ii", {
+		this.addCommand(\gate, "i", {
 			arg msg;
-			var value = msg[2];
-			voiceSynths[msg[1] - 1][0].set(\gate, value, \t_trig, value);
+			var value = msg[1];
+			voiceSynths[selectedVoice][0].set(\gate, value, \t_trig, value);
+		});
+
+		selectedVoiceArgs.do({
+			arg name;
+			this.addCommand(name, "f", { |msg|
+				voiceSynths[selectedVoice][0].set(name, msg[1]);
+			});
 		});
 
 		voiceArgs.do({

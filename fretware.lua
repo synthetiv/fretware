@@ -387,6 +387,8 @@ function play_voice_loop(v)
 	local voice = voice_states[v]
 	if loop_free then
 		engine.setLoop(v, util.time() - voice.loop_armed)
+		-- TODO: maybe loop states should be polled from SC, so that we don't need to send as many
+		-- messages TO SC...?
 		voice.looping = true
 		voice.loop_armed = false
 	else
@@ -483,7 +485,7 @@ function g.key(x, y, z)
 end
 
 function send_pitch()
-	engine.pitch(k.selected_voice, k.bent_pitch)
+	engine.pitch(k.bent_pitch)
 end
 
 -- TODO: debounce here
@@ -604,16 +606,13 @@ function init()
 	norns.enc.accel(2, false)
 	norns.enc.sens(2, 8)
 
-	k.on_select_voice = function(v, old_v)
+	k.on_select_voice = function(v)
 		-- if any other voice is recording, stop recording & start looping it
 		for ov = 1, n_voices do
 			if ov ~= v and voice_states[ov].loop_armed then
 				play_voice_loop(ov)
 			end
 		end
-		engine.tip(old_v, 0)
-		engine.palm(old_v, 0)
-		engine.gate(old_v, 0)
 		engine.select_voice(v)
 		dest_sliders.amp:set_value(params:get_raw('outLevel_' .. v) * 2 - 1)
 		dest_sliders.pan:set_value(params:get_raw('pan_' .. v) * 2 - 1)
@@ -637,7 +636,7 @@ function init()
 	end
 
 	k.on_gate = function(gate)
-		engine.gate(k.selected_voice, gate and 1 or 0)
+		engine.gate(gate and 1 or 0)
 	end
 
 	-- set up softcut echo
@@ -1131,12 +1130,12 @@ function init()
 			if message.cc == 17 then
 				tip = message.val / 126
 				local scaled_tip = tip
-				engine.tip(k.selected_voice, tip)
+				engine.tip(tip)
 			elseif message.cc == 16 then
 				palm = message.val / 126
 				local scaled_palm
 				scaled_palm = palm * palm
-				engine.palm(k.selected_voice, palm)
+				engine.palm(palm)
 			elseif message.cc == 18 then
 				k:bend(-math.min(1, message.val / 126)) -- TODO: not sure why 126 is the max value I'm getting from Touche...
 				send_pitch()

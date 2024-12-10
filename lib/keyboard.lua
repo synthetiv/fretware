@@ -568,9 +568,8 @@ function Keyboard:select_voice(v)
 	if self.selected_voice == v then
 		return
 	end
-	local old_voice = self.selected_voice
 	self.selected_voice = v
-	self.on_select_voice(v, old_voice)
+	self.on_select_voice(v)
 end
 
 function Keyboard:draw()
