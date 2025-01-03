@@ -358,7 +358,7 @@ Engine_Cule : CroneEngine {
 				hz * (9 / 4).pow(\detune.kr),
 				\ratio.kr,
 				\fadeSize.kr(1),
-				\index.kr(-1).lincurve(-1, 1, 0, pi, 3, \min)
+				\index.kr(-1).lincurve(-1, 1, 0, 1.3pi, 3, \min)
 			);
 			Out.ar(\outBus.ir, output);
 		}).add;
@@ -372,7 +372,7 @@ Engine_Cule : CroneEngine {
 				hz * (9 / 4).pow(\detune.kr),
 				\ratio.kr,
 				\fadeSize.kr(1),
-				(InFeedback.ar(\inBus.ir) * \index.kr(-1).lincurve(-1, 1, 0, 10pi, 4, \min) * 0.7.pow(pitch)).mod(2pi)
+				(InFeedback.ar(\inBus.ir) * \index.kr(-1).lincurve(-1, 1, 0, 13pi, 4, \min) * 0.7.pow(pitch)).mod(2pi)
 			);
 			Out.ar(\outBus.ir, output);
 		}).add;
