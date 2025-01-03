@@ -215,13 +215,12 @@ Engine_Cule : CroneEngine {
 				highPriorityUpdate;
 
 			// calculate modulation matrix
-
 			// this feedback loop is needed in order for modulators to modulate one another
 			var modulators = LocalIn.kr(modulatorNames.size - 3);
 			// add S+H'd modulators
 			modulators = [
 				modulators,
-				Latch.kr(modulators[4..6], t_trig)
+				Latch.kr(modulators[4..6], t_trig + Changed.kr(tip > 0.001))
 			].flatten;
 
 			// create buffer for looping pitch/amp/control data
