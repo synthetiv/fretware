@@ -14,8 +14,8 @@ k = Keyboard.new(1, 1, 16, 8)
 Menu = include 'lib/menu'
 
 arp_menu = Menu.new(5, 5, 9, 2, {
-	1,  2,  3,  4,  5,  6,  7,  8, 9,
-	_, 10, 11, 12,  _, 13, 14, 15
+	1, 2, 3,  4,  5,  6, 7, 8, 9,
+	_, _, _, 10, 11, 12
 })
 arp_menu.toggle = true
 arp_menu.on_select = function(source)
@@ -59,16 +59,31 @@ source_menu.multi = true
 source_menu:select_value(1)
 source_menu.get_key_level = function(value, selected)
 	local source_name = editor.source_names[value]
+	local level = 0
+	-- darken LFO + amp sources when low
+	if value == 1 then
+		if voice_states[k.selected_voice].amp < 0.5 then
+			level = -1
+		end
+	elseif value == 2 then
+		if tip - palm < 0 then
+			level = -1
+		end
+	elseif value >= 5 and value <= 7 then
+		if not voice_states[k.selected_voice][lfo_gate_names[value - 4]] then
+			level = -1
+		end
+	end
 	for dest = 1, #editor.dests do
 		if dest_menu.held[dest] then
 			local dest = editor.dests[dest]
 			local mod_amount = params:get(source_name .. '_' .. dest.name)
 			if (math.abs(mod_amount) >= 0.1) then
-				return selected and 15 or 8
+				return (selected and 15 or 8) + level
 			end
 		end
 	end
-	return selected and 11 or 3
+	return (selected and 11 or 3) + level
 end
 
 dest_menu = Menu.new(3, 3, 14, 3, {
@@ -1123,12 +1138,9 @@ function init()
 			-- back = 16, front = 17, left = 18, right = 19
 			if message.cc == 17 then
 				tip = message.val / 126
-				local scaled_tip = tip
 				engine.tip(tip)
 			elseif message.cc == 16 then
 				palm = message.val / 126
-				local scaled_palm
-				scaled_palm = palm * palm
 				engine.palm(palm)
 			elseif message.cc == 18 then
 				k:bend(-math.min(1, message.val / 126)) -- TODO: not sure why 126 is the max value I'm getting from Touche...
@@ -1187,46 +1199,46 @@ function redraw()
 	screen.text('Am')
 
 	screen.level(source_menu:is_selected(2) and 15 or 3)
-	screen.move_rel(3, 0)
+	screen.move_rel(5, 0)
 	screen.text('Hd')
 
 	screen.level(source_menu:is_selected(3) and 15 or 3)
-	screen.move_rel(3, 0)
+	screen.move_rel(5, 0)
 	screen.text('En')
 
 	screen.level(source_menu:is_selected(4) and 15 or 3)
-	screen.move_rel(3, 0)
+	screen.move_rel(5, 0)
 	screen.text('En2')
 
 	screen.level(source_menu:is_selected(5) and 15 or 3)
-	screen.move_rel(3, 0)
+	screen.move_rel(5, 0)
 	screen.text('A')
 	screen.level(voice.lfoA_gate and 15 or 3)
 	screen.text('.')
 
 	screen.level(source_menu:is_selected(6) and 15 or 3)
-	screen.move_rel(3, 0)
+	screen.move_rel(5, 0)
 	screen.text('B')
 	screen.level(voice.lfoB_gate and 15 or 3)
 	screen.text('.')
 
 	screen.level(source_menu:is_selected(7) and 15 or 3)
-	screen.move_rel(3, 0)
+	screen.move_rel(5, 0)
 	screen.text('C')
 	screen.level(voice.lfoC_gate and 15 or 3)
 	screen.text('.')
 
 	screen.level(source_menu:is_selected(8) and 15 or 3)
-	screen.move_rel(3, 0)
-	screen.text('Sa')
+	screen.move_rel(5, 0)
+	screen.text('a')
 
 	screen.level(source_menu:is_selected(9) and 15 or 3)
-	screen.move_rel(3, 0)
-	screen.text('Sb')
+	screen.move_rel(5, 0)
+	screen.text('b')
 
 	screen.level(source_menu:is_selected(10) and 15 or 3)
-	screen.move_rel(3, 0)
-	screen.text('Sc')
+	screen.move_rel(5, 0)
+	screen.text('c')
 
 	for d = 1, #editor.dests do
 
