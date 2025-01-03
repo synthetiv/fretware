@@ -1174,6 +1174,7 @@ function init()
 				if message.note >= 12 and message.note < 18 then
 					if message.note == params:get('echo_jump_trigger') + 10 then
 						params:set('echo_jump_trigger', 1) -- none
+						uc4:note_off(message.note, 127)
 					else
 						params:set('echo_jump_trigger', message.note - 10)
 					end
@@ -1184,8 +1185,10 @@ function init()
 				end
 			elseif message.type == 'note_off' then
 				if message.note >= 12 and message.note < 18 then
-					-- turn UC4 note light back on
-					uc4:note_on(message.note, 127)
+					if message.note == params:get('echo_jump_trigger') + 10 then
+						-- turn UC4 note light back on
+						uc4:note_on(message.note, 127)
+					end
 				end
 			end
 		end
