@@ -1115,7 +1115,6 @@ function init()
 					slider.hidden = true
 				end
 			end
-			redraw()
 			grid_redraw()
 		end
 	}
@@ -1189,7 +1188,6 @@ end
 function redraw()
 	-- TODO: show held pitch(es) based on how they're specified in scala file!!; indicate bend/glide
 	screen.clear()
-	screen.rotate(0) -- reset rotation in case a text_rotate() gets interrupted
 	screen.fill() -- prevent a flash of stroke when leaving system UI
 
 	-- TODO: icons
@@ -1266,6 +1264,10 @@ function redraw()
 	end
 
 	screen.update()
+end
+
+function refresh()
+	redraw()
 end
 
 function enc(n, d)
