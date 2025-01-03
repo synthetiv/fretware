@@ -110,9 +110,9 @@ Engine_Cule : CroneEngine {
 			\lfoA,
 			\lfoB,
 			\lfoC,
-			\lfoAB,
-			\lfoBC,
-			\lfoCA
+			\lfoSHA,
+			\lfoSHB,
+			\lfoSHC
 		];
 
 		// non-patch, single-voice-specific args
@@ -210,7 +210,6 @@ Engine_Cule : CroneEngine {
 				recPitch, recTip, recHand, recGate, recTrig,
 				hand, freezeWithoutGate, eg, eg2, amp,
 				lfoA, lfoB, lfoC,
-				lfoSHAB, lfoSHBC, lfoSHCA,
 				hz, fmInput, opB, fmMix, opA,
 				voiceOutput,
 				highPriorityUpdate;
@@ -218,7 +217,12 @@ Engine_Cule : CroneEngine {
 			// calculate modulation matrix
 
 			// this feedback loop is needed in order for modulators to modulate one another
-			var modulators = LocalIn.kr(modulatorNames.size);
+			var modulators = LocalIn.kr(modulatorNames.size - 3);
+			// add S+H'd modulators
+			modulators = [
+				modulators,
+				Latch.kr(modulators[4..6], t_trig)
+			].flatten;
 
 			// create buffer for looping pitch/amp/control data
 			bufferRate = ControlRate.ir * bufferRateScale;
@@ -295,10 +299,6 @@ Engine_Cule : CroneEngine {
 			lfoCFreq = lfoCFreq * 8.pow(modulation[\lfoCFreq]);
 			lfoC = LFTri.kr(lfoCFreq, 4.rand);
 
-			lfoSHAB = Latch.kr(lfoB, lfoA > 0);
-			lfoSHBC = Latch.kr(lfoC, lfoB > 0);
-			lfoSHCA = Latch.kr(lfoA, lfoC > 0);
-
 			detuneA  = detuneA.cubed.lag(lag) + modulation[\detuneA];
 			indexA   = indexA.lag(lag) + modulation[\indexA];
 			opMix    = opMix.lag(lag) + modulation[\opMix];
@@ -330,10 +330,7 @@ Engine_Cule : CroneEngine {
 				eg * eg,
 				lfoA,
 				lfoB,
-				lfoC,
-				lfoSHAB,
-				lfoSHBC,
-				lfoSHCA
+				lfoC
 			]);
 
 			pitch = pitch + \shift.kr;
@@ -582,10 +579,7 @@ Engine_Cule : CroneEngine {
 				\lfos -> [
 					this.addPoll(("lfoA_gate_" ++ i).asSymbol, periodic: false),
 					this.addPoll(("lfoB_gate_" ++ i).asSymbol, periodic: false),
-					this.addPoll(("lfoC_gate_" ++ i).asSymbol, periodic: false),
-					this.addPoll(("lfoAB_gate_" ++ i).asSymbol, periodic: false),
-					this.addPoll(("lfoBC_gate_" ++ i).asSymbol, periodic: false),
-					this.addPoll(("lfoCA_gate_" ++ i).asSymbol, periodic: false)
+					this.addPoll(("lfoC_gate_" ++ i).asSymbol, periodic: false)
 				]
 			];
 		});

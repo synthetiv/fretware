@@ -110,9 +110,9 @@ editor = {
 		'lfoA',
 		'lfoB',
 		'lfoC',
-		'lfoAB',
-		'lfoBC',
-		'lfoCA'
+		'lfoSHA',
+		'lfoSHB',
+		'lfoSHC'
 	},
 	dests = {
 		{
@@ -252,16 +252,16 @@ dest_sliders = {
 source_sliders = {}
 for s = 1, #editor.dests do
 	source_sliders[editor.dests[s].name] = {
-		amp   = Slider.new(82, 7, 4, 57, 0),
-		hand  = Slider.new(82, 7, 4, 57, 0),
-		eg    = Slider.new(82, 7, 4, 57, 0),
-		eg2   = Slider.new(82, 7, 4, 57, 0),
-		lfoA  = Slider.new(82, 7, 4, 57, 0),
-		lfoB  = Slider.new(82, 7, 4, 57, 0),
-		lfoC  = Slider.new(82, 7, 4, 57, 0),
-		lfoAB = Slider.new(82, 7, 4, 57, 0),
-		lfoBC = Slider.new(82, 7, 4, 57, 0),
-		lfoCA = Slider.new(82, 7, 4, 57, 0)
+		amp    = Slider.new(82, 7, 4, 57, 0),
+		hand   = Slider.new(82, 7, 4, 57, 0),
+		eg     = Slider.new(82, 7, 4, 57, 0),
+		eg2    = Slider.new(82, 7, 4, 57, 0),
+		lfoA   = Slider.new(82, 7, 4, 57, 0),
+		lfoB   = Slider.new(82, 7, 4, 57, 0),
+		lfoC   = Slider.new(82, 7, 4, 57, 0),
+		lfoSHA = Slider.new(82, 7, 4, 57, 0),
+		lfoSHB = Slider.new(82, 7, 4, 57, 0),
+		lfoSHC = Slider.new(82, 7, 4, 57, 0)
 	}
 end
 
@@ -282,9 +282,6 @@ for v = 1, n_voices do
 		lfoA_gate = false,
 		lfoB_gate = false,
 		lfoC_gate = false,
-		lfoAB_gate = false,
-		lfoBC_gate = false,
-		lfoCA_gate = false,
 		polls = {},
 	}
 end
@@ -292,10 +289,7 @@ end
 lfo_gate_names = {
 	'lfoA_gate',
 	'lfoB_gate',
-	'lfoC_gate',
-	'lfoAB_gate',
-	'lfoBC_gate',
-	'lfoCA_gate'
+	'lfoC_gate'
 }
 
 tip = 0
@@ -1206,39 +1200,33 @@ function redraw()
 
 	screen.level(source_menu:is_selected(5) and 15 or 3)
 	screen.move_rel(3, 0)
-	screen.text('La')
+	screen.text('A')
 	screen.level(voice.lfoA_gate and 15 or 3)
 	screen.text('.')
 
 	screen.level(source_menu:is_selected(6) and 15 or 3)
 	screen.move_rel(3, 0)
-	screen.text('Lb')
+	screen.text('B')
 	screen.level(voice.lfoB_gate and 15 or 3)
 	screen.text('.')
 
 	screen.level(source_menu:is_selected(7) and 15 or 3)
 	screen.move_rel(3, 0)
-	screen.text('Lc')
+	screen.text('C')
 	screen.level(voice.lfoC_gate and 15 or 3)
 	screen.text('.')
 
 	screen.level(source_menu:is_selected(8) and 15 or 3)
 	screen.move_rel(3, 0)
-	screen.text('Ab')
-	screen.level(voice.lfoAB_gate and 15 or 3)
-	screen.text('.')
+	screen.text('Sa')
 
 	screen.level(source_menu:is_selected(9) and 15 or 3)
 	screen.move_rel(3, 0)
-	screen.text('Bc')
-	screen.level(voice.lfoBC_gate and 15 or 3)
-	screen.text('.')
+	screen.text('Sb')
 
 	screen.level(source_menu:is_selected(10) and 15 or 3)
 	screen.move_rel(3, 0)
-	screen.text('Ca')
-	screen.level(voice.lfoCA_gate and 15 or 3)
-	screen.text('.')
+	screen.text('Sc')
 
 	for d = 1, #editor.dests do
 
@@ -1296,10 +1284,7 @@ function cleanup()
 		'pitch',
 		'lfoA_gate',
 		'lfoB_gate',
-		'lfoC_gate',
-		'lfoAB_gate',
-		'lfoBC_gate',
-		'lfoCA_gate'
+		'lfoC_gate'
 	}
 	for v = 1, n_voices do
 		local voice = voice_states[v]
