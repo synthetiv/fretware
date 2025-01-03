@@ -248,9 +248,11 @@ function Echo:add_params()
 		default = 1,
 		action = function(value)
 			if uc4 then
-				-- reset UC4 blinkenlights
+				-- reset other UC4 blinkenlights
 				for note = 12, 19 do
-					uc4:note_off(note)
+					if note - 10 ~= value then
+						uc4:note_off(note)
+					end
 				end
 			end
 			self.jump_trigger = value

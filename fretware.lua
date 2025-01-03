@@ -1150,51 +1150,21 @@ function init()
 		local message = midi.to_msg(data)
 		if message.ch == 1 then
 			if message.type == 'note_on' then
-				if message.note == 12 then
-					if params:get('echo_jump_trigger') == 2 then
-						params:set('echo_jump_trigger', 1)
+				if message.note >= 12 and message.note < 18 then
+					if message.note == params:get('echo_jump_trigger') + 10 then
+						params:set('echo_jump_trigger', 1) -- none
 					else
-						params:set('echo_jump_trigger', 2)
-						uc4:note_on(message.note, 127)
-					end
-				elseif message.note == 13 then
-					if params:get('echo_jump_trigger') == 3 then
-						params:set('echo_jump_trigger', 1)
-					else
-						params:set('echo_jump_trigger', 3)
-						uc4:note_on(message.note, 127)
-					end
-				elseif message.note == 14 then
-					if params:get('echo_jump_trigger') == 4 then
-						params:set('echo_jump_trigger', 1)
-					else
-						params:set('echo_jump_trigger', 4)
-						uc4:note_on(message.note, 127)
-					end
-				elseif message.note == 15 then
-					if params:get('echo_jump_trigger') == 5 then
-						params:set('echo_jump_trigger', 1)
-					else
-						params:set('echo_jump_trigger', 5)
-						uc4:note_on(message.note, 127)
-					end
-				elseif message.note == 16 then
-					if params:get('echo_jump_trigger') == 6 then
-						params:set('echo_jump_trigger', 1)
-					else
-						params:set('echo_jump_trigger', 6)
-						uc4:note_on(message.note, 127)
-					end
-				elseif message.note == 17 then
-					if params:get('echo_jump_trigger') == 7 then
-						params:set('echo_jump_trigger', 1)
-					else
-						params:set('echo_jump_trigger', 7)
-						uc4:note_on(message.note, 127)
+						params:set('echo_jump_trigger', message.note - 10)
 					end
 				elseif message.note == 18 or message.note == 19 then
+					-- manual jump trigger
 					params:set('echo_jump_trigger', 1)
 					echo:jump()
+				end
+			elseif message.type == 'note_off' then
+				if message.note >= 12 and message.note < 18 then
+					-- turn UC4 note light back on
+					uc4:note_on(message.note, 127)
 				end
 			end
 		end
