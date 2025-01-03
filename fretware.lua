@@ -167,6 +167,9 @@ editor = {
 			name = 'indexB',
 			label = 'index B',
 			default = -1,
+			source_defaults = {
+				amp = 0.2
+			},
 			has_divider = true
 		},
 		{
