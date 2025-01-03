@@ -436,6 +436,15 @@ function g.key(x, y, z)
 				arp_lattice:reset()
 				arp_lattice_reset.key_held = false
 			end
+		elseif (x == 15 or x == 16) and y == 3 then
+			if z == 1 then
+				-- clock tempo increase/decrease
+				if x == 15 then
+					params:set('clock_tempo', params:get('clock_tempo') / 1.04)
+				elseif x == 16 then
+					params:set('clock_tempo', params:get('clock_tempo') * 1.04)
+				end
+			end
 		elseif not arp_direction_menu:key(x, y, z) then
 			arp_menu:key(x, y, z)
 		end
@@ -532,9 +541,13 @@ function grid_redraw()
 	arp_menu:draw()
 	arp_direction_menu:draw()
 	if arp_menu.open then
+		-- clock reset keys
 		for c = 1, 3 do
 			g:led(10 + c, 3, arp_lattice_reset.interval == c and 9 or 5)
 		end
+		-- tempo nudge keys
+		g:led(15, 3, 4)
+		g:led(16, 3, 4)
 	end
 	g:led(9, 8, source_menu.open and 7 or 2)
 	source_menu:draw()
