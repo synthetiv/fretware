@@ -203,7 +203,8 @@ Engine_Cule : CroneEngine {
 				pan = 0,
 				lag = 0.1;
 
-			var bufferRate, bufferLength, bufferPhase, buffer,
+			var modulators,
+				bufferRate, bufferLength, bufferPhase, buffer,
 				loopStart, loopPhase, loopTrigger, loopOffset,
 				modulation = Dictionary.new,
 				amp_indexA, amp_indexB, amp_hpCutoff, amp_lpCutoff,
@@ -213,15 +214,6 @@ Engine_Cule : CroneEngine {
 				hz, fmInput, opB, fmMix, opA,
 				voiceOutput,
 				highPriorityUpdate;
-
-			// calculate modulation matrix
-			// this feedback loop is needed in order for modulators to modulate one another
-			var modulators = LocalIn.kr(modulatorNames.size - 3);
-			// add S+H'd modulators
-			modulators = [
-				modulators,
-				Latch.kr(modulators[4..6], t_trig + Changed.kr(tip > 0.001))
-			].flatten;
 
 			// create buffer for looping pitch/amp/control data
 			bufferRate = ControlRate.ir * bufferRateScale;
@@ -250,6 +242,15 @@ Engine_Cule : CroneEngine {
 			// combine incoming gates with recorded gates
 			gate = gate.max(freeze * recGate);
 			t_trig = t_trig.max(freeze * recTrig);
+
+			// calculate modulation matrix
+			// this feedback loop is needed in order for modulators to modulate one another
+			modulators = LocalIn.kr(modulatorNames.size - 3);
+			// add S+H'd modulators
+			modulators = [
+				modulators,
+				Latch.kr(modulators[4..6], Trig.kr(gate) + Trig.kr(tip > 0.01))
+			].flatten;
 
 			// build a dictionary of summed modulation signals to apply to parameters
 			parameterNames.do({ |paramName|
