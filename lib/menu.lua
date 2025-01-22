@@ -35,7 +35,7 @@ function Menu.new(x, y, width, height, arg_values)
 	return menu
 end
 
-function Menu.get_key_level(value, selected)
+function Menu.get_key_level(value, selected, held)
 	return selected and 13 or 4
 end
 
@@ -52,7 +52,7 @@ function Menu:draw()
 				if self.multi and self.n_held > 0 then
 					selected = self.held[v]
 				end
-				g:led(x, y, self.get_key_level(self.values[k], selected))
+				g:led(x, y, self.get_key_level(self.values[k], selected, self.held[v]))
 			end
 			k = k + 1
 		end

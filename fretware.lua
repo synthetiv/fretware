@@ -50,14 +50,14 @@ arp_direction_menu.on_select = function(value)
 end
 arp_direction_menu:select_value(0)
 
-source_menu = Menu.new(3, 6, 14, 2, {
+source_menu = Menu.new(7, 1, 9, 2, {
 	-- map of source numbers (in editor.source_names) to keys
-	 _,  2,  _,  _,  3,  _,  5,  6,  7,  _,  _,  _,  _,  1,
-	 _,  _,  _,  _,  4,  _,  8,  9, 10,  _,  _,  _,  _,  _,
+	 2, _, 3, _, 5, 6,  7, _, 1,
+	 _, _, 4, _, 8, 9, 10, _, _,
 })
 source_menu.multi = true
 source_menu:select_value(1)
-source_menu.get_key_level = function(value, selected)
+source_menu.get_key_level = function(value, selected, held)
 	local source_name = editor.source_names[value]
 	local level = 0
 	-- darken LFO + amp sources when low
@@ -74,38 +74,7 @@ source_menu.get_key_level = function(value, selected)
 			level = -1
 		end
 	end
-	for dest = 1, #editor.dests do
-		if dest_menu.held[dest] then
-			local dest = editor.dests[dest]
-			local mod_amount = params:get(source_name .. '_' .. dest.name)
-			if (math.abs(mod_amount) >= 0.1) then
-				return (selected and 15 or 8) + level
-			end
-		end
-	end
-	return (selected and 11 or 3) + level
-end
-
-dest_menu = Menu.new(3, 3, 14, 3, {
-	-- map of dest numbers (in editor.dests) to keys
-	 1,  2,  3,  _,  4,  _,  5,  6,  7,  _,  8,  9, 10, 11,
-	 _,  _,  _,  _,  _,  _,  _,  _,  _,  _,  _,  _,  _,  _,
-	 _,  _,  _, 12, 13,  _, 14, 15, 16,  _,  _, 17,  _, 18,
-})
-dest_menu.multi = true
-dest_menu:select_value(3)
-dest_menu.get_key_level = function(value, selected)
-	local dest = editor.dests[value]
-	for source = 1, #editor.source_names do
-		if source_menu.held[source] then
-			local source_name = editor.source_names[source]
-			local mod_amount = params:get(source_name .. '_' .. dest.name)
-			if (math.abs(mod_amount) >= 0.1) then
-				return selected and 15 or 6
-			end
-		end
-	end
-	return selected and 11 or 4
+	return (held and 11 or (selected and 6 or 3)) + level
 end
 
 Echo = include 'lib/echo'
@@ -233,10 +202,7 @@ editor = {
 			voice_param = 'outLevel'
 		}
 	},
-	held_keys = {
-		inc = false,
-		dec = false
-	}
+	selected_dest = 1
 }
 
 dest_sliders = {
@@ -281,6 +247,44 @@ for s = 1, #editor.dests do
 		lfoSHC = Slider.new(82, 7, 4, 57, 0)
 	}
 end
+
+-- TODO: derive these from param defaults
+xvi_values = {
+	64,
+	64,
+	64,
+	0,
+	64,
+	64,
+	64,
+	0,
+	0,
+	0,
+	127,
+	32,
+	64,
+	0,
+	0,
+	0
+}
+xvi_mappings = {
+	'ratioA',
+	'detuneA',
+	'indexA',
+	'opMix',
+	'ratioB',
+	'detuneB',
+	'indexB',
+	'fxA',
+	'fxB',
+	'hpCutoff',
+	'lpCutoff',
+	'attack',
+	'release',
+	'lfoAFreq',
+	'lfoBFreq',
+	'lfoCFreq'
+}
 
 held_keys = { false, false, false }
 
@@ -417,12 +421,10 @@ function g.key(x, y, z)
 			arp_menu.open = not arp_menu.open
 			arp_direction_menu.open = arp_menu.open
 			source_menu.open = false
-			dest_menu.open = false
 		end
 	elseif x == 9 and y == 8 then
 		if z == 1 then
 			source_menu.open = not source_menu.open
-			dest_menu.open = source_menu.open
 			arp_menu.open = false
 			arp_direction_menu.open = false
 		end
@@ -447,56 +449,23 @@ function g.key(x, y, z)
 		elseif not arp_direction_menu:key(x, y, z) then
 			arp_menu:key(x, y, z)
 		end
-	elseif source_menu.open and x > 2 and y < 8 then
-		if y == 1 and x >= 15 then
-			editor.held_keys[x == 16 and 'inc' or 'dec'] = z == 1
-			if z == 1 then
-				local do_reset = editor.held_keys.dec and editor.held_keys.inc
-				local delta = (x - 15) * 2 - 1
-				for source = 1, #editor.source_names do
-					if source_menu:is_selected(source) then
-						local source_name = editor.source_names[source]
-						for dest = 1, #editor.dests do
-							if dest_menu:is_selected(dest) then
-								local dest_name = editor.dests[dest].name
-								if do_reset then
-									params:lookup_param(source_name .. '_' .. dest_name):set_default()
-									_menu.set_mode(false)
-								else
-									params:delta(source_name .. '_' .. dest_name, delta * 6.25)
-									_menu.set_mode(false)
-								end
-							end
-						end
-					end
-				end
-				-- if there are any held sources or dests, reset ALL routes involving them
-				if do_reset then
-					for source = 1, #editor.source_names do
-						if source_menu.held[source] then
-							local source_name = editor.source_names[source]
-							for dest = 1, #editor.dests do
-								local dest_name = editor.dests[dest].name
-								params:lookup_param(source_name .. '_' .. dest_name):set_default()
-								_menu.set_mode(false)
-							end
-						end
-					end
+	elseif source_menu.open and x == 1 and y == 1 then
+		if z == 1 then
+			-- TODO
+			-- if there are any held sources, reset ALL routes involving them
+			for source = 1, #editor.source_names do
+				if source_menu.held[source] then
+					local source_name = editor.source_names[source]
 					for dest = 1, #editor.dests do
-						if dest_menu.held[dest] then
-							local dest_name = editor.dests[dest].name
-							for source = 1, #editor.source_names do
-								local source_name = editor.source_names[source]
-								params:lookup_param(source_name .. '_' .. dest_name):set_default()
-								_menu.set_mode(false)
-							end
-						end
+						local dest_name = editor.dests[dest].name
+						params:lookup_param(source_name .. '_' .. dest_name):set_default()
+						_menu.set_mode(false)
 					end
 				end
 			end
-		elseif not source_menu:key(x, y, z) then
-			dest_menu:key(x, y, z)
 		end
+	elseif source_menu.open then
+		source_menu:key(x, y, z)
 	else
 		k:key(x, y, z)
 	end
@@ -512,7 +481,7 @@ end
 function grid_redraw()
 	g:all(0)
 	k:draw()
-	if arp_menu.open or arp_direction_menu.open or source_menu.open or dest_menu.open then
+	if arp_menu.open or arp_direction_menu.open or source_menu.open then
 		for x = 3, 16 do
 			for y = 1, 7 do
 				g:led(x, y, 0)
@@ -550,10 +519,8 @@ function grid_redraw()
 	end
 	g:led(9, 8, source_menu.open and 7 or 2)
 	source_menu:draw()
-	dest_menu:draw()
 	if source_menu.open then
-		g:led(15, 1, editor.held_keys.dec and 15 or 2)
-		g:led(16, 1, editor.held_keys.inc and 15 or 2)
+		g:led(1, 1, 7)
 	end
 	local blink = arp_gates[5] -- 1/8 notes
 	for v = 1, n_voices do
@@ -1104,35 +1071,26 @@ function init()
 		time = 1 / 30,
 		event = function(n)
 			local x = 66
-			if dest_menu.n_held > 1 then
-				-- offset x based on n_held so that as many as possible fit on screen at once
-				x = x - (dest_menu.n_held - 1) * 8
-			else
-				for p = 1, dest_menu.value - 1 do
-					if editor.dests[p].has_divider then
-						x = x - 23
-					else
-						x = x - 16
-					end
+			for p = 1, editor.selected_dest - 1 do
+				if editor.dests[p].has_divider then
+					x = x - 23
+				else
+					x = x - 16
 				end
 			end
 			for p = 1, #editor.dests do
 				local dest = editor.dests[p]
 				local slider = dest_sliders[dest.name]
-				if dest_menu.n_held <= 1 or dest_menu.held[p] then
-					if slider.hidden then
-						slider.x = x
-						slider.hidden = false
-					elseif slider.x ~= x then
-						slider.x = math.floor(slider.x + (x - slider.x) * 0.6)
-					end
-					if dest_menu.n_held <= 1 and dest.has_divider then
-						x = x + 23
-					else
-						x = x + 16
-					end
+				if slider.hidden then
+					slider.x = x
+					slider.hidden = false
+				elseif slider.x ~= x then
+					slider.x = math.floor(slider.x + (x - slider.x) * 0.6)
+				end
+				if dest.has_divider then
+					x = x + 23
 				else
-					slider.hidden = true
+					x = x + 16
 				end
 			end
 			grid_redraw()
@@ -1151,9 +1109,6 @@ function init()
 		midi_devices_by_name[device.name] = device
 	end
 	touche = midi_devices_by_name['TOUCHE 1'] or {}
-	xvi = midi_devices_by_name['MiSW XVIM'] or {}
-	uc4 = midi_devices_by_name['Faderfox UC4'] or {}
-
 	function touche.event(data)
 		local message = midi.to_msg(data)
 		if message.ch == 1 and message.type == 'cc' then
@@ -1174,6 +1129,7 @@ function init()
 		end
 	end
 
+	uc4 = midi_devices_by_name['Faderfox UC4'] or {}
 	function uc4.event(data)
 		local message = midi.to_msg(data)
 		if message.ch == 1 then
@@ -1198,6 +1154,41 @@ function init()
 					end
 				end
 			end
+		end
+	end
+
+	xvi = midi_devices_by_name['MiSW XVI-M'] or {}
+	function xvi.event(data)
+		local message = midi.to_msg(data)
+		if message.type == 'cc' and message.cc == 9 then
+			local fader = message.ch
+			local new_value = message.val
+			local old_value = xvi_values[fader]
+			local source_held = false
+			-- TODO: dry this out
+			for source = 1, #editor.source_names do
+				if source_menu.held[source] then
+					local prefix = editor.source_names[source] .. '_'
+					local param = params:lookup_param(prefix .. xvi_mappings[fader])
+					local param_value = param:get_raw()
+					if new_value >= old_value then
+						param:set_raw(util.linlin(old_value, 127, param_value, 1, new_value))
+					else
+						param:set_raw(util.linlin(0, old_value, 0, param_value, new_value))
+					end
+					source_held = true
+				end
+			end
+			if not source_held then
+				local param = params:lookup_param(xvi_mappings[fader])
+				local param_value = param:get_raw()
+				if new_value >= old_value then
+					param:set_raw(util.linlin(old_value, 127, param_value, 1, new_value))
+				else
+					param:set_raw(util.linlin(0, old_value, 0, param_value, new_value))
+				end
+			end
+			xvi_values[fader] = new_value
 		end
 	end
 
@@ -1264,25 +1255,23 @@ function redraw()
 	screen.move_rel(5, 0)
 	screen.text('c')
 
+	-- TODO: fix this
 	for d = 1, #editor.dests do
 
 		local dest = editor.dests[d].name
-		local active = dest_menu:is_selected(d)
+		local active = editor.selected_dest == d
+		local dest_slider = dest_sliders[dest]
 
-		if dest_menu.n_held <= 1 or active then
-			local dest_slider = dest_sliders[dest]
+		if dest_slider.x >= -4 and dest_slider.x <= 132 then
+			local source_slider = source_sliders[dest][source_name]
+			source_slider.x = dest_slider.x - 1
+			source_slider:redraw(active and 2 or 1, active and 15 or 4)
 
-			if dest_slider.x >= -4 and dest_slider.x <= 132 then
-				local source_slider = source_sliders[dest][source_name]
-				source_slider.x = dest_slider.x - 1
-				source_slider:redraw(active and 2 or 1, active and 15 or 4)
+			dest_slider:redraw(active and 1 or 0, active and 3 or 1)
 
-				dest_slider:redraw(active and 1 or 0, active and 3 or 1)
-
-				screen.level(active and 10 or 1)
-				screen.text_rotate(dest_slider.x - 3, 63, editor.dests[d].label, -90)
-				screen.stroke()
-			end
+			screen.level(active and 10 or 1)
+			screen.text_rotate(dest_slider.x - 3, 63, editor.dests[d].label, -90)
+			screen.stroke()
 		end
 	end
 
@@ -1297,9 +1286,9 @@ function enc(n, d)
 	if n == 1 then
 		source_menu:select_value(util.wrap(source_menu.value + d, 1, #editor.source_names))
 	elseif n == 2 then
-		dest_menu:select_value(util.wrap(dest_menu.value + d, 1, #editor.dests))
+		editor.selected_dest = util.wrap(editor.selected_dest + d, 1, #editor.dests)
 	elseif n == 3 then
-		local dest = editor.dests[dest_menu.value]
+		local dest = editor.dests[editor.selected_dest]
 		if not held_keys[3] then
 			params:delta(editor.source_names[source_menu.value] .. '_' .. dest.name, d)
 		elseif dest.voice_param then
