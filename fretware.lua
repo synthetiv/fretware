@@ -112,7 +112,6 @@ Echo = include 'lib/echo'
 echo = Echo.new()
 
 redraw_metro = nil
-blink = true
 
 g = grid.connect()
 
@@ -556,12 +555,21 @@ function grid_redraw()
 		g:led(15, 1, editor.held_keys.dec and 15 or 2)
 		g:led(16, 1, editor.held_keys.inc and 15 or 2)
 	end
+	local blink = arp_gates[5] -- 1/8 notes
 	for v = 1, n_voices do
 		local voice = voice_states[v]
 		local level = voice.amp
-		if voice.loop_armed then
+		if voice.loop_armed_next then
+			-- about to start recording
+			level = level * 0.5 + (blink and 0.2 or 0)
+		elseif voice.looping_next then
+			-- recording, about to stop
+			level = level * 0.5 + (blink and 0.35 or 0.25)
+		elseif voice.loop_armed then
+			-- recording
 			level = level * 0.5 + (blink and 0.5 or 0)
 		elseif voice.looping then
+			-- playing back
 			level = level * 0.75 + 0.25
 		end
 		level = math.floor(level * 15)
@@ -1095,7 +1103,6 @@ function init()
 	redraw_metro = metro.init {
 		time = 1 / 30,
 		event = function(n)
-			blink = (n % 7 < 3)
 			local x = 66
 			if dest_menu.n_held > 1 then
 				-- offset x based on n_held so that as many as possible fit on screen at once
