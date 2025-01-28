@@ -1160,7 +1160,7 @@ function init()
 	xvi = midi_devices_by_name['MiSW XVI-M'] or {}
 	function xvi.event(data)
 		local message = midi.to_msg(data)
-		if message.type == 'cc' and message.cc == 9 then
+		if message.type == 'pitchbend' then
 			local fader = message.ch
 			local new_value = message.val
 			local old_value = xvi_values[fader]
@@ -1172,7 +1172,7 @@ function init()
 					local param = params:lookup_param(prefix .. xvi_mappings[fader])
 					local param_value = param:get_raw()
 					if new_value >= old_value then
-						param:set_raw(util.linlin(old_value, 127, param_value, 1, new_value))
+						param:set_raw(util.linlin(old_value, 16383, param_value, 1, new_value))
 					else
 						param:set_raw(util.linlin(0, old_value, 0, param_value, new_value))
 					end
@@ -1183,7 +1183,7 @@ function init()
 				local param = params:lookup_param(xvi_mappings[fader])
 				local param_value = param:get_raw()
 				if new_value >= old_value then
-					param:set_raw(util.linlin(old_value, 127, param_value, 1, new_value))
+					param:set_raw(util.linlin(old_value, 16383, param_value, 1, new_value))
 				else
 					param:set_raw(util.linlin(0, old_value, 0, param_value, new_value))
 				end
