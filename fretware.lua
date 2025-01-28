@@ -1158,37 +1158,35 @@ function init()
 	end
 
 	xvi = midi_devices_by_name['MiSW XVI-M'] or {}
+	local xvi_autoselect_time = 0
 	function xvi.event(data)
 		local message = midi.to_msg(data)
 		if message.type == 'pitchbend' then
 			local fader = message.ch
 			local new_value = message.val
 			local old_value = xvi_values[fader]
+			-- scale to [0, 1]. 16383 = max 14-bit pitchbend value
+			local delta_raw = (new_value - old_value) / 16383
 			local source_held = false
-			-- TODO: dry this out
 			for source = 1, #editor.source_names do
 				if source_menu.held[source] then
 					local prefix = editor.source_names[source] .. '_'
 					local param = params:lookup_param(prefix .. xvi_mappings[fader])
-					local param_value = param:get_raw()
-					if new_value >= old_value then
-						param:set_raw(util.linlin(old_value, 16383, param_value, 1, new_value))
-					else
-						param:set_raw(util.linlin(0, old_value, 0, param_value, new_value))
-					end
+					param:set_raw(param.raw + delta_raw)
 					source_held = true
 				end
 			end
 			if not source_held then
 				local param = params:lookup_param(xvi_mappings[fader])
-				local param_value = param:get_raw()
-				if new_value >= old_value then
-					param:set_raw(util.linlin(old_value, 16383, param_value, 1, new_value))
-				else
-					param:set_raw(util.linlin(0, old_value, 0, param_value, new_value))
-				end
+				param:set_raw(param.raw + delta_raw)
 			end
 			xvi_values[fader] = new_value
+			local now = util.time()
+			-- TODO: do you need a more sophisticated way of debouncing?
+			if now - xvi_autoselect_time > 0.3 then
+				editor.selected_dest = fader
+				xvi_autoselect_time = now
+			end
 		end
 	end
 
