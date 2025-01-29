@@ -92,10 +92,7 @@ editor = {
 		'eg2',
 		'lfoA',
 		'lfoB',
-		'lfoC',
-		'lfoSHA',
-		'lfoSHB',
-		'lfoSHC'
+		'lfoC'
 	},
 	dests = {
 		{
@@ -241,10 +238,7 @@ for s = 1, #editor.dests do
 		eg2    = Slider.new(82, 7, 4, 57, 0),
 		lfoA   = Slider.new(82, 7, 4, 57, 0),
 		lfoB   = Slider.new(82, 7, 4, 57, 0),
-		lfoC   = Slider.new(82, 7, 4, 57, 0),
-		lfoSHA = Slider.new(82, 7, 4, 57, 0),
-		lfoSHB = Slider.new(82, 7, 4, 57, 0),
-		lfoSHC = Slider.new(82, 7, 4, 57, 0)
+		lfoC   = Slider.new(82, 7, 4, 57, 0)
 	}
 end
 

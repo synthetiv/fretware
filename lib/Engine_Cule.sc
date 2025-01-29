@@ -109,10 +109,7 @@ Engine_Cule : CroneEngine {
 			\eg2,
 			\lfoA,
 			\lfoB,
-			\lfoC,
-			\lfoSHA,
-			\lfoSHB,
-			\lfoSHC
+			\lfoC
 		];
 
 		// non-patch, single-voice-specific args
@@ -245,12 +242,7 @@ Engine_Cule : CroneEngine {
 
 			// calculate modulation matrix
 			// this feedback loop is needed in order for modulators to modulate one another
-			modulators = LocalIn.ar(modulatorNames.size - 3);
-			// add S+H'd modulators
-			modulators = [
-				modulators,
-				Latch.ar(modulators[4..6], Trig.kr(gate) + Trig.kr(tip > 0.01))
-			].flatten;
+			modulators = LocalIn.ar(modulatorNames.size);
 
 			// build a dictionary of summed modulation signals to apply to parameters
 			parameterNames.do({ |paramName|
