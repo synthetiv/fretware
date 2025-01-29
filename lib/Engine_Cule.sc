@@ -244,6 +244,10 @@ Engine_Cule : CroneEngine {
 			// this feedback loop is needed in order for modulators to modulate one another
 			modulators = LocalIn.ar(modulatorNames.size);
 
+			lfoA = LFTri.ar(lfoAFreq, 4.rand);
+			lfoB = LFTri.ar(lfoBFreq, 4.rand);
+			lfoC = LFTri.ar(lfoCFreq, 4.rand);
+
 			// build a dictionary of summed modulation signals to apply to parameters
 			parameterNames.do({ |paramName|
 				modulation.put(paramName, Mix.fill(modulatorNames.size, { |m|
@@ -284,12 +288,11 @@ Engine_Cule : CroneEngine {
 				), t_trig)
 			]);
 
+			// TODO: send modulation stuff to 3 LFO synths
+
 			lfoAFreq = lfoAFreq * 8.pow(modulation[\lfoAFreq]);
-			lfoA = LFTri.ar(lfoAFreq, 4.rand);
 			lfoBFreq = lfoBFreq * 8.pow(modulation[\lfoBFreq]);
-			lfoB = LFTri.ar(lfoBFreq, 4.rand);
 			lfoCFreq = lfoCFreq * 8.pow(modulation[\lfoCFreq]);
-			lfoC = LFTri.ar(lfoCFreq, 4.rand);
 
 			detuneA  = detuneA.cubed.lag(lag) + modulation[\detuneA];
 			indexA   = indexA.lag(lag) + modulation[\indexA];
@@ -319,16 +322,13 @@ Engine_Cule : CroneEngine {
 				amp,
 				K2A.ar(hand),
 				eg,
-				eg * eg,
-				lfoA,
-				lfoB,
-				lfoC
+				eg * eg
 			]);
 
 			pitch = pitch + \shift.kr;
 
 			// send control values to bus for polling
-			Out.kr(\voiceStateBus.ir, [A2K.kr(amp), pitch, t_trig, lfoA > 0, lfoB > 0, lfoC > 0]);
+			Out.kr(\voiceStateBus.ir, [A2K.kr(amp), pitch, t_trig, lfoAGate, lfoBGate, lfoCGate]);
 
 			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
 			// if I try that, SC seems to just hang forever, no error message
