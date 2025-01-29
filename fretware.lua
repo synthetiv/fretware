@@ -930,7 +930,7 @@ function init()
 				controlspec = controlspec.new(0.001, 7, 'exp', 0, 0.001, 's'),
 				action = function(value)
 					dest_sliders.attack:set_value(params:get_raw('attack') * 2 - 1)
-					engine.attack(value)
+					engine.attack(value - 0.001)
 				end
 			}
 			params:add {
