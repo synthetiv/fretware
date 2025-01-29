@@ -248,25 +248,7 @@ for s = 1, #editor.dests do
 	}
 end
 
--- TODO: derive these from param defaults
-xvi_values = {
-	64,
-	64,
-	64,
-	0,
-	64,
-	64,
-	64,
-	0,
-	0,
-	0,
-	127,
-	32,
-	64,
-	0,
-	0,
-	0
-}
+xvi_values = {}
 xvi_mappings = {
 	'ratioA',
 	'detuneA',
@@ -1164,7 +1146,7 @@ function init()
 		if message.type == 'pitchbend' then
 			local fader = message.ch
 			local new_value = message.val
-			local old_value = xvi_values[fader]
+			local old_value = xvi_values[fader] or new_value
 			-- scale to [0, 1]. 16383 = max 14-bit pitchbend value
 			local delta_raw = (new_value - old_value) / 16383
 			local source_held = false
