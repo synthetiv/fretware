@@ -39,7 +39,7 @@ Engine_Cule : CroneEngine {
 	harmonicOsc {
 		arg uGen, hz, harmonic, fadeSize, uGenArg;
 		var whichRatio = harmonic.linlin(-1, 1, 0, nRatios - 1);
-		var whichOsc = (Fold.kr(whichRatio).linlin(0, 1, -1, 1) / fadeSize).clip2;
+		var whichOsc = (Fold.ar(whichRatio).linlin(0, 1, -1, 1) / fadeSize).clip2;
 		^LinXFade2.ar(
 			uGen.ar(hz * Select.kr(whichRatio + 1 / 2, fmRatios[0]), uGenArg),
 			uGen.ar(hz * Select.kr(whichRatio / 2, fmRatios[1]), uGenArg),
@@ -157,7 +157,7 @@ Engine_Cule : CroneEngine {
 		});
 
 		controlBuses = Array.fill(nVoices, {
-			Bus.control(context.server, 19);
+			Bus.audio(context.server, 19);
 		});
 
 		controlDef = SynthDef.new(\voiceControls, {
@@ -245,11 +245,11 @@ Engine_Cule : CroneEngine {
 
 			// calculate modulation matrix
 			// this feedback loop is needed in order for modulators to modulate one another
-			modulators = LocalIn.kr(modulatorNames.size - 3);
+			modulators = LocalIn.ar(modulatorNames.size - 3);
 			// add S+H'd modulators
 			modulators = [
 				modulators,
-				Latch.kr(modulators[4..6], Trig.kr(gate) + Trig.kr(tip > 0.01))
+				Latch.ar(modulators[4..6], Trig.kr(gate) + Trig.kr(tip > 0.01))
 			].flatten;
 
 			// build a dictionary of summed modulation signals to apply to parameters
@@ -276,16 +276,16 @@ Engine_Cule : CroneEngine {
 
 			attack = attack * 8.pow(modulation[\attack]);
 			release = release * 8.pow(modulation[\release]);
-			eg = Select.kr(\egType.kr(1), [
+			eg = Select.ar(\egType.kr(1), [
 				// ASR, linear attack
-				EnvGen.kr(Env.new(
+				EnvGen.ar(Env.new(
 					[0, 1, 0],
 					[attack, release],
 					egCurve * [0, 1],
 					releaseNode: 1
 				), gate),
 				// AR, Maths-style symmetrical attack
-				EnvGen.kr(Env.new(
+				EnvGen.ar(Env.new(
 					[0, 1, 0],
 					[attack, release],
 					egCurve * [-1, 1],
@@ -293,11 +293,11 @@ Engine_Cule : CroneEngine {
 			]);
 
 			lfoAFreq = lfoAFreq * 8.pow(modulation[\lfoAFreq]);
-			lfoA = LFTri.kr(lfoAFreq, 4.rand);
+			lfoA = LFTri.ar(lfoAFreq, 4.rand);
 			lfoBFreq = lfoBFreq * 8.pow(modulation[\lfoBFreq]);
-			lfoB = LFTri.kr(lfoBFreq, 4.rand);
+			lfoB = LFTri.ar(lfoBFreq, 4.rand);
 			lfoCFreq = lfoCFreq * 8.pow(modulation[\lfoCFreq]);
-			lfoC = LFTri.kr(lfoCFreq, 4.rand);
+			lfoC = LFTri.ar(lfoCFreq, 4.rand);
 
 			detuneA  = detuneA.cubed.lag(lag) + modulation[\detuneA];
 			indexA   = indexA.lag(lag) + modulation[\indexA];
@@ -313,19 +313,19 @@ Engine_Cule : CroneEngine {
 			ratioB   = ratioB.lag(lag) + modulation[\ratioB];
 
 			// slew tip for direct control of amplitude -- otherwise there will be audible steppiness
-			tip = Lag.kr(tip, 0.05);
+			tip = Lag.ar(K2A.ar(tip), 0.05);
 			// amp mode shouldn't change while frozen
-			ampMode = Gate.kr(ampMode, 1 - freeze);
-			amp = (Select.kr(ampMode, [
+			ampMode = Gate.ar(ampMode, 1 - freeze);
+			amp = (Select.ar(ampMode, [
 				tip,
 				tip * eg,
 				eg * -6.dbamp
 			]) * (1 + modulation[\amp])).clip(0, 1);
 
 			// now save the modulation values for the next block
-			LocalOut.kr([
+			LocalOut.ar([
 				amp,
-				hand,
+				K2A.ar(hand),
 				eg,
 				eg * eg,
 				lfoA,
@@ -336,44 +336,44 @@ Engine_Cule : CroneEngine {
 			pitch = pitch + \shift.kr;
 
 			// send control values to bus for polling
-			Out.kr(\voiceStateBus.ir, [amp, pitch, t_trig, lfoA > 0, lfoB > 0, lfoC > 0]);
+			Out.kr(\voiceStateBus.ir, [A2K.kr(amp), pitch, t_trig, lfoA > 0, lfoB > 0, lfoC > 0]);
 
 			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
 			// if I try that, SC seems to just hang forever, no error message
 			pitch = Lag.kr(pitch, \pitchSlew.kr);
 
-			Out.kr(\controlBus.ir, [
+			Out.ar(\controlBus.ir, K2A.ar([
 				// grouped in fives for easy counting
 				pitch, amp, pan, ratioA, fadeSizeA,
 				detuneA, indexA, ratioB, fadeSizeB, detuneB,
 				indexB, opMix, fxA, fxB, hpCutoff,
 				\hpRQ.kr(0.7), lpCutoff, \lpRQ.kr(0.7), \outLevel.kr(0.2)
-			]);
+			]));
 		}).add;
 
 		// Self-FM operator
 		SynthDef.new(\operatorFB, {
-			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus);
+			var hz = 2.pow(\pitch.ar) * In.kr(baseFreqBus);
 			var output = this.harmonicOsc(
 				SinOscFB,
-				hz * (9 / 4).pow(\detune.kr),
-				\ratio.kr,
+				hz * (9 / 4).pow(\detune.ar),
+				\ratio.ar,
 				\fadeSize.kr(1),
-				\index.kr(-1).lincurve(-1, 1, 0, 1.3pi, 3, \min)
+				\index.ar(-1).lincurve(-1, 1, 0, 1.3pi, 3, \min)
 			);
 			Out.ar(\outBus.ir, output);
 		}).add;
 
 		// External-FM operator
 		SynthDef.new(\operatorFM, {
-			var pitch = \pitch.kr;
+			var pitch = \pitch.ar;
 			var hz = 2.pow(pitch) * In.kr(baseFreqBus);
 			var output = this.harmonicOsc(
 				SinOsc,
-				hz * (9 / 4).pow(\detune.kr),
-				\ratio.kr,
+				hz * (9 / 4).pow(\detune.ar),
+				\ratio.ar,
 				\fadeSize.kr(1),
-				(InFeedback.ar(\inBus.ir) * \index.kr(-1).lincurve(-1, 1, 0, 13pi, 4, \min) * 0.7.pow(pitch)).mod(2pi)
+				(InFeedback.ar(\inBus.ir) * \index.ar(-1).lincurve(-1, 1, 0, 13pi, 4, \min) * 0.7.pow(pitch)).mod(2pi)
 			);
 			Out.ar(\outBus.ir, output);
 		}).add;
@@ -381,9 +381,6 @@ Engine_Cule : CroneEngine {
 		SynthDef.new(\operatorMixer, {
 			var opA = In.ar(\opA.ir);
 			var opB = In.ar(\opB.ir);
-			// mix param is audio rate so it can be wrapped without audible glitches when wrapping
-			// TODO: make sure using \mix.ar does the proper KR->AR conversion -- test by listening for
-			// glitches when crossing the wrap point
 			var output = SelectX.ar(\mix.ar.linlin(-1, 1, 0, 4, nil).wrap(0, 3), [
 				opA,
 				opB,
@@ -395,26 +392,26 @@ Engine_Cule : CroneEngine {
 
 		SynthDef.new(\fxSquiz, {
 			var bus = \bus.ir;
-			ReplaceOut.ar(bus, Squiz.ar(In.ar(bus), \intensity.kr.lincurve(-1, 1, 1, 16, 4, 'min'), 2));
+			ReplaceOut.ar(bus, Squiz.ar(In.ar(bus), \intensity.ar.lincurve(-1, 1, 1, 16, 4, 'min'), 2));
 		}).add;
 
 		SynthDef.new(\fxWaveLoss, {
 			var bus = \bus.ir;
 			ReplaceOut.ar(bus,
-				WaveLoss.ar(In.ar(bus), \intensity.kr.lincurve(-1, 1, 0, 127, 4, 'min'), 127, mode: 2)
+				WaveLoss.ar(In.ar(bus), \intensity.ar.lincurve(-1, 1, 0, 127, 4, 'min'), 127, mode: 2)
 			);
 		}).add;
 
 		SynthDef.new(\fxFold, {
 			var bus = \bus.ir;
-			ReplaceOut.ar(bus, (In.ar(bus) * \intensity.kr.linexp(-1, 1, 1, 27, 'min')).fold2);
+			ReplaceOut.ar(bus, (In.ar(bus) * \intensity.ar.linexp(-1, 1, 1, 27, 'min')).fold2);
 		}).add;
 
 		// Dimension C-style chorus
 		SynthDef.new(\fxChorus, {
 			var bus = \bus.ir;
 			var sig = In.ar(bus);
-			var intensity = \intensity.kr;
+			var intensity = \intensity.ar;
 			var lfo = LFTri.kr(intensity.linexp(-1, 1, 0.03, 2, nil)).lag(\lag.kr(0.1)) * [-1, 1];
 			sig = Mix([
 				sig,
@@ -430,25 +427,25 @@ Engine_Cule : CroneEngine {
 			var voiceOutput = In.ar(\bus.ir);
 
 			// HPF
-			hpCutoff = \hpCutoff.kr(-1).linexp(-1, 1, 4, 24000);
+			hpCutoff = \hpCutoff.ar(-1).linexp(-1, 1, 4, 24000);
 			hpRQ = \hpRQ.kr(0.7);
 			hpRQ = hpCutoff.linexp(SampleRate.ir * 0.25 / hpRQ, SampleRate.ir * 0.5, hpRQ, 0.5).min(hpRQ);
 			voiceOutput = RHPF.ar(voiceOutput, hpCutoff, hpRQ);
 
 			// LPF
-			lpCutoff = \lpCutoff.kr(1).linexp(-1, 1, 4, 24000);
+			lpCutoff = \lpCutoff.ar(1).linexp(-1, 1, 4, 24000);
 			lpRQ = \lpRQ.kr(0.7);
 			lpRQ = lpCutoff.linexp(SampleRate.ir * 0.25 / lpRQ, SampleRate.ir * 0.5, lpRQ, 0.5).min(lpRQ);
 			voiceOutput = RLPF.ar(voiceOutput, lpCutoff, lpRQ);
 
 			// scale by amplitude control value
-			voiceOutput = voiceOutput * \amp.kr;
+			voiceOutput = voiceOutput * \amp.ar;
 
 			// scale by output level
 			voiceOutput = voiceOutput * Lag.kr(\outLevel.kr, 0.05);
 
 			// pan and write to main outs
-			Out.ar(context.out_b, Pan2.ar(voiceOutput, \pan.kr.fold2));
+			Out.ar(context.out_b, Pan2.ar(voiceOutput, \pan.ar.fold2));
 		}).add;
 
 		patchArgs = controlDef.allControlNames.collect({ |control| control.name })
