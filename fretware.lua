@@ -440,7 +440,7 @@ function g.key(x, y, z)
 				end
 			end
 		end
-	elseif source_menu.open then
+	elseif source_menu.open and x > 2 and y < 8 then
 		source_menu:key(x, y, z)
 	else
 		k:key(x, y, z)
