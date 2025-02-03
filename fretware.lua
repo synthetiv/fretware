@@ -53,7 +53,7 @@ arp_direction_menu:select_value(0)
 source_menu = Menu.new(7, 1, 9, 2, {
 	-- map of source numbers (in editor.source_names) to keys
 	 2, _, 3, _, 5, 6,  7, _, 1,
-	 _, _, 4, _, 8, 9, 10, _, _,
+	 _, _, 4
 })
 source_menu.multi = true
 source_menu:select_value(1)
