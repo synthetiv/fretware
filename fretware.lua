@@ -6,7 +6,7 @@ Lattice = require 'lattice'
 
 Slider = include 'lib/slider'
 
-n_voices = 4
+n_voices = 3
 
 Keyboard = include 'lib/keyboard'
 k = Keyboard.new(1, 1, 16, 8)
@@ -760,7 +760,7 @@ function init()
 		end
 	}
 
-	params:add_group('modes', 4)
+	params:add_group('modes', 7)
 
 	params:add {
 		name = 'op type A',
@@ -803,6 +803,39 @@ function init()
 		default = 1,
 		action = function(value)
 			engine.fxType(2, value == 1 and 2 or 4)
+		end
+	}
+
+	params:add {
+		name = 'lfo type A',
+		id = 'lfoTypeA',
+		type = 'option',
+		options = { 'tri', 's+h', 'rand' },
+		default = 1,
+		action = function(value)
+			engine.lfoType(1, value)
+		end
+	}
+
+	params:add {
+		name = 'lfo type B',
+		id = 'lfoTypeB',
+		type = 'option',
+		options = { 'tri', 's+h', 'rand' },
+		default = 1,
+		action = function(value)
+			engine.lfoType(2, value)
+		end
+	}
+
+	params:add {
+		name = 'lfo type C',
+		id = 'lfoTypeC',
+		type = 'option',
+		options = { 'tri', 's+h', 'dust' },
+		default = 1,
+		action = function(value)
+			engine.lfoType(3, value)
 		end
 	}
 
