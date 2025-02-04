@@ -425,9 +425,8 @@ function g.key(x, y, z)
 		elseif not arp_direction_menu:key(x, y, z) then
 			arp_menu:key(x, y, z)
 		end
-	elseif source_menu.open and x == 1 and y == 1 then
+	elseif source_menu.open and source_menu.n_held > 0 and x == 1 and y == 1 then
 		if z == 1 then
-			-- TODO
 			-- if there are any held sources, reset ALL routes involving them
 			for source = 1, #editor.source_names do
 				if source_menu.held[source] then
@@ -495,7 +494,7 @@ function grid_redraw()
 	end
 	g:led(9, 8, source_menu.open and 7 or 2)
 	source_menu:draw()
-	if source_menu.open then
+	if source_menu.open and source_menu.n_held > 0 then
 		g:led(1, 1, 7)
 	end
 	local blink = arp_gates[5] -- 1/8 notes
