@@ -7,9 +7,8 @@ Engine_Cule : CroneEngine {
 
 	var controlDef;
 
-	var parameterNames;
-	var modulatorNames;
-	var voiceArgs;
+	var modulationDestNames;
+	var modulationSourceNames;
 	var patchArgs;
 	var selectedVoiceArgs;
 
@@ -17,9 +16,7 @@ Engine_Cule : CroneEngine {
 	var nRatios;
 
 	var baseFreqBus;
-	var audioBuses;
-	var controlBuses;
-	var lfoBuses;
+	var voiceBuses;
 	var voiceSynths;
 	var patchBuses;
 	var replySynth;
@@ -51,17 +48,17 @@ Engine_Cule : CroneEngine {
 	swapOp {
 		arg op, defName; // op A = 0, B = 1
 		nVoices.do({ |v|
-			var thisBus = Bus.newFrom(audioBuses[v], op + 1);
-			var thatBus = Bus.newFrom(audioBuses[v], (op + 1).mod(2) + 1);
+			var thisBus = Bus.newFrom(voiceBuses[v][\opAudio], op);
+			var thatBus = Bus.newFrom(voiceBuses[v][\opAudio], (op + 1).mod(2));
 			var newOp = Synth.replace(voiceSynths[v][op + 1], defName, [
 				\inBus, thatBus,
 				\outBus, thisBus
 			]);
-			newOp.map(\pitch,    Bus.newFrom(controlBuses[v], 0));
-			newOp.map(\ratio,    Bus.newFrom(controlBuses[v], op * 4 + 3));
-			newOp.map(\fadeSize, Bus.newFrom(controlBuses[v], op * 4 + 4));
-			newOp.map(\detune,   Bus.newFrom(controlBuses[v], op * 4 + 5));
-			newOp.map(\index,    Bus.newFrom(controlBuses[v], op * 4 + 6));
+			newOp.map(\pitch,    voiceBuses[v][\pitch]);
+			newOp.map(\ratio,    Bus.newFrom(voiceBuses[v][\opRatio], op));
+			newOp.map(\fadeSize, Bus.newFrom(voiceBuses[v][\opFadeSize], op));
+			newOp.map(\detune,   Bus.newFrom(voiceBuses[v][\opDetune], op));
+			newOp.map(\index,    Bus.newFrom(voiceBuses[v][\opIndex], op));
 			voiceSynths[v].put(op + 1, newOp);
 		});
 	}
@@ -69,11 +66,11 @@ Engine_Cule : CroneEngine {
 	swapFx {
 		arg slot, defName;
 		nVoices.do({ |v|
-			var bus = Bus.newFrom(audioBuses[v], 0);
+			var bus = Bus.newFrom(voiceBuses[v][\mixAudio], 0);
 			var newFx = Synth.replace(voiceSynths[v][slot + 4], defName, [
 				\bus, bus
 			]);
-			newFx.map(\intensity, Bus.newFrom(controlBuses[v], 12 + slot));
+			newFx.map(\intensity, Bus.newFrom(voiceBuses[v][\fx], slot));
 			voiceSynths[v].put(slot + 4, newFx);
 		});
 	}
@@ -82,11 +79,11 @@ Engine_Cule : CroneEngine {
 		arg slot, defName;
 		nVoices.do({ |v|
 			var newLfo = Synth.replace(voiceSynths[v][slot + 6], defName, [
-				\stateBus, Bus.newFrom(lfoBuses[v], slot),
+				\stateBus, Bus.newFrom(voiceBuses[v][\lfoState], slot),
 				\voiceIndex, v,
 				\lfoIndex, slot
 			]);
-			newLfo.map(\freq, Bus.newFrom(controlBuses[v], 18 + slot));
+			newLfo.map(\freq, Bus.newFrom(voiceBuses[v][\lfoFreq], slot));
 			voiceSynths[v].put(slot + 6, newLfo);
 		});
 	}
@@ -94,7 +91,7 @@ Engine_Cule : CroneEngine {
 	alloc {
 
 		// modulatable parameters for audio synths
-		parameterNames = [
+		modulationDestNames = [
 			\amp,
 			\pan,
 			\ratioA,
@@ -116,7 +113,7 @@ Engine_Cule : CroneEngine {
 		];
 
 		// modulation sources
-		modulatorNames = [
+		modulationSourceNames = [
 			\amp,
 			\hand,
 			\eg,
@@ -126,26 +123,25 @@ Engine_Cule : CroneEngine {
 			\lfoC
 		];
 
-		// non-patch, single-voice-specific args
-		voiceArgs = [
-			\voiceStateBus,
-			\freeze,
-			\t_loopReset,
-			\loopLength,
-			\loopPosition,
-			\loopRateScale,
-			\shift,
-			\pan,
-			\outLevel,
-		];
-
-		// non-patch, single-voice-specific args that only need to be set on one voice at a time
-		selectedVoiceArgs = [
-			\pitch,
-			\tip,
-			\palm,
-			// gate and t_trig are handled this way too, but separately
-		];
+		// modulatable AND non-modulatable parameters
+		// TODO: op types, FX types, and LFO types should be considered patch parameters too!!
+		patchArgs = [
+			\pitchSlew,
+			\fadeSizeA,
+			\fadeSizeB,
+			\hpRQ,
+			\lpRQ,
+			\egType,
+			\egCurve,
+			\ampMode,
+			modulationDestNames,
+			Array.fill(modulationSourceNames.size, { |s|
+				Array.fill(modulationDestNames.size, { |d|
+					(modulationSourceNames[s] ++ '_' ++ modulationDestNames[d]).asSymbol;
+				});
+			}).flatten;
+		].flatten;
+		patchArgs = patchArgs.difference([ \pan ]);
 
 		// frequency ratios used by the two FM operators of each voice
 		// declared as one array, but stored as two arrays, one with odd and one with even
@@ -163,57 +159,46 @@ Engine_Cule : CroneEngine {
 			Bus.control(context.server, 3);
 		});
 
-		audioBuses = Array.fill(nVoices, {
-			Bus.audio(context.server, 3);
-		});
-
-		controlBuses = Array.fill(nVoices, {
-			Bus.audio(context.server, 22);
-		});
-
-		lfoBuses = Array.fill(nVoices, {
-			Bus.control(context.server, 3);
+		voiceBuses = Array.fill(nVoices, {
+			Dictionary[
+				\amp -> Bus.audio(context.server),
+				\eg -> Bus.audio(context.server),
+				\trig -> Bus.control(context.server),
+				\hand -> Bus.control(context.server),
+				\pan -> Bus.control(context.server),
+				\pitch -> Bus.control(context.server),
+				\opRatio -> Bus.control(context.server, 2),
+				\opFadeSize -> Bus.control(context.server, 2),
+				\opDetune -> Bus.audio(context.server, 2),
+				\opIndex -> Bus.audio(context.server, 2),
+				\opMix -> Bus.control(context.server),
+				\opAudio -> Bus.audio(context.server, 2),
+				\mixAudio -> Bus.audio(context.server),
+				\fx -> Bus.control(context.server, 2),
+				\cutoff -> Bus.audio(context.server, 2),
+				\rq -> Bus.control(context.server, 2),
+				\lfoFreq -> Bus.control(context.server, 3),
+				\lfoState -> Bus.control(context.server, 3),
+				\outLevel -> Bus.control(context.server)
+			];
 		});
 
 		controlDef = SynthDef.new(\voiceControls, {
 
 			arg pitch = 0,
 				gate = 0,
-				t_trig = 0,
 				tip = 0,
 				palm = 0,
-				ampMode = 0, // 0 = tip only; 1 = tip * AR; 2 = ADSR
 				freeze = 0,
 				t_loopReset = 0,
 				loopLength = 0.3,
 				loopPosition = 0,
 				loopRateScale = 1,
 
-				hpCutoff = 0.0,
-				lpCutoff = 0.8,
-
 				attack = 0.01,
 				release = 0.3,
 				egCurve = -6,
 
-				lfoAFreq = 4.3,
-				lfoBFreq = 3.1,
-				lfoCFreq = 1.1,
-
-				ratioA = 0,
-				detuneA = 0,
-				indexA = 0,
-
-				opMix = 0,
-
-				ratioB = 0.3,
-				detuneB = 0,
-				indexB = 0,
-
-				fxA = 0,
-				fxB = 0,
-
-				pan = 0,
 				lag = 0.1;
 
 			var modulators,
@@ -222,10 +207,7 @@ Engine_Cule : CroneEngine {
 				modulation = Dictionary.new,
 				amp_indexA, amp_indexB, amp_hpCutoff, amp_lpCutoff,
 				recPitch, recTip, recHand, recGate, recTrig,
-				hand, freezeWithoutGate, eg, eg2, amp,
-				hz, fmInput, opB, fmMix, opA,
-				voiceOutput,
-				highPriorityUpdate;
+				trig, ampMode, hand, freezeWithoutGate, eg, eg2, amp;
 
 			// create buffer for looping pitch/amp/control data
 			bufferRate = ControlRate.ir * bufferRateScale;
@@ -239,10 +221,10 @@ Engine_Cule : CroneEngine {
 			loopTrigger = Trig.kr(BinaryOpUGen.new('==', loopPhase, loopStart));
 			loopOffset = Latch.kr(bufferLength - (loopLength * bufferRate), loopTrigger) * loopPosition;
 			loopPhase = loopPhase - loopOffset;
-			t_trig = Trig.kr(t_trig, 0.01);
+			trig = Trig.kr(\trig.tr, 0.01);
 			hand = tip - palm;
 			freezeWithoutGate = freeze.min(1 - gate);
-			BufWr.kr([pitch, tip, hand, gate, t_trig], buffer, bufferPhase);
+			BufWr.kr([pitch, tip, hand, gate, trig], buffer, bufferPhase);
 			// read values from recorded loop (if any)
 			# recPitch, recTip, recHand, recGate, recTrig = BufRd.kr(nRecordedModulators, buffer, loopPhase, interpolation: 1);
 			// new pitch values can "punch through" frozen ones when gate is high
@@ -253,23 +235,25 @@ Engine_Cule : CroneEngine {
 			hand = hand + (Linen.kr(freeze, 0.3, 1, 0) * recHand);
 			// combine incoming gates with recorded gates
 			gate = gate.max(freeze * recGate);
-			t_trig = t_trig.max(freeze * recTrig);
+			trig = trig.max(freeze * recTrig);
 
 			// calculate modulation matrix
+
 			// this feedback loop is needed in order for modulators to modulate one another
-			modulators = LocalIn.ar(3);
+			eg = InFeedback.ar(\egBus.ir);
 			modulators = [
-				modulators,
-				// add env ^ 2
-				modulators[2].squared,
-				// merge in LFO values from LFO synths
+				InFeedback.ar(\ampBus.ir),
+				K2A.ar(In.kr(\handBus.ir)),
+				eg,
+				eg.squared,
 				K2A.ar(In.kr(\lfoStateBus.ir, 3))
 			].flatten;
 
 			// build a dictionary of summed modulation signals to apply to parameters
-			parameterNames.do({ |paramName|
-				modulation.put(paramName, Mix.fill(modulatorNames.size, { |m|
-					var modulatorName = modulatorNames[m];
+			modulationDestNames.do({ |destName|
+				// TODO: downsample to control rate for some destinations
+				modulation.put(destName, Mix.fill(modulationSourceNames.size, { |m|
+					var sourceName = modulationSourceNames[m];
 					// amp modulates index and cutoff differently: it always lowers the parameter, never
 					// increases it. this way, default routing can include amp->index, but if index is set to
 					// minimum, we'll always hear a sine wave.
@@ -278,12 +262,12 @@ Engine_Cule : CroneEngine {
 					// high amp values lower the index/cutoff.
 					// in both cases, amp is scaled so that maximum reduction is 2.
 					// except for HP cutoff, which works the opposite way: it is only ever raised.
-					if(\amp === modulatorName && [\indexA, \indexB, \hpCutoff, \lpCutoff].includes(paramName), {
-						var amount = NamedControl.kr(('amp_' ++ paramName).asSymbol, 0, lag);
-						var polaritySwitch = BinaryOpUGen(if(\hpCutoff === modulatorName, '<', '>'), amount, 0);
+					if(\amp === sourceName && [\indexA, \indexB, \hpCutoff, \lpCutoff].includes(destName), {
+						var amount = NamedControl.kr(('amp_' ++ destName).asSymbol, 0, lag);
+						var polaritySwitch = BinaryOpUGen(if(\hpCutoff === sourceName, '<', '>'), amount, 0);
 						(modulators[m] - polaritySwitch) * 2 * amount;
 					}, {
-						modulators[m] * NamedControl.kr((modulatorName ++ '_' ++ paramName).asSymbol, 0, lag);
+						modulators[m] * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol, 0, lag);
 					});
 				}));
 			});
@@ -303,64 +287,80 @@ Engine_Cule : CroneEngine {
 					[0, 1, 0],
 					[attack, release],
 					egCurve * [-1, 1],
-				), t_trig)
+				), trig)
 			]);
 
-			detuneA  = detuneA.cubed.lag(lag) + modulation[\detuneA];
-			indexA   = indexA.lag(lag) + modulation[\indexA];
-			opMix    = opMix.lag(lag) + modulation[\opMix];
-			detuneB  = detuneB.cubed.lag(lag) + modulation[\detuneB];
-			indexB   = indexB.lag(lag) + modulation[\indexB];
-			hpCutoff = hpCutoff.lag(lag) + modulation[\hpCutoff];
-			lpCutoff = lpCutoff.lag(lag) + modulation[\lpCutoff];
-			fxA      = fxA.lag(lag) + modulation[\fxA];
-			fxB      = fxB.lag(lag) + modulation[\fxB];
-			pan      = pan.lag(lag) + modulation[\pan];
-			ratioA   = ratioA.lag(lag) + modulation[\ratioA];
-			ratioB   = ratioB.lag(lag) + modulation[\ratioB];
+			Out.kr(\opRatioBus.ir, [
+				\ratioA.kr.lag(lag) + A2K.kr(modulation[\ratioA]),
+				\ratioB.kr.lag(lag) + A2K.kr(modulation[\ratioB])
+			]);
 
-			lfoAFreq = lfoAFreq * 8.pow(modulation[\lfoAFreq]);
-			lfoBFreq = lfoBFreq * 8.pow(modulation[\lfoBFreq]);
-			lfoCFreq = lfoCFreq * 8.pow(modulation[\lfoCFreq]);
+			Out.kr(\opFadeSizeBus.ir, [
+				\fadeSizeA.kr(0.5),
+				\fadeSizeB.kr(0.5),
+			]);
+
+			Out.ar(\opDetuneBus.ir, [
+				\detuneA.ar.cubed.lag(lag) + modulation[\detuneA],
+				\detuneB.ar.cubed.lag(lag) + modulation[\detuneB]
+			]);
+
+			Out.ar(\opIndexBus.ir, [
+				\indexA.ar.lag(lag) + modulation[\indexA],
+				\indexB.ar.lag(lag) + modulation[\indexB]
+			]);
+
+			Out.kr(\opMixBus.ir, \opMix.kr.lag(lag) + A2K.kr(modulation[\opMix]));
+
+			Out.kr(\fxBus.ir, [
+				\fxA.kr.lag(lag) + A2K.kr(modulation[\fxA]),
+				\fxB.kr.lag(lag) + A2K.kr(modulation[\fxB])
+			]);
+
+			Out.ar(\cutoffBus.ir, [
+				\hpCutoff.ar.lag(lag) + modulation[\hpCutoff],
+				\lpCutoff.ar.lag(lag) + modulation[\lpCutoff]
+			]);
+
+			Out.kr(\rqBus.ir, [
+				\hpRQ.kr(0.7),
+				\lpRQ.kr(0.7)
+			]);
+
+			Out.kr(\lfoFreqBus.ir, [
+				\lfoAFreq.kr(1) * 8.pow(A2K.kr(modulation[\lfoAFreq])),
+				\lfoBFreq.kr(1) * 8.pow(A2K.kr(modulation[\lfoBFreq])),
+				\lfoCFreq.kr(1) * 8.pow(A2K.kr(modulation[\lfoCFreq]))
+			]);
 
 			// slew tip for direct control of amplitude -- otherwise there will be audible steppiness
 			tip = Lag.ar(K2A.ar(tip), 0.05);
 			// amp mode shouldn't change while frozen
-			ampMode = Gate.ar(ampMode, 1 - freeze);
-			amp = (Select.ar(ampMode, [
+			ampMode = Gate.kr(\ampMode.kr, 1 - freeze);
+			amp = Select.ar(K2A.ar(ampMode), [
 				tip,
 				tip * eg,
 				eg * -6.dbamp
-			]) * (1 + modulation[\amp])).clip(0, 1);
-
-			// now save the modulation values for the next block
-			LocalOut.ar([
-				amp,
-				K2A.ar(hand),
-				eg
 			]);
+			amp = amp * (1 + modulation[\amp]);
+			amp = amp.clip(0, 1);
+
+			Out.ar(\ampBus.ir, amp);
+			Out.ar(\egBus.ir, eg);
+			Out.kr(\handBus.ir, hand);
+
+			Out.kr(\panBus.ir, \pan.kr.lag(lag) + A2K.kr(modulation[\pan]));
 
 			pitch = pitch + \shift.kr;
-
-			// send control values to bus for polling
-			// TODO: why do we even bother using a separate synth for this?
-			Out.kr(\voiceStateBus.ir, [A2K.kr(amp), pitch, t_trig]);
 
 			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
 			// if I try that, SC seems to just hang forever, no error message
 			pitch = Lag.kr(pitch, \pitchSlew.kr);
+			Out.kr(\pitchBus.ir, pitch);
 
-			// TODO: these don't need to all be audio rate, and the bus(es)
-			// should be organized better -- like in a Dictionary, say
-			Out.ar(\controlBus.ir, K2A.ar([
-				pitch, amp, pan,
-				ratioA, \fadeSizeA.kr(0.5), detuneA, indexA,
-				ratioB, \fadeSizeB.kr(0.5), detuneB, indexB,
-				opMix, fxA, fxB,
-				hpCutoff, \hpRQ.kr(0.7), lpCutoff, \lpRQ.kr(0.7),
-				lfoAFreq, lfoBFreq, lfoCFreq,
-				\outLevel.kr(0.2)
-			]));
+			Out.kr(\trigBus.ir, trig);
+
+			Out.kr(\outLevelBus.ir, \outLevel.kr(0.2));
 		}).add;
 
 		// Triangle LFO
@@ -392,9 +392,10 @@ Engine_Cule : CroneEngine {
 
 		// Self-FM operator
 		SynthDef.new(\operatorFB, {
-			var hz = 2.pow(\pitch.ar) * In.kr(baseFreqBus);
+			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus);
 			var output = this.harmonicOsc(
 				SinOscFB,
+				// TODO: apply detune in the control synth!
 				hz * (9 / 4).pow(\detune.ar),
 				\ratio.ar,
 				\fadeSize.kr(1),
@@ -405,7 +406,7 @@ Engine_Cule : CroneEngine {
 
 		// External-FM operator
 		SynthDef.new(\operatorFM, {
-			var pitch = \pitch.ar;
+			var pitch = \pitch.kr;
 			var hz = 2.pow(pitch) * In.kr(baseFreqBus);
 			var output = this.harmonicOsc(
 				SinOsc,
@@ -487,24 +488,21 @@ Engine_Cule : CroneEngine {
 			Out.ar(context.out_b, Pan2.ar(voiceOutput, \pan.ar.fold2));
 		}).add;
 
-		patchArgs = controlDef.allControlNames.collect({ |control| control.name })
-			.difference(voiceArgs)
-			.difference(selectedVoiceArgs)
-			.difference([\gate, \t_trig]);
-
 		SynthDef.new(\reply, {
 			arg replyRate = 15;
 			var replyTrig = Impulse.kr(replyRate);
 			nVoices.do({ |v|
-				var amp, pitch, trig, pitchTrig;
-				# amp, pitch, trig = In.kr(voiceStateBuses[v], 3);
+				var bus = voiceBuses[v];
+				var amp = In.ar(bus[\amp]);
+				var pitch = In.kr(bus[\pitch]);
+				var trig = In.kr(bus[\trig]);
+				var pitchTrig = replyTrig + trig;
 
 				// what's important is peak amplitude, not exact current amplitude at poll time
 				amp = Peak.kr(amp, replyTrig);
 				SendReply.kr(Peak.kr(Changed.kr(amp), replyTrig) * replyTrig, '/voiceAmp', [v, amp]);
 
 				// respond quickly to triggers, which may change pitch in a meaningful way, even if the change is small
-				pitchTrig = replyTrig + trig;
 				SendReply.kr(Peak.kr(Changed.kr(pitch), pitchTrig) * pitchTrig, '/voicePitch', [v, pitch, trig]);
 			});
 		}).add;
@@ -534,85 +532,102 @@ Engine_Cule : CroneEngine {
 				mixBus, opMixer, fxB, fxA,
 				out;
 
+			var bus = voiceBuses[i];
+
 			controlSynth = Synth.new(\voiceControls, [
-				\controlBus, controlBuses[i],
-				\lfoStateBus, lfoBuses[i],
+				\ampBus, bus[\amp],
+				\egBus, bus[\eg],
+				\trigBus, bus[\trig],
+				\handBus, bus[\hand],
+				\panBus, bus[\pan],
+				\pitchBus, bus[\pitch],
+				\opRatioBus, bus[\opRatio],
+				\opFadeSizeBus, bus[\opFadeSize],
+				\opDetuneBus, bus[\opDetune],
+				\opIndexBus, bus[\opIndex],
+				\fxBus, bus[\fx],
+				\opMixBus, bus[\opMix],
+				\cutoffBus, bus[\cutoff],
+				\rqBus, bus[\rq],
+				\lfoFreqBus, bus[\lfoFreq],
+				\lfoStateBus, bus[\lfoState],
 				\voiceStateBus, voiceStateBuses[i],
+				\outLevelBus, bus[\outLevel]
 			], context.og, \addToTail); // "output" group
 			patchArgs.do({ |name| controlSynth.map(name, patchBuses[name]) });
 
 			lfoA = Synth.new(\lfoTri, [
-				\stateBus, Bus.newFrom(lfoBuses[i], 0),
+				\stateBus, Bus.newFrom(bus[\lfoState], 0),
 				\voiceIndex, i,
 				\lfoIndex, 0
 			], context.og, \addToTail);
-			lfoA.map(\freq, Bus.newFrom(controlBuses[i], 18));
+			lfoA.map(\freq, Bus.newFrom(bus[\lfoFreq], 0));
 
 			lfoB = Synth.new(\lfoTri, [
-				\stateBus, Bus.newFrom(lfoBuses[i], 1),
+				\stateBus, Bus.newFrom(bus[\lfoState], 1),
 				\voiceIndex, i,
 				\lfoIndex, 1
 			], context.og, \addToTail);
-			lfoB.map(\freq, Bus.newFrom(controlBuses[i], 19));
+			lfoB.map(\freq, Bus.newFrom(bus[\lfoFreq], 1));
 
 			lfoC = Synth.new(\lfoTri, [
-				\stateBus, Bus.newFrom(lfoBuses[i], 2),
+				\stateBus, Bus.newFrom(bus[\lfoState], 2),
 				\voiceIndex, i,
 				\lfoIndex, 2
 			], context.og, \addToTail);
-			lfoC.map(\freq, Bus.newFrom(controlBuses[i], 20));
+			lfoC.map(\freq, Bus.newFrom(bus[\lfoFreq], 2));
 
-			opBBus = Bus.newFrom(audioBuses[i], 2);
-			opABus = Bus.newFrom(audioBuses[i], 1);
+			opBBus = Bus.newFrom(bus[\opAudio], 1);
+			opABus = Bus.newFrom(bus[\opAudio], 0);
 
 			opB = Synth.new(\operatorFB, [
 				\inBus, opABus,
 				\outBus, opBBus
 			], context.og, \addToTail);
-			opB.map(\pitch,    Bus.newFrom(controlBuses[i], 0));
-			opB.map(\ratio,    Bus.newFrom(controlBuses[i], 7));
-			opB.map(\fadeSize, Bus.newFrom(controlBuses[i], 8));
-			opB.map(\detune,   Bus.newFrom(controlBuses[i], 9));
-			opB.map(\index,    Bus.newFrom(controlBuses[i], 10));
+			opB.map(\pitch,    bus[\pitch]);
+			opB.map(\ratio,    Bus.newFrom(bus[\opRatio], 1));
+			opB.map(\fadeSize, Bus.newFrom(bus[\opFadeSize], 1));
+			opB.map(\detune,   Bus.newFrom(bus[\opDetune], 1));
+			opB.map(\index,    Bus.newFrom(bus[\opIndex], 1));
 
 			opA = Synth.new(\operatorFB, [
 				\inBus, opBBus,
 				\outBus, opABus
 			], context.og, \addToTail);
-			opA.map(\pitch,    Bus.newFrom(controlBuses[i], 0));
-			opA.map(\ratio,    Bus.newFrom(controlBuses[i], 3));
-			opA.map(\fadeSize, Bus.newFrom(controlBuses[i], 4));
-			opA.map(\detune,   Bus.newFrom(controlBuses[i], 5));
-			opA.map(\index,    Bus.newFrom(controlBuses[i], 6));
+			opA.map(\pitch,    bus[\pitch]);
+			opA.map(\ratio,    Bus.newFrom(bus[\opRatio], 0));
+			opA.map(\fadeSize, Bus.newFrom(bus[\opFadeSize], 0));
+			opA.map(\detune,   Bus.newFrom(bus[\opDetune], 0));
+			opA.map(\index,    Bus.newFrom(bus[\opIndex], 0));
 
-			mixBus = Bus.newFrom(audioBuses[i], 0);
+			mixBus = bus[\mixAudio];
 			opMixer = Synth.new(\operatorMixer, [
 				\opA, opABus,
 				\opB, opBBus,
 				\bus, mixBus
 			], context.og, \addToTail);
-			opMixer.map(\mix, Bus.newFrom(controlBuses[i], 11));
+			opMixer.map(\mix, bus[\opMix]);
 
 			fxA = Synth.new(\fxSquiz, [
 				\bus, mixBus
 			], context.og, \addToTail);
-			fxA.map(\intensity, Bus.newFrom(controlBuses[i], 12));
+			fxA.map(\intensity, Bus.newFrom(bus[\fx], 0));
 
 			fxB = Synth.new(\fxWaveLoss, [
 				\bus, mixBus
 			], context.og, \addToTail);
-			fxB.map(\intensity, Bus.newFrom(controlBuses[i], 13));
+			fxB.map(\intensity, Bus.newFrom(bus[\fx], 1));
 
 			out = Synth.new(\voiceOutputStage, [
 				\bus, mixBus
 			], context.og, \addToTail);
-			out.map(\amp,      Bus.newFrom(controlBuses[i], 1));
-			out.map(\pan,      Bus.newFrom(controlBuses[i], 2));
-			out.map(\hpCutoff, Bus.newFrom(controlBuses[i], 14));
-			out.map(\hpRQ,     Bus.newFrom(controlBuses[i], 15));
-			out.map(\lpCutoff, Bus.newFrom(controlBuses[i], 16));
-			out.map(\lpRQ,     Bus.newFrom(controlBuses[i], 17));
-			out.map(\outLevel, Bus.newFrom(controlBuses[i], 18));
+			out.map(\amp,      bus[\amp]);
+			out.map(\pan,      bus[\pan]);
+			out.map(\hpCutoff, Bus.newFrom(bus[\cutoff], 0));
+			out.map(\hpRQ,     Bus.newFrom(bus[\rq], 0));
+			out.map(\lpCutoff, Bus.newFrom(bus[\cutoff], 1));
+			out.map(\lpRQ,     Bus.newFrom(bus[\rq], 1));
+			out.map(\outLevel, bus[\outLevel]);
 
 			[ controlSynth, opB, opA, opMixer, fxA, fxB, lfoA, lfoB, lfoC, out ];
 		});
@@ -667,7 +682,6 @@ Engine_Cule : CroneEngine {
 			);
 			// select new voice
 			selectedVoice = msg[1] - 1;
-			replySynth.set(\selectedVoice, selectedVoice);
 		});
 
 		this.addCommand(\poll_rate, "f", {
@@ -728,22 +742,29 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\gate, "i", {
 			arg msg;
 			var value = msg[1];
-			voiceSynths[selectedVoice][0].set(\gate, value, \t_trig, value);
+			voiceSynths[selectedVoice][0].set(\gate, value, \trig, value);
 		});
 
-		selectedVoiceArgs.do({
+		[ \pitch, \tip, \palm ].do({
 			arg name;
 			this.addCommand(name, "f", { |msg|
 				voiceSynths[selectedVoice][0].set(name, msg[1]);
 			});
 		});
 
-		voiceArgs.do({
+		[
+			\freeze,
+			\t_loopReset,
+			\loopLength,
+			\loopPosition,
+			\loopRateScale,
+			\shift,
+			\pan,
+			\outLevel,
+		].do({
 			arg name;
-			if(name !== \gate, {
-				this.addCommand(name, "if", { |msg|
-					voiceSynths[msg[1] - 1][0].set(name, msg[2]);
-				});
+			this.addCommand(name, "if", { |msg|
+				voiceSynths[msg[1] - 1][0].set(name, msg[2]);
 			});
 		});
 	}
@@ -753,8 +774,7 @@ Engine_Cule : CroneEngine {
 		voiceSynths.do({ |synths| synths.do({ |synth| synth.free }) });
 		patchBuses.do({ |bus| bus.free });
 		voiceStateBuses.do({ |bus| bus.free });
-		controlBuses.do({ |bus| bus.free });
-		audioBuses.do({ |bus| bus.free });
+		voiceBuses.do({ |dict| dict.do({ |bus| bus.free; }); });
 		baseFreqBus.free;
 		voiceAmpReplyFunc.free;
 		voicePitchReplyFunc.free;
