@@ -1217,50 +1217,38 @@ function redraw()
 	local source_name = editor.source_names[source_menu.value]
 
 	screen.level(source_menu:is_selected(1) and 15 or 3)
-	screen.move(0, 5)
+	screen.move(4, 5)
 	screen.text('Am')
 
 	screen.level(source_menu:is_selected(2) and 15 or 3)
-	screen.move_rel(5, 0)
+	screen.move_rel(7, 0)
 	screen.text('Hd')
 
 	screen.level(source_menu:is_selected(3) and 15 or 3)
-	screen.move_rel(5, 0)
+	screen.move_rel(7, 0)
 	screen.text('En')
 
 	screen.level(source_menu:is_selected(4) and 15 or 3)
-	screen.move_rel(5, 0)
+	screen.move_rel(7, 0)
 	screen.text('En2')
 
 	screen.level(source_menu:is_selected(5) and 15 or 3)
-	screen.move_rel(5, 0)
-	screen.text('A')
+	screen.move_rel(7, 0)
+	screen.text('La')
 	screen.level(voice.lfoA_gate and 15 or 3)
 	screen.text('.')
 
 	screen.level(source_menu:is_selected(6) and 15 or 3)
-	screen.move_rel(5, 0)
-	screen.text('B')
+	screen.move_rel(7, 0)
+	screen.text('Lb')
 	screen.level(voice.lfoB_gate and 15 or 3)
 	screen.text('.')
 
 	screen.level(source_menu:is_selected(7) and 15 or 3)
-	screen.move_rel(5, 0)
-	screen.text('C')
+	screen.move_rel(7, 0)
+	screen.text('Lc')
 	screen.level(voice.lfoC_gate and 15 or 3)
 	screen.text('.')
-
-	screen.level(source_menu:is_selected(8) and 15 or 3)
-	screen.move_rel(5, 0)
-	screen.text('a')
-
-	screen.level(source_menu:is_selected(9) and 15 or 3)
-	screen.move_rel(5, 0)
-	screen.text('b')
-
-	screen.level(source_menu:is_selected(10) and 15 or 3)
-	screen.move_rel(5, 0)
-	screen.text('c')
 
 	-- TODO: fix this
 	for d = 1, #editor.dests do
