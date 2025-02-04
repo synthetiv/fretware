@@ -775,7 +775,7 @@ Engine_Cule : CroneEngine {
 
 		patchArgs.do({
 			arg name;
-			var signature = if([ \ampMode ].includes(name), "i", "f");
+			var signature = if([ \egType, \ampMode ].includes(name), "i", "f");
 			this.addCommand(name, signature, { |msg|
 				patchBuses[name].set(msg[1]);
 			});
