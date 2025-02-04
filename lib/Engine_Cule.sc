@@ -464,20 +464,6 @@ Engine_Cule : CroneEngine {
 			Out.ar(\outBus.ir, output);
 		}).add;
 
-		// Saw-to-impulse operator
-		SynthDef.new(\operatorSaw, {
-			var pitch = \pitch.kr;
-			var hz = 2.pow(pitch) * In.kr(baseFreqBus);
-			var output = this.harmonicOsc(
-				BlitB3Saw,
-				hz,
-				\ratio.ar,
-				\fadeSize.kr(1),
-				\index.ar(-1).lincurve(-1, 1, 0.99, 0, 3)
-			);
-			Out.ar(\outBus.ir, output);
-		}).add;
-
 		// TODO: other, lighter-weight operators
 
 		SynthDef.new(\operatorMixer, {
@@ -758,7 +744,7 @@ Engine_Cule : CroneEngine {
 
 		this.addCommand(\opType, "ii", {
 			arg msg;
-			var def = [\operatorFM, \operatorFB, \operatorSaw].at(msg[2] - 1);
+			var def = [\operatorFM, \operatorFB].at(msg[2] - 1);
 			this.swapOp(msg[1] - 1, def);
 		});
 

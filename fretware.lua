@@ -766,7 +766,7 @@ function init()
 		name = 'op type A',
 		id = 'opTypeA',
 		type = 'option',
-		options = { 'FM', 'FB', 'saw' },
+		options = { 'FM', 'FB' },
 		default = 1,
 		action = function(value)
 			engine.opType(1, value)
@@ -777,7 +777,7 @@ function init()
 		name = 'op type B',
 		id = 'opTypeB',
 		type = 'option',
-		options = { 'FM', 'FB', 'saw' },
+		options = { 'FM', 'FB' },
 		default = 2,
 		action = function(value)
 			engine.opType(2, value)
