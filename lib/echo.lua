@@ -23,6 +23,7 @@ function Echo.new()
 		resolution = 0,
 		cutoff_hp = 300,
 		cutoff_lp = 8000,
+		feedback = 0,
 		tone = 0,
 		tone_dirty = false,
 		gain_compensation = 0.838,
