@@ -251,25 +251,33 @@ Engine_Cule : CroneEngine {
 
 			// build a dictionary of summed modulation signals to apply to parameters
 			modulationDestNames.do({ |destName|
-				// TODO: downsample to control rate for some destinations
-				modulation.put(destName, Mix.fill(modulationSourceNames.size, { |m|
-					var sourceName = modulationSourceNames[m];
-					// amp modulates index and cutoff differently: it always lowers the parameter, never
-					// increases it. this way, default routing can include amp->index, but if index is set to
-					// minimum, we'll always hear a sine wave.
-					// amp ranges from 0 to 1, and amount from -1 to 1.
-					// when amount is positive, low amp values lower index/cutoff. when amount is negative,
-					// high amp values lower the index/cutoff.
-					// in both cases, amp is scaled so that maximum reduction is 2.
-					// except for HP cutoff, which works the opposite way: it is only ever raised.
-					if(\amp === sourceName && [\indexA, \indexB, \hpCutoff, \lpCutoff].includes(destName), {
-						var amount = NamedControl.kr(('amp_' ++ destName).asSymbol, 0, lag);
-						var polaritySwitch = BinaryOpUGen(if(\hpCutoff === sourceName, '<', '>'), amount, 0);
-						(modulators[m] - polaritySwitch) * 2 * amount;
-					}, {
-						modulators[m] * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol, 0, lag);
-					});
-				}));
+				if([ \pan, \ratioA, \ratioB, \opMix, \fxA, \fxB, \lfoAFreq, \lfoBFreq, \lfoCFreq ].includes(destName), {
+					// control-rate destinations
+					modulation.put(destName, Mix.fill(modulationSourceNames.size, { |m|
+						var sourceName = modulationSourceNames[m];
+						A2K.kr(modulators[m]) * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol, 0, lag);
+					}));
+				}, {
+					// audio-rate destinations
+					modulation.put(destName, Mix.fill(modulationSourceNames.size, { |m|
+						var sourceName = modulationSourceNames[m];
+						// amp modulates index and cutoff differently: it always lowers the parameter, never
+						// increases it. this way, default routing can include amp->index, but if index is set to
+						// minimum, we'll always hear a sine wave.
+						// amp ranges from 0 to 1, and amount from -1 to 1.
+						// when amount is positive, low amp values lower index/cutoff. when amount is negative,
+						// high amp values lower the index/cutoff.
+						// in both cases, amp is scaled so that maximum reduction is 2.
+						// except for HP cutoff, which works the opposite way: it is only ever raised.
+						if(\amp === sourceName && [\indexA, \indexB, \hpCutoff, \lpCutoff].includes(destName), {
+							var amount = NamedControl.kr(('amp_' ++ destName).asSymbol, 0, lag);
+							var polaritySwitch = BinaryOpUGen(if(\hpCutoff === sourceName, '<', '>'), amount, 0);
+							(modulators[m] - polaritySwitch) * 2 * amount;
+						}, {
+							modulators[m] * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol, 0, lag);
+						});
+					}));
+				});
 			});
 
 			attack = attack * 8.pow(modulation[\attack]);
@@ -291,8 +299,8 @@ Engine_Cule : CroneEngine {
 			]);
 
 			Out.kr(\opRatioBus.ir, [
-				\ratioA.kr.lag(lag) + A2K.kr(modulation[\ratioA]),
-				\ratioB.kr.lag(lag) + A2K.kr(modulation[\ratioB])
+				\ratioA.kr.lag(lag) + modulation[\ratioA],
+				\ratioB.kr.lag(lag) + modulation[\ratioB]
 			]);
 
 			Out.kr(\opFadeSizeBus.ir, [
@@ -310,11 +318,11 @@ Engine_Cule : CroneEngine {
 				\indexB.ar.lag(lag) + modulation[\indexB]
 			]);
 
-			Out.kr(\opMixBus.ir, \opMix.kr.lag(lag) + A2K.kr(modulation[\opMix]));
+			Out.kr(\opMixBus.ir, \opMix.kr.lag(lag) + modulation[\opMix]);
 
 			Out.kr(\fxBus.ir, [
-				\fxA.kr.lag(lag) + A2K.kr(modulation[\fxA]),
-				\fxB.kr.lag(lag) + A2K.kr(modulation[\fxB])
+				\fxA.kr.lag(lag) + modulation[\fxA],
+				\fxB.kr.lag(lag) + modulation[\fxB]
 			]);
 
 			Out.ar(\cutoffBus.ir, [
@@ -328,9 +336,9 @@ Engine_Cule : CroneEngine {
 			]);
 
 			Out.kr(\lfoFreqBus.ir, [
-				\lfoAFreq.kr(1) * 8.pow(A2K.kr(modulation[\lfoAFreq])),
-				\lfoBFreq.kr(1) * 8.pow(A2K.kr(modulation[\lfoBFreq])),
-				\lfoCFreq.kr(1) * 8.pow(A2K.kr(modulation[\lfoCFreq]))
+				\lfoAFreq.kr(1) * 8.pow(modulation[\lfoAFreq]),
+				\lfoBFreq.kr(1) * 8.pow(modulation[\lfoBFreq]),
+				\lfoCFreq.kr(1) * 8.pow(modulation[\lfoCFreq])
 			]);
 
 			// slew tip for direct control of amplitude -- otherwise there will be audible steppiness
@@ -349,7 +357,7 @@ Engine_Cule : CroneEngine {
 			Out.ar(\egBus.ir, eg);
 			Out.kr(\handBus.ir, hand);
 
-			Out.kr(\panBus.ir, \pan.kr.lag(lag) + A2K.kr(modulation[\pan]));
+			Out.kr(\panBus.ir, \pan.kr.lag(lag) + modulation[\pan]);
 
 			pitch = pitch + \shift.kr;
 
