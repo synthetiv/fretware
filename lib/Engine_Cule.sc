@@ -54,10 +54,9 @@ Engine_Cule : CroneEngine {
 				\inBus, thatBus,
 				\outBus, thisBus
 			]);
-			newOp.map(\pitch,    voiceBuses[v][\pitch]);
+			newOp.map(\pitch,    Bus.newFrom(voiceBuses[v][\opPitch], op));
 			newOp.map(\ratio,    Bus.newFrom(voiceBuses[v][\opRatio], op));
 			newOp.map(\fadeSize, Bus.newFrom(voiceBuses[v][\opFadeSize], op));
-			newOp.map(\detune,   Bus.newFrom(voiceBuses[v][\opDetune], op));
 			newOp.map(\index,    Bus.newFrom(voiceBuses[v][\opIndex], op));
 			voiceSynths[v].put(op + 1, newOp);
 		});
@@ -167,9 +166,9 @@ Engine_Cule : CroneEngine {
 				\hand -> Bus.control(context.server),
 				\pan -> Bus.control(context.server),
 				\pitch -> Bus.control(context.server),
+				\opPitch -> Bus.audio(context.server, 2),
 				\opRatio -> Bus.control(context.server, 2),
 				\opFadeSize -> Bus.control(context.server, 2),
-				\opDetune -> Bus.audio(context.server, 2),
 				\opIndex -> Bus.audio(context.server, 2),
 				\opMix -> Bus.control(context.server),
 				\opAudio -> Bus.audio(context.server, 2),
@@ -308,11 +307,6 @@ Engine_Cule : CroneEngine {
 				\fadeSizeB.kr(0.5),
 			]);
 
-			Out.ar(\opDetuneBus.ir, [
-				\detuneA.ar.cubed.lag(lag) + modulation[\detuneA],
-				\detuneB.ar.cubed.lag(lag) + modulation[\detuneB]
-			]);
-
 			Out.ar(\opIndexBus.ir, [
 				\indexA.ar.lag(lag) + modulation[\indexA],
 				\indexB.ar.lag(lag) + modulation[\indexB]
@@ -366,6 +360,12 @@ Engine_Cule : CroneEngine {
 			pitch = Lag.kr(pitch, \pitchSlew.kr);
 			Out.kr(\pitchBus.ir, pitch);
 
+			Out.ar(\opPitchBus.ir, [
+				\detuneA.ar.cubed.lag(lag) + modulation[\detuneA],
+				\detuneB.ar.cubed.lag(lag) + modulation[\detuneB]
+			] * 1.17 + pitch);
+			// max detune of 1.17 octaves is slightly larger than a ratio of 9/4
+
 			Out.kr(\trigBus.ir, trig);
 
 			Out.kr(\outLevelBus.ir, \outLevel.kr(0.2));
@@ -403,8 +403,7 @@ Engine_Cule : CroneEngine {
 			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus);
 			var output = this.harmonicOsc(
 				SinOscFB,
-				// TODO: apply detune in the control synth!
-				hz * (9 / 4).pow(\detune.ar),
+				hz,
 				\ratio.ar,
 				\fadeSize.kr(1),
 				\index.ar(-1).lincurve(-1, 1, 0, 1.3pi, 3, \min)
@@ -418,7 +417,7 @@ Engine_Cule : CroneEngine {
 			var hz = 2.pow(pitch) * In.kr(baseFreqBus);
 			var output = this.harmonicOsc(
 				SinOsc,
-				hz * (9 / 4).pow(\detune.ar),
+				hz,
 				\ratio.ar,
 				\fadeSize.kr(1),
 				(InFeedback.ar(\inBus.ir) * \index.ar(-1).lincurve(-1, 1, 0, 13pi, 4, \min) * 0.7.pow(pitch)).mod(2pi)
@@ -549,9 +548,9 @@ Engine_Cule : CroneEngine {
 				\handBus, bus[\hand],
 				\panBus, bus[\pan],
 				\pitchBus, bus[\pitch],
+				\opPitchBus, bus[\opPitch],
 				\opRatioBus, bus[\opRatio],
 				\opFadeSizeBus, bus[\opFadeSize],
-				\opDetuneBus, bus[\opDetune],
 				\opIndexBus, bus[\opIndex],
 				\fxBus, bus[\fx],
 				\opMixBus, bus[\opMix],
@@ -592,20 +591,18 @@ Engine_Cule : CroneEngine {
 				\inBus, opABus,
 				\outBus, opBBus
 			], context.og, \addToTail);
-			opB.map(\pitch,    bus[\pitch]);
+			opB.map(\pitch,    Bus.newFrom(bus[\opPitch], 1));
 			opB.map(\ratio,    Bus.newFrom(bus[\opRatio], 1));
 			opB.map(\fadeSize, Bus.newFrom(bus[\opFadeSize], 1));
-			opB.map(\detune,   Bus.newFrom(bus[\opDetune], 1));
 			opB.map(\index,    Bus.newFrom(bus[\opIndex], 1));
 
 			opA = Synth.new(\operatorFB, [
 				\inBus, opBBus,
 				\outBus, opABus
 			], context.og, \addToTail);
-			opA.map(\pitch,    bus[\pitch]);
+			opA.map(\pitch,    Bus.newFrom(bus[\opPitch], 0));
 			opA.map(\ratio,    Bus.newFrom(bus[\opRatio], 0));
 			opA.map(\fadeSize, Bus.newFrom(bus[\opFadeSize], 0));
-			opA.map(\detune,   Bus.newFrom(bus[\opDetune], 0));
 			opA.map(\index,    Bus.newFrom(bus[\opIndex], 0));
 
 			mixBus = bus[\mixAudio];
