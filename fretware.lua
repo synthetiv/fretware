@@ -875,7 +875,7 @@ function init()
 		end
 	}
 
-	params:add_group('filter settings', 4)
+	params:add_group('filter settings', 2)
 
 	params:add {
 		name = 'lp q',
