@@ -283,18 +283,18 @@ Engine_Cule : CroneEngine {
 			release = release * 8.pow(modulation[\release]);
 			eg = Select.ar(\egType.kr(1), [
 				// ASR, linear attack
-				EnvGen.ar(Env.new(
+				Env.new(
 					[0, 1, 0],
 					[attack, release],
 					egCurve * [0, 1],
 					releaseNode: 1
-				), gate),
+				).ar(gate),
 				// AR, Maths-style symmetrical attack
-				EnvGen.ar(Env.new(
+				Env.new(
 					[0, 1, 0],
 					[attack, release],
 					egCurve * [-1, 1],
-				), trig)
+				).ar(trig)
 			]);
 
 			Out.kr(\opRatioBus.ir, [
