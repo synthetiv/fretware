@@ -111,12 +111,31 @@ Engine_Cule : CroneEngine {
 			\lfoCFreq,
 		];
 
+		controlRateDestNames = [
+			\pan,
+			\ratioA,
+			\ratioB,
+			\opMix,
+			\fxA,
+			\fxB,
+			\lfoAFreq,
+			\lfoBFreq,
+			\lfoCFreq
+		];
+
 		// modulation sources
 		modulationSourceNames = [
 			\amp,
 			\hand,
 			\eg,
 			\eg2,
+			\lfoA,
+			\lfoB,
+			\lfoC
+		];
+
+		controlRateSourceNames = [
+			\hand,
 			\lfoA,
 			\lfoB,
 			\lfoC
@@ -242,24 +261,34 @@ Engine_Cule : CroneEngine {
 			eg = InFeedback.ar(\egBus.ir);
 			modulators = [
 				InFeedback.ar(\ampBus.ir),
-				K2A.ar(In.kr(\handBus.ir)),
+				In.kr(\handBus.ir),
 				eg,
 				eg.squared,
-				K2A.ar(In.kr(\lfoStateBus.ir, 3))
+				In.kr(\lfoStateBus.ir, 3)
 			].flatten;
 
 			// build a dictionary of summed modulation signals to apply to parameters
 			modulationDestNames.do({ |destName|
-				if([ \pan, \ratioA, \ratioB, \opMix, \fxA, \fxB, \lfoAFreq, \lfoBFreq, \lfoCFreq ].includes(destName), {
+				if(controlRateDestNames.includes(destName), {
 					// control-rate destinations
 					modulation.put(destName, Mix.fill(modulationSourceNames.size, { |m|
 						var sourceName = modulationSourceNames[m];
-						A2K.kr(modulators[m]) * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol, 0, lag);
+						var modulator = if(!controlRateSourceNames.includes(sourceName), {
+							A2K.kr(modulators[m]);
+						}, {
+							modulators[m];
+						});
+						modulator * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol, 0, lag);
 					}));
 				}, {
 					// audio-rate destinations
 					modulation.put(destName, Mix.fill(modulationSourceNames.size, { |m|
 						var sourceName = modulationSourceNames[m];
+						var modulator = if(controlRateSourceNames.includes(sourceName), {
+							K2A.ar(modulators[m]);
+						}, {
+							modulators[m];
+						});
 						// amp modulates index and cutoff differently: it always lowers the parameter, never
 						// increases it. this way, default routing can include amp->index, but if index is set to
 						// minimum, we'll always hear a sine wave.
@@ -271,9 +300,9 @@ Engine_Cule : CroneEngine {
 						if(\amp === sourceName && [\indexA, \indexB, \hpCutoff, \lpCutoff].includes(destName), {
 							var amount = NamedControl.kr(('amp_' ++ destName).asSymbol, 0, lag);
 							var polaritySwitch = BinaryOpUGen(if(\hpCutoff === sourceName, '<', '>'), amount, 0);
-							(modulators[m] - polaritySwitch) * 2 * amount;
+							(modulator - polaritySwitch) * 2 * amount;
 						}, {
-							modulators[m] * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol, 0, lag);
+							modulator * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol, 0, lag);
 						});
 					}));
 				});
