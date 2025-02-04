@@ -913,7 +913,7 @@ function init()
 		name = 'eg curve',
 		id = 'eg_curve',
 		type = 'control',
-		controlspec = controlspec.new(-8, 8, 'lin', 0, -4),
+		controlspec = controlspec.new(-8, 8, 'lin', 0, -6),
 		action = function(value)
 			engine.egCurve(value)
 		end
@@ -962,7 +962,7 @@ function init()
 				controlspec = controlspec.new(0.001, 7, 'exp', 0, 0.001, 's'),
 				action = function(value)
 					dest_sliders.attack:set_value(params:get_raw('attack') * 2 - 1)
-					engine.attack(value - 0.001)
+					engine.attack(value - 0.0005)
 				end
 			}
 			params:add {
