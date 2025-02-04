@@ -82,11 +82,11 @@ Engine_Cule : CroneEngine {
 		arg slot, defName;
 		nVoices.do({ |v|
 			var newLfo = Synth.replace(voiceSynths[v][slot + 6], defName, [
-				\stateBus, Bus.newFrom(lfoBuses[v][\state], slot),
+				\stateBus, Bus.newFrom(lfoBuses[v], slot),
 				\voiceIndex, v,
 				\lfoIndex, slot
 			]);
-			newLfo.map(\freq, Bus.newFrom(lfoBuses[v][\freq], slot));
+			newLfo.map(\freq, Bus.newFrom(controlBuses[v], 18 + slot));
 			voiceSynths[v].put(slot + 6, newLfo);
 		});
 	}
@@ -158,9 +158,9 @@ Engine_Cule : CroneEngine {
 
 		baseFreqBus = Bus.control(context.server);
 
-		// control-rate outputs for pitch, amp, trigger, and LFO states, to feed polls
+		// control-rate outputs for pitch, amp, and trigger, to feed polls
 		voiceStateBuses = Array.fill(nVoices, {
-			Bus.control(context.server, 6);
+			Bus.control(context.server, 3);
 		});
 
 		audioBuses = Array.fill(nVoices, {
@@ -168,14 +168,11 @@ Engine_Cule : CroneEngine {
 		});
 
 		controlBuses = Array.fill(nVoices, {
-			Bus.audio(context.server, 19);
+			Bus.audio(context.server, 22);
 		});
 
 		lfoBuses = Array.fill(nVoices, {
-			Dictionary[
-				\freq -> Bus.control(context.server, 3),
-				\state -> Bus.control(context.server, 3)
-			];
+			Bus.control(context.server, 3);
 		});
 
 		controlDef = SynthDef.new(\voiceControls, {
@@ -204,14 +201,12 @@ Engine_Cule : CroneEngine {
 				lfoCFreq = 1.1,
 
 				ratioA = 0,
-				fadeSizeA = 0.5,
 				detuneA = 0,
 				indexA = 0,
 
 				opMix = 0,
 
 				ratioB = 0.3,
-				fadeSizeB = 0.5,
 				detuneB = 0,
 				indexB = 0,
 
@@ -262,10 +257,12 @@ Engine_Cule : CroneEngine {
 
 			// calculate modulation matrix
 			// this feedback loop is needed in order for modulators to modulate one another
-			modulators = LocalIn.ar(modulatorNames.size - 3);
-			// merge in LFO values from LFO synths
+			modulators = LocalIn.ar(3);
 			modulators = [
 				modulators,
+				// add env ^ 2
+				modulators[2].squared,
+				// merge in LFO values from LFO synths
 				K2A.ar(In.kr(\lfoStateBus.ir, 3))
 			].flatten;
 
@@ -322,6 +319,10 @@ Engine_Cule : CroneEngine {
 			ratioA   = ratioA.lag(lag) + modulation[\ratioA];
 			ratioB   = ratioB.lag(lag) + modulation[\ratioB];
 
+			lfoAFreq = lfoAFreq * 8.pow(modulation[\lfoAFreq]);
+			lfoBFreq = lfoBFreq * 8.pow(modulation[\lfoBFreq]);
+			lfoCFreq = lfoCFreq * 8.pow(modulation[\lfoCFreq]);
+
 			// slew tip for direct control of amplitude -- otherwise there will be audible steppiness
 			tip = Lag.ar(K2A.ar(tip), 0.05);
 			// amp mode shouldn't change while frozen
@@ -336,13 +337,7 @@ Engine_Cule : CroneEngine {
 			LocalOut.ar([
 				amp,
 				K2A.ar(hand),
-				eg,
-				eg * eg
-			]);
-			Out.kr(\lfoFreqBus.ir, [
-				lfoAFreq * 8.pow(modulation[\lfoAFreq]),
-				lfoBFreq * 8.pow(modulation[\lfoBFreq]),
-				lfoCFreq * 8.pow(modulation[\lfoCFreq])
+				eg
 			]);
 
 			pitch = pitch + \shift.kr;
@@ -355,12 +350,16 @@ Engine_Cule : CroneEngine {
 			// if I try that, SC seems to just hang forever, no error message
 			pitch = Lag.kr(pitch, \pitchSlew.kr);
 
+			// TODO: these don't need to all be audio rate, and the bus(es)
+			// should be organized better -- like in a Dictionary, say
 			Out.ar(\controlBus.ir, K2A.ar([
-				// grouped in fives for easy counting
-				pitch, amp, pan, ratioA, fadeSizeA,
-				detuneA, indexA, ratioB, fadeSizeB, detuneB,
-				indexB, opMix, fxA, fxB, hpCutoff,
-				\hpRQ.kr(0.7), lpCutoff, \lpRQ.kr(0.7), \outLevel.kr(0.2)
+				pitch, amp, pan,
+				ratioA, \fadeSizeA.kr(0.5), detuneA, indexA,
+				ratioB, \fadeSizeB.kr(0.5), detuneB, indexB,
+				opMix, fxA, fxB,
+				hpCutoff, \hpRQ.kr(0.7), lpCutoff, \lpRQ.kr(0.7),
+				lfoAFreq, lfoBFreq, lfoCFreq,
+				\outLevel.kr(0.2)
 			]));
 		}).add;
 
@@ -370,7 +369,6 @@ Engine_Cule : CroneEngine {
 			var lfo = LFTri.kr(\freq.kr(1), 4.rand);
 			var gate = lfo > 0;
 			Out.kr(\stateBus.ir, lfo);
-			// TODO: is it OK that I'm skipping the isSelected stuff? I dunno...
 			SendReply.kr(Changed.kr(gate), '/lfoGate', [\voiceIndex.ir, \lfoIndex.ir, gate]);
 		}).add;
 
@@ -495,13 +493,11 @@ Engine_Cule : CroneEngine {
 			.difference([\gate, \t_trig]);
 
 		SynthDef.new(\reply, {
-			arg selectedVoice = 0,
-				replyRate = 15;
+			arg replyRate = 15;
 			var replyTrig = Impulse.kr(replyRate);
 			nVoices.do({ |v|
-				var isSelected = BinaryOpUGen('==', selectedVoice, v);
 				var amp, pitch, trig, pitchTrig;
-				# amp, pitch, trig = In.kr(voiceStateBuses[v], 6);
+				# amp, pitch, trig = In.kr(voiceStateBuses[v], 3);
 
 				// what's important is peak amplitude, not exact current amplitude at poll time
 				amp = Peak.kr(amp, replyTrig);
@@ -540,32 +536,31 @@ Engine_Cule : CroneEngine {
 
 			controlSynth = Synth.new(\voiceControls, [
 				\controlBus, controlBuses[i],
-				\lfoFreqBus, lfoBuses[i][\freq],
-				\lfoStateBus, lfoBuses[i][\state],
+				\lfoStateBus, lfoBuses[i],
 				\voiceStateBus, voiceStateBuses[i],
 			], context.og, \addToTail); // "output" group
 			patchArgs.do({ |name| controlSynth.map(name, patchBuses[name]) });
 
 			lfoA = Synth.new(\lfoTri, [
-				\stateBus, Bus.newFrom(lfoBuses[i][\state], 0),
+				\stateBus, Bus.newFrom(lfoBuses[i], 0),
 				\voiceIndex, i,
 				\lfoIndex, 0
 			], context.og, \addToTail);
-			lfoA.map(\freq, Bus.newFrom(lfoBuses[i][\freq], 0));
+			lfoA.map(\freq, Bus.newFrom(controlBuses[i], 18));
 
 			lfoB = Synth.new(\lfoTri, [
-				\stateBus, Bus.newFrom(lfoBuses[i][\state], 1),
+				\stateBus, Bus.newFrom(lfoBuses[i], 1),
 				\voiceIndex, i,
 				\lfoIndex, 1
 			], context.og, \addToTail);
-			lfoB.map(\freq, Bus.newFrom(lfoBuses[i][\freq], 1));
+			lfoB.map(\freq, Bus.newFrom(controlBuses[i], 19));
 
 			lfoC = Synth.new(\lfoTri, [
-				\stateBus, Bus.newFrom(lfoBuses[i][\state], 2),
+				\stateBus, Bus.newFrom(lfoBuses[i], 2),
 				\voiceIndex, i,
 				\lfoIndex, 2
 			], context.og, \addToTail);
-			lfoC.map(\freq, Bus.newFrom(lfoBuses[i][\freq], 2));
+			lfoC.map(\freq, Bus.newFrom(controlBuses[i], 20));
 
 			opBBus = Bus.newFrom(audioBuses[i], 2);
 			opABus = Bus.newFrom(audioBuses[i], 1);
@@ -619,8 +614,6 @@ Engine_Cule : CroneEngine {
 			out.map(\lpRQ,     Bus.newFrom(controlBuses[i], 17));
 			out.map(\outLevel, Bus.newFrom(controlBuses[i], 18));
 
-			// TODO: return ALL synths so they can be freed, and replaced...
-			// AND/OR, assign them all to a group so the whole group can be freed
 			[ controlSynth, opB, opA, opMixer, fxA, fxB, lfoA, lfoB, lfoC, out ];
 		});
 
