@@ -8,7 +8,9 @@ Engine_Cule : CroneEngine {
 	var controlDef;
 
 	var modulationDestNames;
+	var controlRateDestNames;
 	var modulationSourceNames;
+	var controlRateSourceNames;
 	var patchArgs;
 	var selectedVoiceArgs;
 
@@ -273,7 +275,7 @@ Engine_Cule : CroneEngine {
 					// control-rate destinations
 					modulation.put(destName, Mix.fill(modulationSourceNames.size, { |m|
 						var sourceName = modulationSourceNames[m];
-						var modulator = if(!controlRateSourceNames.includes(sourceName), {
+						var modulator = if(controlRateSourceNames.includes(sourceName).not, {
 							A2K.kr(modulators[m]);
 						}, {
 							modulators[m];
