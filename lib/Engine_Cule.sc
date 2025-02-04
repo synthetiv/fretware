@@ -319,13 +319,13 @@ Engine_Cule : CroneEngine {
 					[attack, release],
 					egCurve * [0, 1],
 					releaseNode: 1
-				).ar(gate),
+				).ar(gate: gate),
 				// AR, Maths-style symmetrical attack
 				Env.new(
 					[0, 1, 0],
 					[attack, release],
 					egCurve * [-1, 1],
-				).ar(trig)
+				).ar(gate: trig)
 			]);
 
 			Out.kr(\opRatioBus.ir, [
