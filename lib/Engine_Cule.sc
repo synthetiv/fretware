@@ -671,6 +671,7 @@ Engine_Cule : CroneEngine {
 			out.map(\lpRQ,     Bus.newFrom(bus[\rq], 1));
 			out.map(\outLevel, bus[\outLevel]);
 
+			// TODO: Dictionary here too
 			[ controlSynth, opB, opA, opMixer, fxA, fxB, lfoA, lfoB, lfoC, out ];
 		});
 
@@ -680,6 +681,7 @@ Engine_Cule : CroneEngine {
 			arg i;
 			i = i + 1;
 			Dictionary[
+				// TODO: poll env value too, to show on grid?? and amp??
 				\instantPitch -> this.addPoll(("instant_pitch_" ++ i).asSymbol, periodic: false),
 				\pitch -> this.addPoll(("pitch_" ++ i).asSymbol, periodic: false),
 				\amp -> this.addPoll(("amp_" ++ i).asSymbol, periodic: false),
