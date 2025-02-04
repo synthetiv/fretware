@@ -431,7 +431,7 @@ Engine_Cule : CroneEngine {
 		SynthDef.new(\lfoRamp, {
 			var lfo = LFSaw.kr(\freq.kr(1), 4.rand);
 			var gate = lfo < 0;
-			Out.kr(\stateBus.ir, lfo);
+			Out.kr(\stateBus.ir, Lag.kr(lfo, 0.01));
 			SendReply.kr(Changed.kr(gate), '/lfoGate', [\voiceIndex.ir, \lfoIndex.ir, gate]);
 		}).add;
 
