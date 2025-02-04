@@ -810,7 +810,7 @@ function init()
 		name = 'lfo type A',
 		id = 'lfoTypeA',
 		type = 'option',
-		options = { 'tri', 's+h', 'rand' },
+		options = { 'tri', 's+h', 'dust', 'ramp' },
 		default = 1,
 		action = function(value)
 			engine.lfoType(1, value)
@@ -821,7 +821,7 @@ function init()
 		name = 'lfo type B',
 		id = 'lfoTypeB',
 		type = 'option',
-		options = { 'tri', 's+h', 'rand' },
+		options = { 'tri', 's+h', 'dust', 'ramp' },
 		default = 1,
 		action = function(value)
 			engine.lfoType(2, value)
@@ -832,7 +832,7 @@ function init()
 		name = 'lfo type C',
 		id = 'lfoTypeC',
 		type = 'option',
-		options = { 'tri', 's+h', 'dust' },
+		options = { 'tri', 's+h', 'dust', 'ramp' },
 		default = 1,
 		action = function(value)
 			engine.lfoType(3, value)
@@ -1212,7 +1212,7 @@ function redraw()
 	screen.fill() -- prevent a flash of stroke when leaving system UI
 
 	-- TODO: icons
-	
+
 	local voice = voice_states[k.selected_voice]
 	local source_name = editor.source_names[source_menu.value]
 

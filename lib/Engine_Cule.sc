@@ -396,6 +396,14 @@ Engine_Cule : CroneEngine {
 			SendReply.kr(Changed.kr(gate), '/lfoGate', [\voiceIndex.ir, \lfoIndex.ir, gate]);
 		}).add;
 
+		// Ramp LFO
+		SynthDef.new(\lfoRamp, {
+			var lfo = LFSaw.kr(\freq.kr(1), 4.rand);
+			var gate = lfo < 0;
+			Out.kr(\stateBus.ir, lfo);
+			SendReply.kr(Changed.kr(gate), '/lfoGate', [\voiceIndex.ir, \lfoIndex.ir, gate]);
+		}).add;
+
 		// TODO: other LFOs: ramp, tempo sync...
 
 		// Self-FM operator
@@ -713,7 +721,7 @@ Engine_Cule : CroneEngine {
 
 		this.addCommand(\lfoType, "ii", {
 			arg msg;
-			var def = [\lfoTri, \lfoSH, \lfoDust].at(msg[2] - 1);
+			var def = [\lfoTri, \lfoSH, \lfoDust, \lfoRamp].at(msg[2] - 1);
 			this.swapLfo(msg[1] - 1, def);
 		});
 
