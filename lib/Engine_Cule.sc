@@ -15,6 +15,7 @@ Engine_Cule : CroneEngine {
 	var selectedVoiceArgs;
 
 	var fmRatios;
+	var fmRatiosInterleaved;
 	var nRatios;
 
 	var baseFreqBus;
@@ -37,12 +38,12 @@ Engine_Cule : CroneEngine {
 	// helper function / pseudo-UGen: an FM operator that can crossfade its tuning across a set
 	// of predefined ratios
 	harmonicOsc {
-		arg uGen, hz, harmonic, fadeSize, uGenArg;
+		arg uGen, hz, harmonic, uGenArg;
 		var whichRatio = harmonic.linlin(-1, 1, 0, nRatios - 1);
-		var whichOsc = (Fold.ar(whichRatio).linlin(0, 1, -1, 1) / fadeSize).clip2;
+		var whichOsc = (Fold.kr(whichRatio).linlin(0, 1, -1, 1) * 1.25).clip2;
 		^LinXFade2.ar(
-			uGen.ar(hz * Select.kr(whichRatio + 1 / 2, fmRatios[0]), uGenArg),
-			uGen.ar(hz * Select.kr(whichRatio / 2, fmRatios[1]), uGenArg),
+			uGen.ar(hz * Select.kr(whichRatio + 1 / 2, fmRatiosInterleaved[0]), uGenArg),
+			uGen.ar(hz * Select.kr(whichRatio / 2, fmRatiosInterleaved[1]), uGenArg),
 			whichOsc
 		);
 	}
@@ -58,7 +59,6 @@ Engine_Cule : CroneEngine {
 			]);
 			newOp.map(\pitch,    Bus.newFrom(voiceBuses[v][\opPitch], op));
 			newOp.map(\ratio,    Bus.newFrom(voiceBuses[v][\opRatio], op));
-			newOp.map(\fadeSize, Bus.newFrom(voiceBuses[v][\opFadeSize], op));
 			newOp.map(\index,    Bus.newFrom(voiceBuses[v][\opIndex], op));
 			voiceSynths[v].put(op + 1, newOp);
 		});
@@ -147,8 +147,6 @@ Engine_Cule : CroneEngine {
 		// TODO: op types, FX types, and LFO types should be considered patch parameters too!!
 		patchArgs = [
 			\pitchSlew,
-			\fadeSizeA,
-			\fadeSizeB,
 			\hpRQ,
 			\lpRQ,
 			\egType,
@@ -168,9 +166,9 @@ Engine_Cule : CroneEngine {
 		// members of the original; this allows operators to crossfade between two ratios
 		// (see harmonicOsc function)
 		fmRatios = [1/128, 1/64, 1/32, 1/16, 1/8, 1/4, 1/2,
-			1, 2, /* 3, */ 4, /* 5, */ 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].clump(2).flop;
-		// fmRatios = ([1, 2, 4, 6, 7, 8, 9, 11, 12, 13, 14, 16] / 8).clump(2).flop;
-		nRatios = fmRatios.flatten.size;
+			1, 2, /* 3, */ 4, /* 5, */ 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+		fmRatiosInterleaved = fmRatios.clump(2).flop;
+		nRatios = fmRatios.size;
 
 		baseFreqBus = Bus.control(context.server);
 
@@ -333,11 +331,6 @@ Engine_Cule : CroneEngine {
 				\ratioB.kr.lag(lag) + modulation[\ratioB]
 			]);
 
-			Out.kr(\opFadeSizeBus.ir, [
-				\fadeSizeA.kr(0.5),
-				\fadeSizeB.kr(0.5),
-			]);
-
 			Out.ar(\opIndexBus.ir, [
 				\indexA.ar.lag(lag) + modulation[\indexA],
 				\indexB.ar.lag(lag) + modulation[\indexB]
@@ -444,16 +437,24 @@ Engine_Cule : CroneEngine {
 			SendReply.kr(Changed.kr(gate), '/lfoGate', [\voiceIndex.ir, \lfoIndex.ir, gate]);
 		}).add;
 
-		// TODO: other LFOs: ramp, tempo sync...
-
 		// Self-FM operator
 		SynthDef.new(\operatorFB, {
+			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus);
+			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
+			var output = SinOscFB.ar(
+				hz * Select.kr(whichRatio, fmRatios),
+				\index.ar(-1).lincurve(-1, 1, 0, 1.3pi, 3, \min)
+			);
+			Out.ar(\outBus.ir, output);
+		}).add;
+
+		// Self-FM operator with crossfading between ratios
+		SynthDef.new(\operatorFBFade, {
 			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus);
 			var output = this.harmonicOsc(
 				SinOscFB,
 				hz,
-				\ratio.ar,
-				\fadeSize.kr(1),
+				\ratio.kr,
 				\index.ar(-1).lincurve(-1, 1, 0, 1.3pi, 3, \min)
 			);
 			Out.ar(\outBus.ir, output);
@@ -463,11 +464,22 @@ Engine_Cule : CroneEngine {
 		SynthDef.new(\operatorFM, {
 			var pitch = \pitch.kr;
 			var hz = 2.pow(pitch) * In.kr(baseFreqBus);
+			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
+			var output = SinOsc.ar(
+				hz * Select.kr(whichRatio, fmRatios),
+				(InFeedback.ar(\inBus.ir) * \index.ar(-1).lincurve(-1, 1, 0, 13pi, 4, \min) * 0.7.pow(pitch)).mod(2pi)
+			);
+			Out.ar(\outBus.ir, output);
+		}).add;
+
+		// External-FM operator with crossfading between ratios
+		SynthDef.new(\operatorFMFade, {
+			var pitch = \pitch.kr;
+			var hz = 2.pow(pitch) * In.kr(baseFreqBus);
 			var output = this.harmonicOsc(
 				SinOsc,
 				hz,
-				\ratio.ar,
-				\fadeSize.kr(1),
+				\ratio.kr,
 				(InFeedback.ar(\inBus.ir) * \index.ar(-1).lincurve(-1, 1, 0, 13pi, 4, \min) * 0.7.pow(pitch)).mod(2pi)
 			);
 			Out.ar(\outBus.ir, output);
@@ -643,7 +655,6 @@ Engine_Cule : CroneEngine {
 			], context.og, \addToTail);
 			opB.map(\pitch,    Bus.newFrom(bus[\opPitch], 1));
 			opB.map(\ratio,    Bus.newFrom(bus[\opRatio], 1));
-			opB.map(\fadeSize, Bus.newFrom(bus[\opFadeSize], 1));
 			opB.map(\index,    Bus.newFrom(bus[\opIndex], 1));
 
 			opA = Synth.new(\operatorFB, [
@@ -652,7 +663,6 @@ Engine_Cule : CroneEngine {
 			], context.og, \addToTail);
 			opA.map(\pitch,    Bus.newFrom(bus[\opPitch], 0));
 			opA.map(\ratio,    Bus.newFrom(bus[\opRatio], 0));
-			opA.map(\fadeSize, Bus.newFrom(bus[\opFadeSize], 0));
 			opA.map(\index,    Bus.newFrom(bus[\opIndex], 0));
 
 			mixBus = bus[\mixAudio];
@@ -753,7 +763,7 @@ Engine_Cule : CroneEngine {
 
 		this.addCommand(\opType, "ii", {
 			arg msg;
-			var def = [\operatorFM, \operatorFB].at(msg[2] - 1);
+			var def = [\operatorFM, \operatorFMFade, \operatorFB, \operatorFBFade].at(msg[2] - 1);
 			this.swapOp(msg[1] - 1, def);
 		});
 

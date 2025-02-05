@@ -672,7 +672,7 @@ function init()
 		end
 	end
 
-	params:add_group('tuning', 7)
+	params:add_group('tuning', 5)
 
 	params:add {
 		name = 'base frequency (C)',
@@ -739,27 +739,7 @@ function init()
 		end
 	}
 
-	params:add {
-		name = 'harmonic fade size A',
-		id = 'fadeSizeA',
-		type = 'control',
-		controlspec = controlspec.new(0.01, 1, 'lin', 0, 0.8),
-		action = function(value)
-			engine.fadeSizeA(value)
-		end
-	}
-
-	params:add {
-		name = 'harmonic fade size B',
-		id = 'fadeSizeB',
-		type = 'control',
-		controlspec = controlspec.new(0.01, 1, 'lin', 0, 0.8),
-		action = function(value)
-			engine.fadeSizeB(value)
-		end
-	}
-
-	params:add_group('modes', 7)
+	params:add_group('modes', 9)
 
 	params:add {
 		name = 'op type A',
@@ -768,7 +748,20 @@ function init()
 		options = { 'FM', 'FB' },
 		default = 1,
 		action = function(value)
-			engine.opType(1, value)
+			local opFade = params:get('opFadeA')
+			engine.opType(1, (value - 1) * 2 + opFade)
+		end
+	}
+
+	params:add {
+		name = 'op fade A',
+		id = 'opFadeA',
+		type = 'option',
+		options = { 'off', 'on' },
+		default = 1,
+		action = function(value)
+			local opType = params:get('opTypeA')
+			engine.opType(1, (opType - 1) * 2 + value)
 		end
 	}
 
@@ -779,7 +772,20 @@ function init()
 		options = { 'FM', 'FB' },
 		default = 2,
 		action = function(value)
-			engine.opType(2, value)
+			local opFade = params:get('opFadeB')
+			engine.opType(2, (value - 1) * 2 + opFade)
+		end
+	}
+
+	params:add {
+		name = 'op fade B',
+		id = 'opFadeB',
+		type = 'option',
+		options = { 'off', 'on' },
+		default = 1,
+		action = function(value)
+			local opType = params:get('opTypeB')
+			engine.opType(2, (opType - 1) * 2 + value)
 		end
 	}
 
