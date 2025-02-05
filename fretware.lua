@@ -809,7 +809,7 @@ function init()
 		name = 'lfo type A',
 		id = 'lfoTypeA',
 		type = 'option',
-		options = { 'tri', 's+h', 'dust', 'ramp' },
+		options = { 'tri', 's+h', 'dust', 'drift', 'ramp' },
 		default = 1,
 		action = function(value)
 			engine.lfoType(1, value)
@@ -820,7 +820,7 @@ function init()
 		name = 'lfo type B',
 		id = 'lfoTypeB',
 		type = 'option',
-		options = { 'tri', 's+h', 'dust', 'ramp' },
+		options = { 'tri', 's+h', 'dust', 'drift', 'ramp' },
 		default = 1,
 		action = function(value)
 			engine.lfoType(2, value)
@@ -831,7 +831,7 @@ function init()
 		name = 'lfo type C',
 		id = 'lfoTypeC',
 		type = 'option',
-		options = { 'tri', 's+h', 'dust', 'ramp' },
+		options = { 'tri', 's+h', 'dust', 'drift', 'ramp' },
 		default = 1,
 		action = function(value)
 			engine.lfoType(3, value)

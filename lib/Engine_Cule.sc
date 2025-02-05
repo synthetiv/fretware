@@ -427,6 +427,15 @@ Engine_Cule : CroneEngine {
 			SendReply.kr(Changed.kr(gate), '/lfoGate', [\voiceIndex.ir, \lfoIndex.ir, gate]);
 		}).add;
 
+		// Smooth random LFO
+		SynthDef.new(\lfoDrift, {
+			var freq = \freq.kr(1);
+			var lfo = LFDNoise1.kr(LFNoise0.kr(freq * 0.5).linlin(0, 1, freq * 0.5, freq * 2));
+			var gate = lfo > 0;
+			Out.kr(\stateBus.ir, lfo);
+			SendReply.kr(Changed.kr(gate), '/lfoGate', [\voiceIndex.ir, \lfoIndex.ir, gate]);
+		}).add;
+
 		// Ramp LFO
 		SynthDef.new(\lfoRamp, {
 			var lfo = LFSaw.kr(\freq.kr(1), 4.rand);
@@ -756,7 +765,7 @@ Engine_Cule : CroneEngine {
 
 		this.addCommand(\lfoType, "ii", {
 			arg msg;
-			var def = [\lfoTri, \lfoSH, \lfoDust, \lfoRamp].at(msg[2] - 1);
+			var def = [\lfoTri, \lfoSH, \lfoDust, \lfoDrift, \lfoRamp].at(msg[2] - 1);
 			this.swapLfo(msg[1] - 1, def);
 		});
 
