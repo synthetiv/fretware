@@ -243,11 +243,11 @@ Engine_Cule : CroneEngine {
 			loopPhase = loopPhase - loopOffset;
 			trig = Trig.kr(\trig.tr, 0.01);
 			hand = tip - palm;
-			freezeWithoutGate = freeze.min(1 - gate);
 			BufWr.kr([pitch, tip, hand, gate, trig], buffer, bufferPhase);
 			// read values from recorded loop (if any)
 			# recPitch, recTip, recHand, recGate, recTrig = BufRd.kr(nRecordedModulators, buffer, loopPhase, interpolation: 1);
 			// new pitch values can "punch through" frozen ones when gate is high
+			freezeWithoutGate = freeze.min(1 - gate);
 			pitch = Select.kr(freezeWithoutGate, [ pitch, recPitch ]);
 			// punch tip through too, only when gate is high
 			tip = Select.kr(freezeWithoutGate, [ tip, recTip ]);
