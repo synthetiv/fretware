@@ -908,7 +908,7 @@ function init()
 		end
 	}
 
-	params:add_group('eg settings', 3)
+	params:add_group('eg settings', 2)
 
 	params:add {
 		name = 'eg type',
@@ -918,16 +918,6 @@ function init()
 		default = 2,
 		action = function(value)
 			engine.egType(value - 1)
-		end
-	}
-
-	params:add {
-		name = 'eg curve',
-		id = 'eg_curve',
-		type = 'control',
-		controlspec = controlspec.new(-8, 8, 'lin', 0, -6),
-		action = function(value)
-			engine.egCurve(value)
 		end
 	}
 

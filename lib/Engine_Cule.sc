@@ -154,7 +154,6 @@ Engine_Cule : CroneEngine {
 			\hpRQ,
 			\lpRQ,
 			\egType,
-			\egCurve,
 			\ampMode,
 			modulationDestNames,
 			Array.fill(modulationSourceNames.size, { |s|
@@ -213,8 +212,7 @@ Engine_Cule : CroneEngine {
 				loopRateScale = 1,
 
 				attack = 0.01,
-				release = 0.3,
-				egCurve = -6,
+				release = 0.3;
 
 			var modulators,
 				bufferRate, bufferLength, bufferPhase, buffer,
@@ -320,14 +318,14 @@ Engine_Cule : CroneEngine {
 				Env.new(
 					[0, 1, 0],
 					[attack, release],
-					egCurve * [0, 1],
+					[0, -6],
 					releaseNode: 1
 				).ar(gate: gate),
 				// AR, Maths-style symmetrical attack
 				Env.new(
 					[0, 1, 0],
 					[attack, release],
-					egCurve * [-1, 1],
+					[6, -6],
 				).ar(gate: trig)
 			]);
 
