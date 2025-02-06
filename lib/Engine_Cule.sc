@@ -156,15 +156,15 @@ Engine_Cule : CroneEngine {
 			\pitchSlew,
 			\hpRQ,
 			\lpRQ,
-			\opAType,
-			\opBType,
-			\fxAType,
-			\fxBType,
+			\opTypeA,
+			\opTypeB,
+			\fxTypeA,
+			\fxTypeB,
 			\egType,
 			\ampMode,
-			\lfoAType,
-			\lfoBType,
-			\lfoCType,
+			\lfoTypeA,
+			\lfoTypeB,
+			\lfoTypeC,
 			modulationDestNames,
 			Array.fill(modulationSourceNames.size, { |s|
 				Array.fill(modulationDestNames.size, { |d|
@@ -235,9 +235,9 @@ Engine_Cule : CroneEngine {
 			// send signals to sclang to handle op, fx, and lfo type changes
 			var voiceIndex = \voiceIndex.ir;
 			Dictionary[
-				\opType -> [ \opAType, \opBType ],
-				\fxType -> [ \fxAType, \fxBType ],
-				\lfoType -> [ \lfoAType, \lfoBType, \lfoCType ]
+				\opType -> [ \opTypeA, \opTypeB ],
+				\fxType -> [ \fxTypeA, \fxTypeB ],
+				\lfoType -> [ \lfoTypeA, \lfoTypeB, \lfoTypeC ]
 			].do({ |typeName, controlNames|
 				var path = '/' ++ typeName;
 				controlNames.do({ |controlName, i|
@@ -325,11 +325,11 @@ Engine_Cule : CroneEngine {
 						// in both cases, amp is scaled so that maximum reduction is 2.
 						// except for HP cutoff, which works the opposite way: it is only ever raised.
 						if(\amp === sourceName && [\indexA, \indexB, \hpCutoff, \lpCutoff].includes(destName), {
-							var amount = NamedControl.kr(('amp_' ++ destName).asSymbol, lag: lag);
+							var amount = NamedControl.kr(('amp_' ++ destName).asSymbol, lags: lag);
 							var polaritySwitch = BinaryOpUGen(if(\hpCutoff === sourceName, '<', '>'), amount, 0);
 							(modulator - polaritySwitch) * 2 * amount;
 						}, {
-							modulator * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol, lag: lag);
+							modulator * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol, lags: lag);
 						});
 					}));
 				});
@@ -366,7 +366,7 @@ Engine_Cule : CroneEngine {
 			Out.kr(\opMixBus.ir, \opMix.kr.lag(lag) + modulation[\opMix]);
 
 			fxA = \fxA.kr.lag(lag) + modulation[\fxA];
-			fxA = \fxB.kr.lag(lag) + modulation[\fxB];
+			fxB = \fxB.kr.lag(lag) + modulation[\fxB];
 			Out.kr(\fxBus.ir, [ fxA, fxB ]);
 			// TODO: see if this works!!
 			Pause.kr(fxA > -1, \fxASynth.kr);
