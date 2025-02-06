@@ -368,7 +368,6 @@ Engine_Cule : CroneEngine {
 			fxA = \fxA.kr.lag(lag) + modulation[\fxA];
 			fxB = \fxB.kr.lag(lag) + modulation[\fxB];
 			Out.kr(\fxBus.ir, [ fxA, fxB ]);
-			// TODO: see if this works!!
 			Pause.kr(fxA > -1, \fxASynth.kr);
 			Pause.kr(fxB > -1, \fxBSynth.kr);
 
