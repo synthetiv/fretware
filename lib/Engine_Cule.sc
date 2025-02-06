@@ -272,6 +272,7 @@ Engine_Cule : CroneEngine {
 			].flatten;
 
 			// build a dictionary of summed modulation signals to apply to parameters
+			// TODO: seems like we need a more efficient way to do this!!
 			modulationDestNames.do({ |destName|
 				if(controlRateDestNames.includes(destName), {
 					// control-rate destinations
@@ -282,7 +283,7 @@ Engine_Cule : CroneEngine {
 						}, {
 							modulators[m];
 						});
-						modulator * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol, 0, lag);
+						modulator * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol);
 					}));
 				}, {
 					// audio-rate destinations
@@ -302,15 +303,24 @@ Engine_Cule : CroneEngine {
 						// in both cases, amp is scaled so that maximum reduction is 2.
 						// except for HP cutoff, which works the opposite way: it is only ever raised.
 						if(\amp === sourceName && [\indexA, \indexB, \hpCutoff, \lpCutoff].includes(destName), {
-							var amount = NamedControl.kr(('amp_' ++ destName).asSymbol, 0, lag);
+							var amount = NamedControl.kr(('amp_' ++ destName).asSymbol);
 							var polaritySwitch = BinaryOpUGen(if(\hpCutoff === sourceName, '<', '>'), amount, 0);
 							(modulator - polaritySwitch) * 2 * amount;
 						}, {
-							modulator * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol, 0, lag);
+							modulator * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol);
 						});
 					}));
 				});
 			});
+/*
+			modulationDestNames.do({ |destName|
+				if(controlRateDestNames.includes(destName), {
+					modulation.put(destName, DC.kr(0));
+				}, {
+					modulation.put(destName, Silent.ar);
+				});
+			});
+*/
 
 			attack = attack * 8.pow(modulation[\attack]);
 			release = release * 8.pow(modulation[\release]);
@@ -331,25 +341,25 @@ Engine_Cule : CroneEngine {
 			]);
 
 			Out.kr(\opRatioBus.ir, [
-				\ratioA.kr.lag(lag) + modulation[\ratioA],
-				\ratioB.kr.lag(lag) + modulation[\ratioB]
+				\ratioA.kr + modulation[\ratioA],
+				\ratioB.kr + modulation[\ratioB]
 			]);
 
 			Out.ar(\opIndexBus.ir, [
-				\indexA.ar.lag(lag) + modulation[\indexA],
-				\indexB.ar.lag(lag) + modulation[\indexB]
+				\indexA.ar + modulation[\indexA],
+				\indexB.ar + modulation[\indexB]
 			]);
 
-			Out.kr(\opMixBus.ir, \opMix.kr.lag(lag) + modulation[\opMix]);
+			Out.kr(\opMixBus.ir, \opMix.kr + modulation[\opMix]);
 
 			Out.kr(\fxBus.ir, [
-				\fxA.kr.lag(lag) + modulation[\fxA],
-				\fxB.kr.lag(lag) + modulation[\fxB]
+				\fxA.kr + modulation[\fxA],
+				\fxB.kr + modulation[\fxB]
 			]);
 
 			Out.ar(\cutoffBus.ir, [
-				\hpCutoff.ar.lag(lag) + modulation[\hpCutoff],
-				\lpCutoff.ar.lag(lag) + modulation[\lpCutoff]
+				\hpCutoff.ar + modulation[\hpCutoff],
+				\lpCutoff.ar + modulation[\lpCutoff]
 			]);
 
 			Out.kr(\rqBus.ir, [
@@ -379,7 +389,7 @@ Engine_Cule : CroneEngine {
 			Out.ar(\egBus.ir, eg);
 			Out.kr(\handBus.ir, hand);
 
-			Out.kr(\panBus.ir, \pan.kr.lag(lag) + modulation[\pan]);
+			Out.kr(\panBus.ir, \pan.kr + modulation[\pan]);
 
 			pitch = pitch + \shift.kr;
 
@@ -389,8 +399,8 @@ Engine_Cule : CroneEngine {
 			Out.kr(\pitchBus.ir, pitch);
 
 			Out.ar(\opPitchBus.ir, [
-				\detuneA.ar.cubed.lag(lag) + modulation[\detuneA],
-				\detuneB.ar.cubed.lag(lag) + modulation[\detuneB]
+				\detuneA.ar.cubed + modulation[\detuneA],
+				\detuneB.ar.cubed + modulation[\detuneB]
 			] * 1.17 + pitch);
 			// max detune of 1.17 octaves is slightly larger than a ratio of 9/4
 
@@ -527,7 +537,7 @@ Engine_Cule : CroneEngine {
 			var bus = \bus.ir;
 			var sig = In.ar(bus);
 			var intensity = \intensity.ar;
-			var lfo = LFTri.kr(intensity.linexp(-1, 1, 0.03, 2, nil)).lag(\lag.kr(0.1)) * [-1, 1];
+			var lfo = LFTri.kr(intensity.linexp(-1, 1, 0.03, 2, nil)) * [-1, 1];
 			sig = Mix([
 				sig,
 				// TODO: maybe do DelayC instead
@@ -562,7 +572,7 @@ Engine_Cule : CroneEngine {
 			voiceOutput = voiceOutput * \amp.ar;
 
 			// scale by output level
-			voiceOutput = voiceOutput * Lag.kr(\outLevel.kr, 0.05);
+			voiceOutput = voiceOutput * \outLevel.kr;
 
 			// pan and write to main outs
 			Out.ar(context.out_b, Pan2.ar(voiceOutput, \pan.ar.fold2));
@@ -576,6 +586,7 @@ Engine_Cule : CroneEngine {
 				var amp = In.ar(bus[\amp]);
 				var pitch = In.kr(bus[\pitch]);
 				var trig = In.kr(bus[\trig]);
+				// TODO: send periodic replies only when a change threshold is crossed?
 				var pitchTrig = replyTrig + trig;
 
 				// what's important is peak amplitude, not exact current amplitude at poll time
