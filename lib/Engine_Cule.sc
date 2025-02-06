@@ -503,6 +503,8 @@ Engine_Cule : CroneEngine {
 			Out.ar(\bus.ir, output);
 		}).add;
 
+		SynthDef.new(\nothing, {}).add;
+
 		SynthDef.new(\fxSquiz, {
 			var bus = \bus.ir;
 			ReplaceOut.ar(bus, Squiz.ar(In.ar(bus), \intensity.ar.lincurve(-1, 1, 1, 16, 4, 'min'), 2));
@@ -528,10 +530,13 @@ Engine_Cule : CroneEngine {
 			var lfo = LFTri.kr(intensity.linexp(-1, 1, 0.03, 2, nil)).lag(\lag.kr(0.1)) * [-1, 1];
 			sig = Mix([
 				sig,
+				// TODO: maybe do DelayC instead
 				DelayL.ar(sig, 0.05, lfo * intensity.linexp(-1, 1, 0.0019, 0.005, nil) + [\d1.kr(0.01), \d2.kr(0.007)])
 			].flatten);
 			ReplaceOut.ar(bus, sig * -6.dbamp);
 		}).add;
+
+		// TODO: separate, swappable filter synths
 
 		SynthDef.new(\voiceOutputStage, {
 
@@ -539,6 +544,7 @@ Engine_Cule : CroneEngine {
 				lpCutoff, lpRQ;
 			var voiceOutput = In.ar(\bus.ir);
 
+			/*
 			// HPF
 			hpCutoff = \hpCutoff.ar(-1).linexp(-1, 1, 4, 24000);
 			hpRQ = \hpRQ.kr(0.7);
@@ -550,6 +556,7 @@ Engine_Cule : CroneEngine {
 			lpRQ = \lpRQ.kr(0.7);
 			lpRQ = lpCutoff.linexp(SampleRate.ir * 0.25 / lpRQ, SampleRate.ir * 0.5, lpRQ, 0.5).min(lpRQ);
 			voiceOutput = RLPF.ar(voiceOutput, lpCutoff, lpRQ);
+			*/
 
 			// scale by amplitude control value
 			voiceOutput = voiceOutput * \amp.ar;
@@ -767,19 +774,19 @@ Engine_Cule : CroneEngine {
 
 		this.addCommand(\opType, "ii", {
 			arg msg;
-			var def = [\operatorFM, \operatorFMFade, \operatorFB, \operatorFBFade].at(msg[2] - 1);
+			var def = [\operatorFM, \operatorFMFade, \operatorFB, \operatorFBFade, \nothing].at(msg[2] - 1);
 			this.swapOp(msg[1] - 1, def);
 		});
 
 		this.addCommand(\fxType, "ii", {
 			arg msg;
-			var def = [\fxSquiz, \fxWaveLoss, \fxFold, \fxChorus].at(msg[2] - 1);
+			var def = [\fxSquiz, \fxWaveLoss, \fxFold, \fxChorus, \nothing].at(msg[2] - 1);
 			this.swapFx(msg[1] - 1, def);
 		});
 
 		this.addCommand(\lfoType, "ii", {
 			arg msg;
-			var def = [\lfoTri, \lfoSH, \lfoDust, \lfoDrift, \lfoRamp].at(msg[2] - 1);
+			var def = [\lfoTri, \lfoSH, \lfoDust, \lfoDrift, \lfoRamp, \nothing].at(msg[2] - 1);
 			this.swapLfo(msg[1] - 1, def);
 		});
 
