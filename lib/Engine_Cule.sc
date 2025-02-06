@@ -217,6 +217,7 @@ Engine_Cule : CroneEngine {
 				bufferRate, bufferLength, bufferPhase, buffer,
 				loopStart, loopPhase, loopTrigger, loopOffset,
 				modulation = Dictionary.new,
+				lag = 0.01,
 				amp_indexA, amp_indexB, amp_hpCutoff, amp_lpCutoff,
 				recPitch, recTip, recHand, recGate, recTrig,
 				trig, ampMode, hand, freezeWithoutGate, eg, amp;
@@ -263,8 +264,10 @@ Engine_Cule : CroneEngine {
 				Latch.kr(WhiteNoise.kr, Trig.kr(gate) + Trig.kr(amp > 0.01))
 			].flatten;
 
+			// TODO: make a 'patch' synth that smooths out all patch params (that need smoothing) ONCE, so
+			// each voice doesn't need to do that individually
+
 			// build a dictionary of summed modulation signals to apply to parameters
-			// TODO: seems like we need a more efficient way to do this!!
 			modulationDestNames.do({ |destName|
 				if(controlRateDestNames.includes(destName), {
 					// control-rate destinations
@@ -276,7 +279,7 @@ Engine_Cule : CroneEngine {
 							modulators[m];
 						});
 						modulator * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol);
-					}));
+					}).lag(lag)); // no need to smooth all routing factors separately.
 				}, {
 					// audio-rate destinations
 					modulation.put(destName, Mix.fill(modulationSourceNames.size, { |m|
@@ -295,24 +298,15 @@ Engine_Cule : CroneEngine {
 						// in both cases, amp is scaled so that maximum reduction is 2.
 						// except for HP cutoff, which works the opposite way: it is only ever raised.
 						if(\amp === sourceName && [\indexA, \indexB, \hpCutoff, \lpCutoff].includes(destName), {
-							var amount = NamedControl.kr(('amp_' ++ destName).asSymbol);
+							var amount = NamedControl.kr(('amp_' ++ destName).asSymbol, lag: lag);
 							var polaritySwitch = BinaryOpUGen(if(\hpCutoff === sourceName, '<', '>'), amount, 0);
 							(modulator - polaritySwitch) * 2 * amount;
 						}, {
-							modulator * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol);
+							modulator * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol, lag: lag);
 						});
 					}));
 				});
 			});
-/*
-			modulationDestNames.do({ |destName|
-				if(controlRateDestNames.includes(destName), {
-					modulation.put(destName, DC.kr(0));
-				}, {
-					modulation.put(destName, Silent.ar);
-				});
-			});
-*/
 
 			attack = attack * 8.pow(modulation[\attack]);
 			release = release * 8.pow(modulation[\release]);
@@ -333,25 +327,25 @@ Engine_Cule : CroneEngine {
 			]);
 
 			Out.kr(\opRatioBus.ir, [
-				\ratioA.kr + modulation[\ratioA],
-				\ratioB.kr + modulation[\ratioB]
+				\ratioA.kr.lag(lag) + modulation[\ratioA],
+				\ratioB.kr.lag(lag) + modulation[\ratioB]
 			]);
 
 			Out.ar(\opIndexBus.ir, [
-				\indexA.ar + modulation[\indexA],
-				\indexB.ar + modulation[\indexB]
+				\indexA.ar.lag(lag) + modulation[\indexA],
+				\indexB.ar.lag(lag) + modulation[\indexB]
 			]);
 
-			Out.kr(\opMixBus.ir, \opMix.kr + modulation[\opMix]);
+			Out.kr(\opMixBus.ir, \opMix.kr.lag(lag) + modulation[\opMix]);
 
 			Out.kr(\fxBus.ir, [
-				\fxA.kr + modulation[\fxA],
-				\fxB.kr + modulation[\fxB]
+				\fxA.kr.lag(lag) + modulation[\fxA],
+				\fxB.kr.lag(lag) + modulation[\fxB]
 			]);
 
 			Out.ar(\cutoffBus.ir, [
-				\hpCutoff.ar + modulation[\hpCutoff],
-				\lpCutoff.ar + modulation[\lpCutoff]
+				\hpCutoff.ar.lag(lag) + modulation[\hpCutoff],
+				\lpCutoff.ar.lag(lag) + modulation[\lpCutoff]
 			]);
 
 			Out.kr(\rqBus.ir, [
@@ -381,7 +375,7 @@ Engine_Cule : CroneEngine {
 			Out.ar(\egBus.ir, eg);
 			Out.kr(\handBus.ir, hand);
 
-			Out.kr(\panBus.ir, \pan.kr + modulation[\pan]);
+			Out.kr(\panBus.ir, \pan.kr.lag(lag) + modulation[\pan]);
 
 			pitch = pitch + \shift.kr;
 
@@ -391,8 +385,8 @@ Engine_Cule : CroneEngine {
 			Out.kr(\pitchBus.ir, pitch);
 
 			Out.ar(\opPitchBus.ir, [
-				\detuneA.ar.cubed + modulation[\detuneA],
-				\detuneB.ar.cubed + modulation[\detuneB]
+				\detuneA.ar.cubed.lag(lag) + modulation[\detuneA],
+				\detuneB.ar.cubed.lag(lag) + modulation[\detuneB]
 			] * 1.17 + pitch);
 			// max detune of 1.17 octaves is slightly larger than a ratio of 9/4
 
@@ -529,7 +523,7 @@ Engine_Cule : CroneEngine {
 			var bus = \bus.ir;
 			var sig = In.ar(bus);
 			var intensity = \intensity.ar;
-			var lfo = LFTri.kr(intensity.linexp(-1, 1, 0.03, 2, nil)) * [-1, 1];
+			var lfo = LFTri.kr(intensity.linexp(-1, 1, 0.03, 2, nil)).lag(0.1) * [-1, 1];
 			sig = Mix([
 				sig,
 				// TODO: maybe do DelayC instead
@@ -564,7 +558,7 @@ Engine_Cule : CroneEngine {
 			voiceOutput = voiceOutput * \amp.ar;
 
 			// scale by output level
-			voiceOutput = voiceOutput * \outLevel.kr;
+			voiceOutput = voiceOutput * Lag.kr(\outLevel.kr, 0.05);
 
 			// pan and write to main outs
 			Out.ar(context.out_b, Pan2.ar(voiceOutput, \pan.ar.fold2));
