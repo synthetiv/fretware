@@ -75,6 +75,7 @@ Engine_Cule : CroneEngine {
 			\bus, bus
 		]);
 		newFx.map(\intensity, Bus.newFrom(buses[\fx], slot));
+		synths[0].set([ \fxASynth, \fxBSynth ].at(slot), newFx);
 		synths.put(slot + 4, newFx);
 	}
 
@@ -227,7 +228,7 @@ Engine_Cule : CroneEngine {
 				loopStart, loopPhase, loopTrigger, loopOffset,
 				modulation = Dictionary.new,
 				lag = 0.01,
-				amp_indexA, amp_indexB, amp_hpCutoff, amp_lpCutoff,
+				fxA, fxB,
 				recPitch, recTip, recHand, recGate, recTrig,
 				trig, ampMode, hand, freezeWithoutGate, eg, amp;
 
@@ -241,6 +242,7 @@ Engine_Cule : CroneEngine {
 				var path = '/' ++ typeName;
 				controlNames.do({ |controlName, i|
 					var value = NamedControl.kr(controlName);
+					// TODO: use voiceIndex as replyID, NOT first value. same for the other SendReplys.
 					SendReply.kr(Changed.kr(value), path, [ voiceIndex, i, value ]);
 				});
 			});
@@ -363,10 +365,12 @@ Engine_Cule : CroneEngine {
 
 			Out.kr(\opMixBus.ir, \opMix.kr.lag(lag) + modulation[\opMix]);
 
-			Out.kr(\fxBus.ir, [
-				\fxA.kr.lag(lag) + modulation[\fxA],
-				\fxB.kr.lag(lag) + modulation[\fxB]
-			]);
+			fxA = \fxA.kr.lag(lag) + modulation[\fxA];
+			fxA = \fxB.kr.lag(lag) + modulation[\fxB];
+			Out.kr(\fxBus.ir, [ fxA, fxB ]);
+			// TODO: see if this works!!
+			Pause.kr(fxA > -1, \fxASynth.kr);
+			Pause.kr(fxB > -1, \fxBSynth.kr);
 
 			Out.ar(\cutoffBus.ir, [
 				\hpCutoff.ar.lag(lag) + modulation[\hpCutoff],
@@ -513,6 +517,7 @@ Engine_Cule : CroneEngine {
 		// TODO: other, lighter-weight operators
 
 		SynthDef.new(\operatorMixer, {
+			// TODO: pause op synths when they're fully mixed out??
 			var opA = In.ar(\opA.ir);
 			var opB = In.ar(\opB.ir);
 			var output = SelectX.ar(\mix.ar.linlin(-1, 1, 0, 4, nil).wrap(0, 3), [
@@ -709,11 +714,13 @@ Engine_Cule : CroneEngine {
 				\bus, mixBus
 			], context.og, \addToTail);
 			fxA.map(\intensity, Bus.newFrom(bus[\fx], 0));
+			controlSynth.set(\fxASynth, fxA);
 
 			fxB = Synth.new(\fxWaveLoss, [
 				\bus, mixBus
 			], context.og, \addToTail);
 			fxB.map(\intensity, Bus.newFrom(bus[\fx], 1));
+			controlSynth.set(\fxBSynth, fxB);
 
 			out = Synth.new(\voiceOutputStage, [
 				\bus, mixBus
