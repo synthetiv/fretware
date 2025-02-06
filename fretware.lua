@@ -6,7 +6,7 @@ Lattice = require 'lattice'
 
 Slider = include 'lib/slider'
 
-n_voices = 6
+n_voices = 4
 
 Keyboard = include 'lib/keyboard'
 k = Keyboard.new(1, 1, 16, 8)

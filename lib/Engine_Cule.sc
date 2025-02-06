@@ -1,6 +1,6 @@
 Engine_Cule : CroneEngine {
 
-	classvar nVoices = 6;
+	classvar nVoices = 4;
 	classvar nRecordedModulators = 6;
 	classvar bufferRateScale = 0.5;
 	classvar maxLoopTime = 60;
@@ -570,7 +570,6 @@ Engine_Cule : CroneEngine {
 				lpCutoff, lpRQ;
 			var voiceOutput = In.ar(\bus.ir);
 
-			/*
 			// HPF
 			hpCutoff = \hpCutoff.ar(-1).linexp(-1, 1, 4, 24000);
 			hpRQ = \hpRQ.kr(0.7);
@@ -582,7 +581,6 @@ Engine_Cule : CroneEngine {
 			lpRQ = \lpRQ.kr(0.7);
 			lpRQ = lpCutoff.linexp(SampleRate.ir * 0.25 / lpRQ, SampleRate.ir * 0.5, lpRQ, 0.5).min(lpRQ);
 			voiceOutput = RLPF.ar(voiceOutput, lpCutoff, lpRQ);
-			*/
 
 			// scale by amplitude control value
 			voiceOutput = voiceOutput * \amp.ar;
