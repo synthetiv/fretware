@@ -90,6 +90,9 @@ Engine_Cule : CroneEngine {
 
 	alloc {
 
+		// TODO: reorganize this stuff. dry it out. 'pan' should be "declared" with rate = control,
+		// scope = voice (as opposed to patch)... and so on.
+
 		// modulatable parameters for audio synths
 		modulationDestNames = [
 			\amp,
@@ -265,7 +268,9 @@ Engine_Cule : CroneEngine {
 			].flatten;
 
 			// TODO: make a 'patch' synth that smooths out all patch params (that need smoothing) ONCE, so
-			// each voice doesn't need to do that individually
+			// each voice doesn't need to do that individually.
+			// patch synth would also have args for lfo types, etc.
+			// then voices could SendReply when type args change, which would trigger swapLfo etc.
 
 			// build a dictionary of summed modulation signals to apply to parameters
 			modulationDestNames.do({ |destName|
@@ -710,7 +715,7 @@ Engine_Cule : CroneEngine {
 			arg i;
 			i = i + 1;
 			Dictionary[
-				// TODO: poll env value too, to show on grid?? and amp??
+				// TODO: poll env value too, to show on grid??
 				\instantPitch -> this.addPoll(("instant_pitch_" ++ i).asSymbol, periodic: false),
 				\pitch -> this.addPoll(("pitch_" ++ i).asSymbol, periodic: false),
 				\amp -> this.addPoll(("amp_" ++ i).asSymbol, periodic: false),

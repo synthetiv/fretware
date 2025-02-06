@@ -69,6 +69,10 @@ source_menu.get_key_level = function(value, selected, held)
 		if tip - palm < 0 then
 			level = -1
 		end
+	elseif value == 3 then
+		-- TODO: indicate env state
+	elseif value == 4 then
+		-- TODO: indicate env state
 	elseif value >= 5 and value <= 7 then
 		if not voice_states[k.selected_voice][lfo_gate_names[value - 4]] then
 			level = -1
