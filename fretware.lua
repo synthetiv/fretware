@@ -755,7 +755,7 @@ function init()
 		default = 1,
 		action = function(value)
 			local opFade = params:get('opFadeA')
-			engine.opType(1, (value - 1) * 2 + opFade)
+			engine.opType(0, (value - 1) * 2 + opFade - 1)
 		end
 	}
 
@@ -767,7 +767,7 @@ function init()
 		default = 1,
 		action = function(value)
 			local opType = params:get('opTypeA')
-			engine.opType(1, (opType - 1) * 2 + value)
+			engine.opType(0, (opType - 1) * 2 + value - 1)
 		end
 	}
 
@@ -779,7 +779,7 @@ function init()
 		default = 2,
 		action = function(value)
 			local opFade = params:get('opFadeB')
-			engine.opType(2, (value - 1) * 2 + opFade)
+			engine.opType(1, (value - 1) * 2 + opFade - 1)
 		end
 	}
 
@@ -791,7 +791,7 @@ function init()
 		default = 1,
 		action = function(value)
 			local opType = params:get('opTypeB')
-			engine.opType(2, (opType - 1) * 2 + value)
+			engine.opType(1, (opType - 1) * 2 + value - 1)
 		end
 	}
 
@@ -802,7 +802,7 @@ function init()
 		options = { 'squiz', 'fold' },
 		default = 1,
 		action = function(value)
-			engine.fxType(1, value == 1 and 1 or 3)
+			engine.fxType(0, value == 1 and 0 or 2)
 		end
 	}
 
@@ -813,7 +813,7 @@ function init()
 		options = { 'waveloss', 'chorus' },
 		default = 1,
 		action = function(value)
-			engine.fxType(2, value == 1 and 2 or 4)
+			engine.fxType(1, value == 1 and 1 or 3)
 		end
 	}
 
@@ -824,7 +824,7 @@ function init()
 		options = { 'tri', 's+h', 'dust', 'drift', 'ramp' },
 		default = 1,
 		action = function(value)
-			engine.lfoType(1, value)
+			engine.lfoType(0, value - 1)
 		end
 	}
 
@@ -835,7 +835,7 @@ function init()
 		options = { 'tri', 's+h', 'dust', 'drift', 'ramp' },
 		default = 1,
 		action = function(value)
-			engine.lfoType(2, value)
+			engine.lfoType(1, value - 1)
 		end
 	}
 
@@ -846,7 +846,7 @@ function init()
 		options = { 'tri', 's+h', 'dust', 'drift', 'ramp' },
 		default = 1,
 		action = function(value)
-			engine.lfoType(3, value)
+			engine.lfoType(2, value - 1)
 		end
 	}
 

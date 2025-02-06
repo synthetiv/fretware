@@ -24,6 +24,9 @@ Engine_Cule : CroneEngine {
 	var patchBuses;
 	var replySynth;
 	var polls;
+	var opTypeReplyFunc;
+	var fxTypeReplyFunc;
+	var lfoTypeReplyFunc;
 	var voiceAmpReplyFunc;
 	var voicePitchReplyFunc;
 	var lfoGateReplyFunc;
@@ -48,44 +51,44 @@ Engine_Cule : CroneEngine {
 	}
 
 	swapOp {
-		arg op, defName; // op A = 0, B = 1
-		nVoices.do({ |v|
-			var thisBus = Bus.newFrom(voiceBuses[v][\opAudio], op);
-			var thatBus = Bus.newFrom(voiceBuses[v][\opAudio], (op + 1).mod(2));
-			var newOp = Synth.replace(voiceSynths[v][op + 1], defName, [
-				\inBus, thatBus,
-				\outBus, thisBus
-			]);
-			newOp.map(\pitch,    Bus.newFrom(voiceBuses[v][\opPitch], op));
-			newOp.map(\ratio,    Bus.newFrom(voiceBuses[v][\opRatio], op));
-			newOp.map(\index,    Bus.newFrom(voiceBuses[v][\opIndex], op));
-			voiceSynths[v].put(op + 1, newOp);
-		});
+		arg v, op, defName; // op A = 0, B = 1
+		var buses = voiceBuses[v];
+		var synths = voiceSynths[v];
+		var thisBus = Bus.newFrom(buses[\opAudio], op);
+		var thatBus = Bus.newFrom(buses[\opAudio], (op + 1).mod(2));
+		var newOp = Synth.replace(synths[op + 1], defName, [
+			\inBus, thatBus,
+			\outBus, thisBus
+		]);
+		newOp.map(\pitch,    Bus.newFrom(buses[\opPitch], op));
+		newOp.map(\ratio,    Bus.newFrom(buses[\opRatio], op));
+		newOp.map(\index,    Bus.newFrom(buses[\opIndex], op));
+		synths.put(op + 1, newOp);
 	}
 
 	swapFx {
-		arg slot, defName;
-		nVoices.do({ |v|
-			var bus = Bus.newFrom(voiceBuses[v][\mixAudio], 0);
-			var newFx = Synth.replace(voiceSynths[v][slot + 4], defName, [
-				\bus, bus
-			]);
-			newFx.map(\intensity, Bus.newFrom(voiceBuses[v][\fx], slot));
-			voiceSynths[v].put(slot + 4, newFx);
-		});
+		arg v, slot, defName;
+		var buses = voiceBuses[v];
+		var synths = voiceSynths[v];
+		var bus = Bus.newFrom(buses[\mixAudio], 0);
+		var newFx = Synth.replace(synths[slot + 4], defName, [
+			\bus, bus
+		]);
+		newFx.map(\intensity, Bus.newFrom(buses[\fx], slot));
+		synths.put(slot + 4, newFx);
 	}
 
 	swapLfo {
-		arg slot, defName;
-		nVoices.do({ |v|
-			var newLfo = Synth.replace(voiceSynths[v][slot + 6], defName, [
-				\stateBus, Bus.newFrom(voiceBuses[v][\lfoState], slot),
-				\voiceIndex, v,
-				\lfoIndex, slot
-			]);
-			newLfo.map(\freq, Bus.newFrom(voiceBuses[v][\lfoFreq], slot));
-			voiceSynths[v].put(slot + 6, newLfo);
-		});
+		arg v, slot, defName;
+		var buses = voiceBuses[v];
+		var synths = voiceSynths[v];
+		var newLfo = Synth.replace(synths[slot + 6], defName, [
+			\stateBus, Bus.newFrom(buses[\lfoState], slot),
+			\voiceIndex, v,
+			\lfoIndex, slot
+		]);
+		newLfo.map(\freq, Bus.newFrom(buses[\lfoFreq], slot));
+		synths.put(slot + 6, newLfo);
 	}
 
 	alloc {
@@ -148,13 +151,19 @@ Engine_Cule : CroneEngine {
 		];
 
 		// modulatable AND non-modulatable parameters
-		// TODO: op types, FX types, and LFO types should be considered patch parameters too!!
 		patchArgs = [
 			\pitchSlew,
 			\hpRQ,
 			\lpRQ,
+			\opAType,
+			\opBType,
+			\fxAType,
+			\fxBType,
 			\egType,
 			\ampMode,
+			\lfoAType,
+			\lfoBType,
+			\lfoCType,
 			modulationDestNames,
 			Array.fill(modulationSourceNames.size, { |s|
 				Array.fill(modulationDestNames.size, { |d|
@@ -210,7 +219,6 @@ Engine_Cule : CroneEngine {
 				loopLength = 0.3,
 				loopPosition = 0,
 				loopRateScale = 1,
-
 				attack = 0.01,
 				release = 0.3;
 
@@ -222,6 +230,20 @@ Engine_Cule : CroneEngine {
 				amp_indexA, amp_indexB, amp_hpCutoff, amp_lpCutoff,
 				recPitch, recTip, recHand, recGate, recTrig,
 				trig, ampMode, hand, freezeWithoutGate, eg, amp;
+
+			// send signals to sclang to handle op, fx, and lfo type changes
+			var voiceIndex = \voiceIndex.ir;
+			Dictionary[
+				\opType -> [ \opAType, \opBType ],
+				\fxType -> [ \fxAType, \fxBType ],
+				\lfoType -> [ \lfoAType, \lfoBType, \lfoCType ]
+			].do({ |typeName, controlNames|
+				var path = '/' ++ typeName;
+				controlNames.do({ |controlName, i|
+					var value = NamedControl.kr(controlName);
+					SendReply.kr(Changed.kr(value), path, [ voiceIndex, i, value ]);
+				});
+			});
 
 			// create buffer for looping pitch/amp/control data
 			bufferRate = ControlRate.ir * bufferRateScale;
@@ -614,6 +636,7 @@ Engine_Cule : CroneEngine {
 			var bus = voiceBuses[i];
 
 			controlSynth = Synth.new(\voiceControls, [
+				\voiceIndex, i,
 				\ampBus, bus[\amp],
 				\egBus, bus[\eg],
 				\trigBus, bus[\trig],
@@ -725,6 +748,25 @@ Engine_Cule : CroneEngine {
 			];
 		});
 
+		opTypeReplyFunc = OSCFunc({
+			arg msg;
+			var def = [\operatorFM, \operatorFMFade, \operatorFB, \operatorFBFade, \nothing].at(msg[5]);
+			// TODO: make swap functions take voice as arg
+			this.swapOp(msg[3], msg[4], def);
+		}, path: '/opType', srcID: context.server.addr);
+
+		fxTypeReplyFunc = OSCFunc({
+			arg msg;
+			var def = [\fxSquiz, \fxWaveLoss, \fxFold, \fxChorus, \nothing].at(msg[5]);
+			this.swapFx(msg[3], msg[4], def);
+		}, path: '/fxType', srcID: context.server.addr);
+
+		lfoTypeReplyFunc = OSCFunc({
+			arg msg;
+			var def = [\lfoTri, \lfoSH, \lfoDust, \lfoDrift, \lfoRamp, \nothing].at(msg[5]);
+			this.swapLfo(msg[3], msg[4], def);
+		}, path: '/lfoType', srcID: context.server.addr);
+
 		voiceAmpReplyFunc = OSCFunc({
 			arg msg;
 			// msg looks like [ '/voiceAmp', ??, -1, voiceIndex, amp ]
@@ -770,24 +812,6 @@ Engine_Cule : CroneEngine {
 			baseFreqBus.setSynchronous(msg[1]);
 		});
 
-		this.addCommand(\opType, "ii", {
-			arg msg;
-			var def = [\operatorFM, \operatorFMFade, \operatorFB, \operatorFBFade, \nothing].at(msg[2] - 1);
-			this.swapOp(msg[1] - 1, def);
-		});
-
-		this.addCommand(\fxType, "ii", {
-			arg msg;
-			var def = [\fxSquiz, \fxWaveLoss, \fxFold, \fxChorus, \nothing].at(msg[2] - 1);
-			this.swapFx(msg[1] - 1, def);
-		});
-
-		this.addCommand(\lfoType, "ii", {
-			arg msg;
-			var def = [\lfoTri, \lfoSH, \lfoDust, \lfoDrift, \lfoRamp, \nothing].at(msg[2] - 1);
-			this.swapLfo(msg[1] - 1, def);
-		});
-
 		this.addCommand(\setLoop, "if", {
 			arg msg;
 			voiceSynths[msg[1] - 1][0].set(
@@ -809,8 +833,7 @@ Engine_Cule : CroneEngine {
 
 		patchArgs.do({
 			arg name;
-			var signature = if([ \egType, \ampMode ].includes(name), "i", "f");
-			this.addCommand(name, signature, { |msg|
+			this.addCommand(name, "f", { |msg|
 				patchBuses[name].set(msg[1]);
 			});
 		});
@@ -848,6 +871,9 @@ Engine_Cule : CroneEngine {
 		patchBuses.do({ |bus| bus.free });
 		voiceBuses.do({ |dict| dict.do({ |bus| bus.free; }); });
 		baseFreqBus.free;
+		opTypeReplyFunc.free;
+		fxTypeReplyFunc.free;
+		lfoTypeReplyFunc.free;
 		voiceAmpReplyFunc.free;
 		voicePitchReplyFunc.free;
 		lfoGateReplyFunc.free;
