@@ -133,14 +133,16 @@ Engine_Cule : CroneEngine {
 			\eg2,
 			\lfoA,
 			\lfoB,
-			\lfoC
+			\lfoC,
+			\sh
 		];
 
 		controlRateSourceNames = [
 			\hand,
 			\lfoA,
 			\lfoB,
-			\lfoC
+			\lfoC,
+			\sh
 		];
 
 		// modulatable AND non-modulatable parameters
@@ -225,7 +227,7 @@ Engine_Cule : CroneEngine {
 				modulation = Dictionary.new,
 				amp_indexA, amp_indexB, amp_hpCutoff, amp_lpCutoff,
 				recPitch, recTip, recHand, recGate, recTrig,
-				trig, ampMode, hand, freezeWithoutGate, eg, eg2, amp;
+				trig, ampMode, hand, freezeWithoutGate, eg, amp;
 
 			// create buffer for looping pitch/amp/control data
 			bufferRate = ControlRate.ir * bufferRateScale;
@@ -259,12 +261,14 @@ Engine_Cule : CroneEngine {
 
 			// this feedback loop is needed in order for modulators to modulate one another
 			eg = InFeedback.ar(\egBus.ir);
+			amp = InFeedback.ar(\ampBus.ir);
 			modulators = [
-				InFeedback.ar(\ampBus.ir),
+				amp,
 				In.kr(\handBus.ir),
 				eg,
 				eg.squared,
-				In.kr(\lfoStateBus.ir, 3)
+				In.kr(\lfoStateBus.ir, 3),
+				Latch.kr(WhiteNoise.kr, Trig.kr(gate) + Trig.kr(amp > 0.01))
 			].flatten;
 
 			// build a dictionary of summed modulation signals to apply to parameters

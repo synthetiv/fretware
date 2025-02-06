@@ -53,7 +53,7 @@ arp_direction_menu:select_value(0)
 source_menu = Menu.new(7, 1, 9, 2, {
 	-- map of source numbers (in editor.source_names) to keys
 	 2, _, 3, _, 5, 6,  7, _, 1,
-	 _, _, 4
+	 _, _, 4, _, _, 8
 })
 source_menu.multi = true
 source_menu:select_value(1)
@@ -92,7 +92,8 @@ editor = {
 		'eg2',
 		'lfoA',
 		'lfoB',
-		'lfoC'
+		'lfoC',
+		'sh'
 	},
 	dests = {
 		{
@@ -238,7 +239,8 @@ for s = 1, #editor.dests do
 		eg2    = Slider.new(82, 7, 4, 57, 0),
 		lfoA   = Slider.new(82, 7, 4, 57, 0),
 		lfoB   = Slider.new(82, 7, 4, 57, 0),
-		lfoC   = Slider.new(82, 7, 4, 57, 0)
+		lfoC   = Slider.new(82, 7, 4, 57, 0),
+		sh     = Slider.new(82, 7, 4, 57, 0)
 	}
 end
 
@@ -1222,36 +1224,42 @@ function redraw()
 	local source_name = editor.source_names[source_menu.value]
 
 	screen.level(source_menu:is_selected(1) and 15 or 3)
-	screen.move(4, 5)
+	screen.move(0, 5)
 	screen.text('Am')
 
 	screen.level(source_menu:is_selected(2) and 15 or 3)
-	screen.move_rel(7, 0)
+	screen.move_rel(6, 0)
 	screen.text('Hd')
 
 	screen.level(source_menu:is_selected(3) and 15 or 3)
-	screen.move_rel(7, 0)
+	screen.move_rel(6, 0)
 	screen.text('En')
 
 	screen.level(source_menu:is_selected(4) and 15 or 3)
-	screen.move_rel(7, 0)
+	screen.move_rel(6, 0)
 	screen.text('En2')
 
 	screen.level(source_menu:is_selected(5) and 15 or 3)
-	screen.move_rel(7, 0)
+	screen.move_rel(6, 0)
 	screen.text('La')
 	screen.level(voice.lfoA_gate and 15 or 3)
 	screen.text('.')
 
 	screen.level(source_menu:is_selected(6) and 15 or 3)
-	screen.move_rel(7, 0)
+	screen.move_rel(6, 0)
 	screen.text('Lb')
 	screen.level(voice.lfoB_gate and 15 or 3)
 	screen.text('.')
 
 	screen.level(source_menu:is_selected(7) and 15 or 3)
-	screen.move_rel(7, 0)
+	screen.move_rel(6, 0)
 	screen.text('Lc')
+	screen.level(voice.lfoC_gate and 15 or 3)
+	screen.text('.')
+
+	screen.level(source_menu:is_selected(8) and 15 or 3)
+	screen.move_rel(6, 0)
+	screen.text('Sh')
 	screen.level(voice.lfoC_gate and 15 or 3)
 	screen.text('.')
 
