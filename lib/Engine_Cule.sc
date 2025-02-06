@@ -23,7 +23,6 @@ Engine_Cule : CroneEngine {
 	var voiceSynths;
 	var patchBuses;
 	var replySynth;
-	var voiceStateBuses;
 	var polls;
 	var voiceAmpReplyFunc;
 	var voicePitchReplyFunc;
@@ -174,11 +173,6 @@ Engine_Cule : CroneEngine {
 
 		baseFreqBus = Bus.control(context.server);
 
-		// control-rate outputs for pitch, amp, and trigger, to feed polls
-		voiceStateBuses = Array.fill(nVoices, {
-			Bus.control(context.server, 3);
-		});
-
 		voiceBuses = Array.fill(nVoices, {
 			Dictionary[
 				\amp -> Bus.audio(context.server),
@@ -218,8 +212,6 @@ Engine_Cule : CroneEngine {
 				attack = 0.01,
 				release = 0.3,
 				egCurve = -6,
-
-				lag = 0.1;
 
 			var modulators,
 				bufferRate, bufferLength, bufferPhase, buffer,
@@ -586,7 +578,6 @@ Engine_Cule : CroneEngine {
 				var amp = In.ar(bus[\amp]);
 				var pitch = In.kr(bus[\pitch]);
 				var trig = In.kr(bus[\trig]);
-				// TODO: send periodic replies only when a change threshold is crossed?
 				var pitchTrig = replyTrig + trig;
 
 				// what's important is peak amplitude, not exact current amplitude at poll time
@@ -642,7 +633,6 @@ Engine_Cule : CroneEngine {
 				\rqBus, bus[\rq],
 				\lfoFreqBus, bus[\lfoFreq],
 				\lfoStateBus, bus[\lfoState],
-				\voiceStateBus, voiceStateBuses[i],
 				\outLevelBus, bus[\outLevel]
 			], context.og, \addToTail); // "output" group
 			patchArgs.do({ |name| controlSynth.map(name, patchBuses[name]) });
@@ -843,9 +833,6 @@ Engine_Cule : CroneEngine {
 
 		[
 			\freeze,
-			\t_loopReset,
-			\loopLength,
-			\loopPosition,
 			\loopRateScale,
 			\shift,
 			\pan,
@@ -862,7 +849,6 @@ Engine_Cule : CroneEngine {
 		replySynth.free;
 		voiceSynths.do({ |synths| synths.do({ |synth| synth.free }) });
 		patchBuses.do({ |bus| bus.free });
-		voiceStateBuses.do({ |bus| bus.free });
 		voiceBuses.do({ |dict| dict.do({ |bus| bus.free; }); });
 		baseFreqBus.free;
 		voiceAmpReplyFunc.free;
