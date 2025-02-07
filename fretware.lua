@@ -775,11 +775,11 @@ function init()
 		name = 'op type B',
 		id = 'opTypeB',
 		type = 'option',
-		options = { 'FM', 'FB' },
-		default = 2,
+		options = { 'FB', 'FM' },
+		default = 1,
 		action = function(value)
 			local opFade = params:get('opFadeB')
-			engine.opTypeA((value - 1) * 2 + opFade - 1)
+			engine.opTypeA((2 - value) * 2 + opFade - 1)
 		end
 	}
 
@@ -791,7 +791,7 @@ function init()
 		default = 1,
 		action = function(value)
 			local opType = params:get('opTypeB')
-			engine.opTypeB((opType - 1) * 2 + value - 1)
+			engine.opTypeB((2 - opType) * 2 + value - 1)
 		end
 	}
 
