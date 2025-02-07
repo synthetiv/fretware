@@ -238,7 +238,7 @@ Engine_Cule : CroneEngine {
 				\opType -> [ \opTypeA, \opTypeB ],
 				\fxType -> [ \fxTypeA, \fxTypeB ],
 				\lfoType -> [ \lfoTypeA, \lfoTypeB, \lfoTypeC ]
-			].do({ |typeName, controlNames|
+			].keysValuesDo({ |typeName, controlNames|
 				var path = '/' ++ typeName;
 				controlNames.do({ |controlName, i|
 					var value = NamedControl.kr(controlName);
@@ -755,7 +755,6 @@ Engine_Cule : CroneEngine {
 		opTypeReplyFunc = OSCFunc({
 			arg msg;
 			var def = [\operatorFM, \operatorFMFade, \operatorFB, \operatorFBFade, \nothing].at(msg[5]);
-			// TODO: make swap functions take voice as arg
 			this.swapOp(msg[3], msg[4], def);
 		}, path: '/opType', srcID: context.server.addr);
 
