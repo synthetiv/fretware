@@ -40,12 +40,12 @@ function read_scala_file(path)
 	local pitches = {}
 	for line in io.lines(path) do
 		line = string.gsub(line, '\r', '') -- trim pesky CR characters that make debugging a pain
-		if string.sub(line, 1, 1) ~= '!' then -- ignore comments
+		if string.sub(line, 1, 1) ~= '!' then -- ignore comment lines
 			if desc == nil then
 				-- first line is a description of the scale
 				desc = line
 			else
-				local value = string.match(line, '(%S+)')
+				local value, comment = string.match(line, '^%s*(%S+)%s*(.*)$')
 				if expected_length == 0 then
 					-- second line is the number of pitches
 					expected_length = tonumber(value)
@@ -60,7 +60,7 @@ function read_scala_file(path)
 					else
 						value = parse_ratio(value)
 					end
-					pitches[length] = value
+					pitches[length] = { value, comment }
 				end
 			end
 		end
@@ -70,7 +70,9 @@ function read_scala_file(path)
 		error('length mismatch', length, expected_length)
 	end
 	-- enforce low -> high pitch order, or scale.lua's quantization won't work
-	table.sort(pitches)
+	table.sort(pitches, function(a, b)
+		return a[1] < b[1]
+	end)
 	return pitches, length, desc
 end
 

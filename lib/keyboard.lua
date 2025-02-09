@@ -4,7 +4,7 @@ Keyboard.__index = Keyboard
 local Scale = include 'lib/scale'
 local et12 = {} -- default scale, 12TET
 for p = 1, 12 do
-	et12[p] = p / 12
+	et12[p] = { p / 12, nil }
 end
 
 -- TODO: panic function, for when a note gets stuck due to momentary grid connection loss
@@ -582,8 +582,6 @@ function Keyboard:draw()
 	g:led(self.x2 - 1, self.y2, math.min(15, math.max(0, (self.held_keys.down and 7 or 2) - math.min(self.octave, 0))))
 	g:led(self.x2, self.y2, math.min(15, math.max(0, (self.held_keys.up and 7 or 2) + math.max(self.octave, 0))))
 
-	local perfect_fifth_pitch_id = self.scale:get_nearest_pitch_id(7/12)
-
 	local has_voice_key_held = false
 
 	for v = 1, n_voices do
@@ -609,11 +607,7 @@ function Keyboard:draw()
 
 			local pitch = self:get_key_id_pitch_id(key_id)
 			local pitch_class = pitch % self.scale.length
-			if pitch_class == 0 then
-				level = led_blend(level, 3)
-			elseif pitch_class == perfect_fifth_pitch_id then
-				level = led_blend(level, 2)
-			end
+			level = led_blend(level, self.scale.levels[pitch_class])
 
 			for v = 1, n_voices do
 				local voice = self.voice_data[v]

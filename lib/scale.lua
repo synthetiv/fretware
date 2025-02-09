@@ -8,16 +8,22 @@ Scale.__index = Scale
 
 function Scale.new(pitch_class_values, length)
 	local instance = setmetatable({
-		values = { [0] = 0 }
+		values = { [0] = 0 },
+		levels = { [0] = 3 }
 	}, Scale)
 	instance:init(pitch_class_values, length)
 	return instance
 end
 
-function Scale:init(pitch_class_values, length)
-	-- precalculate all pitch values across all octaves
+function Scale:init(pitch_class_info, length)
 	for p = 1, length do
-		self.values[p] = pitch_class_values[p]
+		self.values[p] = pitch_class_info[p][1]
+		local level = tonumber(pitch_class_info[p][2])
+		if level ~= nil then
+			self.levels[p] = level
+		else
+			self.levels[p] = 0
+		end
 	end
 	self.length = length
 	self.span = self.values[length]
@@ -71,9 +77,9 @@ end
 
 function Scale:read_scala_file(path)
 	-- read the file
-	local pitch_class_values, length, desc = read_scala_file(path)
+	local pitch_class_info, length, desc = read_scala_file(path)
 	-- set scale values
-	self:init(pitch_class_values, length)
+	self:init(pitch_class_info, length)
 	-- announce ourselves
 	print(desc)
 end
