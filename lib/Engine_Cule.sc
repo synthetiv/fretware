@@ -513,6 +513,52 @@ Engine_Cule : CroneEngine {
 			Out.ar(\outBus.ir, output);
 		}).add;
 
+		// Band-limited pseudo-analog oscillator, square-saw mix
+		SynthDef.new(\operatorSquare, {
+			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
+			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus) * Select.kr(whichRatio, fmRatios);
+			var output = LinSelectX.ar(\index.ar(-1).linlin(-1, 1, 0, 1), [
+				BlitB3Square.ar(hz),
+				BlitB3Saw.ar(hz * 2)
+			]);
+			Out.ar(\outBus.ir, output * 6.dbamp);
+		}).add;
+
+		// Band-limited pseudo-analog oscillator, all square with fades between ratios and variable leak
+		SynthDef.new(\operatorSquareFade, {
+			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus);
+			var output = this.harmonicOsc(
+				BlitB3Square,
+				hz,
+				\ratio.kr,
+				\index.ar(-1).lincurve(-1, 1, 0.99, 0, 3)
+			);
+			Out.ar(\outBus.ir, output * 6.dbamp);
+		}).add;
+
+		// Band-limited pseudo-analog oscillator, square-saw mix
+		SynthDef.new(\operatorSaw, {
+			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
+			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus) * Select.kr(whichRatio, fmRatios);
+			var output = LinSelectX.ar(\index.ar(-1).linlin(-1, 1, 0, 1), [
+				BlitB3Saw.ar(hz),
+				BlitB3Square.ar(hz / 2)
+			]);
+			Out.ar(\outBus.ir, output * 6.dbamp);
+		}).add;
+
+		// Band-limited pseudo-analog oscillator, all saw with fades between ratios and variable leak
+		SynthDef.new(\operatorSawFade, {
+			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus);
+			var output = this.harmonicOsc(
+				BlitB3Saw,
+				hz * 2,
+				\ratio.kr,
+				\index.ar(-1).lincurve(-1, 1, 0.99, 0, 3)
+			);
+			Out.ar(\outBus.ir, output * 6.dbamp);
+		}).add;
+
 		// TODO: other, lighter-weight operators
 
 		SynthDef.new(\operatorMixer, {
@@ -754,7 +800,13 @@ Engine_Cule : CroneEngine {
 
 		opTypeReplyFunc = OSCFunc({
 			arg msg;
-			var def = [\operatorFM, \operatorFMFade, \operatorFB, \operatorFBFade, \nothing].at(msg[5]);
+			var def = [
+				\operatorFM, \operatorFMFade,
+				\operatorFB, \operatorFBFade,
+				\operatorSquare, \operatorSquareFade,
+				\operatorSaw, \operatorSawFade,
+				\nothing
+			].at(msg[5]);
 			this.swapOp(msg[3], msg[4], def);
 		}, path: '/opType', srcID: context.server.addr);
 
