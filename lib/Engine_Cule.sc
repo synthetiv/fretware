@@ -1,6 +1,6 @@
 Engine_Cule : CroneEngine {
 
-	classvar nVoices = 4;
+	classvar nVoices = 3;
 	classvar nRecordedModulators = 6;
 	classvar bufferRateScale = 0.5;
 	classvar maxLoopTime = 60;
@@ -55,7 +55,7 @@ Engine_Cule : CroneEngine {
 		var buses = voiceBuses[v];
 		var synths = voiceSynths[v];
 		var thisBus = Bus.newFrom(buses[\opAudio], op);
-		var thatBus = Bus.newFrom(buses[\opAudio], (op + 1).mod(2));
+		var thatBus = Bus.newFrom(buses[\opAudio], 1 - op);
 		var newOp = Synth.replace(synths[op + 1], defName, [
 			\inBus, thatBus,
 			\outBus, thisBus
@@ -691,7 +691,7 @@ Engine_Cule : CroneEngine {
 			opB.map(\ratio,    Bus.newFrom(bus[\opRatio], 1));
 			opB.map(\index,    Bus.newFrom(bus[\opIndex], 1));
 
-			opA = Synth.new(\operatorFB, [
+			opA = Synth.new(\operatorFM, [
 				\inBus, opBBus,
 				\outBus, opABus
 			], context.og, \addToTail);
@@ -731,7 +731,7 @@ Engine_Cule : CroneEngine {
 			out.map(\outLevel, bus[\outLevel]);
 
 			// TODO: Dictionary here too
-			[ controlSynth, opB, opA, opMixer, fxA, fxB, lfoA, lfoB, lfoC, out ];
+			[ controlSynth, opA, opB, opMixer, fxA, fxB, lfoA, lfoB, lfoC, out ];
 		});
 
 		replySynth = Synth.new(\reply, [], context.og, \addToTail);

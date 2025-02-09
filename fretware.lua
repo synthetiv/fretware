@@ -6,7 +6,7 @@ Lattice = require 'lattice'
 
 Slider = include 'lib/slider'
 
-n_voices = 4
+n_voices = 3
 
 Keyboard = include 'lib/keyboard'
 k = Keyboard.new(1, 1, 16, 8)
@@ -775,11 +775,11 @@ function init()
 		name = 'op type B',
 		id = 'opTypeB',
 		type = 'option',
-		options = { 'FB', 'FM' },
-		default = 1,
+		options = { 'FM', 'FB' },
+		default = 2,
 		action = function(value)
 			local opFade = params:get('opFadeB')
-			engine.opTypeA((2 - value) * 2 + opFade - 1)
+			engine.opTypeB((value - 1) * 2 + opFade - 1)
 		end
 	}
 
@@ -791,7 +791,7 @@ function init()
 		default = 1,
 		action = function(value)
 			local opType = params:get('opTypeB')
-			engine.opTypeB((2 - opType) * 2 + value - 1)
+			engine.opTypeB((opType - 1) * 2 + value - 1)
 		end
 	}
 
