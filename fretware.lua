@@ -270,6 +270,7 @@ xvi_values = {}
 for s = 1, #xvi_mappings do
 	xvi_values[s] = { now = 0, while_selected = 0 }
 end
+xvi_autoselect_time = 0
 
 held_keys = { false, false, false }
 
@@ -1181,7 +1182,6 @@ function init()
 	end
 
 	xvi = midi_devices_by_name['MiSW XVI-M'] or {}
-	local xvi_autoselect_time = 0
 	function xvi.event(data)
 		local message = midi.to_msg(data)
 		if message.type == 'pitchbend' then
