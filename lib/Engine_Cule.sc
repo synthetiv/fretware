@@ -188,7 +188,7 @@ Engine_Cule : CroneEngine {
 		voiceBuses = Array.fill(nVoices, {
 			Dictionary[
 				\amp -> Bus.audio(context.server),
-				\eg -> Bus.audio(context.server),
+				\eg -> Bus.audio(context.server, 2),
 				\trig -> Bus.control(context.server),
 				\hand -> Bus.control(context.server),
 				\pan -> Bus.control(context.server),
@@ -230,7 +230,7 @@ Engine_Cule : CroneEngine {
 				lag = 0.01,
 				fxA, fxB,
 				recPitch, recTip, recHand, recGate, recTrig,
-				trig, ampMode, hand, freezeWithoutGate, eg, amp;
+				trig, ampMode, hand, freezeWithoutGate, eg, eg2, amp;
 
 			// send signals to sclang to handle op, fx, and lfo type changes
 			var voiceIndex = \voiceIndex.ir;
@@ -278,13 +278,13 @@ Engine_Cule : CroneEngine {
 			// calculate modulation matrix
 
 			// this feedback loop is needed in order for modulators to modulate one another
-			eg = InFeedback.ar(\egBus.ir);
+			# eg, eg2 = InFeedback.ar(\egBus.ir, 2);
 			amp = InFeedback.ar(\ampBus.ir);
 			modulators = [
 				amp,
 				In.kr(\handBus.ir),
 				eg,
-				eg.squared,
+				eg2,
 				In.kr(\lfoStateBus.ir, 3),
 				Latch.kr(WhiteNoise.kr, Trig.kr(gate) + Trig.kr(amp > 0.01))
 			].flatten;
@@ -352,6 +352,7 @@ Engine_Cule : CroneEngine {
 					[6, -6],
 				).ar(gate: trig)
 			]);
+			eg2 = Decay.ar(K2A.ar(trig), attack + (release * 0.5));
 
 			Out.kr(\opRatioBus.ir, [
 				\ratioA.kr.lag(lag) + modulation[\ratioA],
@@ -400,7 +401,7 @@ Engine_Cule : CroneEngine {
 			amp = amp.clip(0, 1);
 
 			Out.ar(\ampBus.ir, amp);
-			Out.ar(\egBus.ir, eg);
+			Out.ar(\egBus.ir, [ eg, eg2 ]);
 			Out.kr(\handBus.ir, hand);
 
 			Out.kr(\panBus.ir, \pan.kr.lag(lag) + modulation[\pan]);
