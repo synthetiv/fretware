@@ -248,7 +248,6 @@ for s = 1, #editor.dests do
 	}
 end
 
-xvi_values = {}
 xvi_mappings = {
 	'ratioA',
 	'detuneA',
@@ -267,6 +266,10 @@ xvi_mappings = {
 	'lfoBFreq',
 	'lfoCFreq'
 }
+xvi_values = {}
+for s = 1, #xvi_mappings do
+	xvi_values[s] = { now = 0, while_selected = 0 }
+end
 
 held_keys = { false, false, false }
 
@@ -1184,9 +1187,9 @@ function init()
 		if message.type == 'pitchbend' then
 			local fader = message.ch
 			local new_value = message.val
-			local old_value = xvi_values[fader] or new_value
+			local saved_values = xvi_values[fader]
 			-- scale to [0, 1]. 16383 = max 14-bit pitchbend value
-			local delta_raw = (new_value - old_value) / 16383
+			local delta_raw = (new_value - saved_values.now) / 16383
 			local source_held = false
 			for source = 1, #editor.source_names do
 				if source_menu.held[source] then
@@ -1200,12 +1203,16 @@ function init()
 				local param = params:lookup_param(xvi_mappings[fader])
 				param:set_raw(param.raw + delta_raw)
 			end
-			xvi_values[fader] = new_value
+			saved_values.now = new_value
 			local now = util.time()
-			-- TODO: do you need a more sophisticated way of debouncing?
-			if now - xvi_autoselect_time > 0.3 then
-				editor.selected_dest = fader
-				xvi_autoselect_time = now
+			if editor.selected_dest == fader then
+				saved_values.while_selected = new_value
+			elseif now - xvi_autoselect_time > 0.3 then
+				if math.abs(saved_values.now - saved_values.while_selected) > 100 then
+					saved_values.while_selected = new_value
+					editor.selected_dest = fader
+					xvi_autoselect_time = now
+				end
 			end
 		end
 	end
