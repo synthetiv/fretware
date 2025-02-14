@@ -616,15 +616,22 @@ Engine_Cule : CroneEngine {
 			var voiceOutput = In.ar(\bus.ir);
 
 			// HPF
-			hpCutoff = \hpCutoff.ar(-1).linexp(-1, 1, 4, 24000);
+			// TODO: figure out the best breakpoint curve settings and hard-code them
+			hpCutoff = IEnvGen.ar(
+				Env.xyc([ [-1, 4, \exp], [\hpBreakpointIn.kr(0.5), \hpBreakpointOut.kr(8000)], [1, 24000] ]),
+				\hpCutoff.ar(-1)
+			);
 			hpRQ = \hpRQ.kr(0.7);
-			hpRQ = hpCutoff.linexp(SampleRate.ir * 0.25 / hpRQ, SampleRate.ir * 0.5, hpRQ, 0.5).min(hpRQ);
+			hpRQ = hpCutoff.linexp(SampleRate.ir * 0.25 / hpRQ, SampleRate.ir * 0.5, hpRQ, 0.5);
 			voiceOutput = RHPF.ar(voiceOutput, hpCutoff, hpRQ);
 
 			// LPF
-			lpCutoff = \lpCutoff.ar(1).linexp(-1, 1, 4, 24000);
+			lpCutoff = IEnvGen.ar(
+				Env.xyc([ [-1, 4], [\lpBreakpointIn.kr(-0.5), \lpBreakpointOut.kr(400), \exp], [1, 24000] ]),
+				\lpCutoff.ar(1)
+			);
 			lpRQ = \lpRQ.kr(0.7);
-			lpRQ = lpCutoff.linexp(SampleRate.ir * 0.25 / lpRQ, SampleRate.ir * 0.5, lpRQ, 0.5).min(lpRQ);
+			lpRQ = lpCutoff.linexp(SampleRate.ir * 0.25 / lpRQ, SampleRate.ir * 0.5, lpRQ, 0.5);
 			voiceOutput = RLPF.ar(voiceOutput, lpCutoff, lpRQ);
 
 			// scale by amplitude control value
@@ -903,6 +910,16 @@ Engine_Cule : CroneEngine {
 			arg name;
 			this.addCommand(name, "f", { |msg|
 				voiceSynths[selectedVoice][0].set(name, msg[1]);
+			});
+		});
+
+		// TODO: remove these commands once the Optimal breakpoints have been found
+		[ \hpBreakpointIn, \hpBreakpointOut, \lpBreakpointIn, \lpBreakpointOut ].do({
+			arg name;
+			this.addCommand(\hpBreakpointIn, "f", { |msg|
+				voiceSynths.do({ |synths|
+					synths[9].set(name, msg[1]);
+				});
 			});
 		});
 
