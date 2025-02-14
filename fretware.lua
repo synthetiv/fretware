@@ -824,7 +824,7 @@ function init()
 		name = 'fx type B',
 		id = 'fxTypeB',
 		type = 'option',
-		options = { 'waveloss', 'chorus' },
+		options = { 'waveloss', 'decimator' },
 		default = 1,
 		action = function(value)
 			engine.fxTypeB(value == 1 and 1 or 3)

@@ -593,6 +593,13 @@ Engine_Cule : CroneEngine {
 			ReplaceOut.ar(bus, (In.ar(bus) * \intensity.ar.linexp(-1, 1, 1, 27, 'min')).fold2);
 		}).add;
 
+		SynthDef.new(\fxDecimator, {
+			var bus = \bus.ir;
+			ReplaceOut.ar(bus,
+				Decimator.ar(In.ar(bus), SampleRate.ir, \intensity.ar.linlin(-1, 1, 24, 1))
+			);
+		}).add;
+
 		// Dimension C-style chorus
 		SynthDef.new(\fxChorus, {
 			var bus = \bus.ir;
@@ -819,7 +826,7 @@ Engine_Cule : CroneEngine {
 
 		fxTypeReplyFunc = OSCFunc({
 			arg msg;
-			var def = [\fxSquiz, \fxWaveLoss, \fxFold, \fxChorus, \nothing].at(msg[5]);
+			var def = [\fxSquiz, \fxWaveLoss, \fxFold, \fxDecimator, \fxChorus, \nothing].at(msg[5]);
 			this.swapFx(msg[3], msg[4], def);
 		}, path: '/fxType', srcID: context.server.addr);
 
