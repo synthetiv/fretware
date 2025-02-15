@@ -624,11 +624,7 @@ Engine_Cule : CroneEngine {
 			var voiceOutput = In.ar(\bus.ir);
 
 			// HPF
-			// TODO: figure out the best breakpoint curve settings and hard-code them
-			hpCutoff = IEnvGen.ar(
-				Env.xyc([ [-1, 4, \exp], [\hpBreakpointIn.kr(0.5), \hpBreakpointOut.kr(8000)], [1, 24000] ]),
-				\hpCutoff.ar(-1)
-			);
+			hpCutoff = \hpCutoff.ar(-1).linexp(-1, 1, 4, 24000);
 			hpRQ = \hpRQ.kr(0.7);
 			hpRQ = hpCutoff.linexp(SampleRate.ir * 0.25 / hpRQ, SampleRate.ir * 0.5, hpRQ, 0.5);
 			voiceOutput = RHPF.ar(voiceOutput, hpCutoff, hpRQ);
