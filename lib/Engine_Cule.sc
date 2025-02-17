@@ -919,7 +919,7 @@ Engine_Cule : CroneEngine {
 		// TODO: remove these commands once the Optimal breakpoints have been found
 		[ \hpBreakpointIn, \hpBreakpointOut, \lpBreakpointIn, \lpBreakpointOut ].do({
 			arg name;
-			this.addCommand(\hpBreakpointIn, "f", { |msg|
+			this.addCommand(name, "f", { |msg|
 				voiceSynths.do({ |synths|
 					synths[9].set(name, msg[1]);
 				});
