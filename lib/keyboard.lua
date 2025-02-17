@@ -232,7 +232,7 @@ function Keyboard:key(x, y, z)
 						end
 					end
 				end
-			else
+			elseif v <= n_voices then
 				-- voice loop keys
 				self.held_keys.voice_loops[v] = z == 1
 				local voice = voice_states[v]
