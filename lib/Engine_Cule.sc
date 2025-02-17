@@ -165,14 +165,13 @@ Engine_Cule : CroneEngine {
 			\lfoTypeA,
 			\lfoTypeB,
 			\lfoTypeC,
-			modulationDestNames,
+			modulationDestNames.difference([ \pan ]),
 			Array.fill(modulationSourceNames.size, { |s|
 				Array.fill(modulationDestNames.size, { |d|
 					(modulationSourceNames[s] ++ '_' ++ modulationDestNames[d]).asSymbol;
 				});
 			}).flatten;
 		].flatten;
-		patchArgs = patchArgs.difference([ \pan ]);
 
 		// frequency ratios used by the two FM operators of each voice
 		// declared as one array, but stored as two arrays, one with odd and one with even
