@@ -278,13 +278,11 @@ Engine_Cule : CroneEngine {
 			// calculate modulation matrix
 
 			// this feedback loop is needed in order for modulators to modulate one another
-			# eg, eg2 = InFeedback.ar(\egBus.ir, 2);
 			amp = InFeedback.ar(\ampBus.ir);
 			modulators = [
 				amp,
 				In.kr(\handBus.ir),
-				eg,
-				eg2,
+				InFeedback.ar(\egBus.ir, 2),
 				In.kr(\lfoStateBus.ir, 3),
 				Latch.kr(WhiteNoise.kr, Trig.kr(gate) + Trig.kr(amp > 0.01))
 			].flatten;
@@ -349,10 +347,12 @@ Engine_Cule : CroneEngine {
 				Env.new(
 					[0, 1, 0],
 					[attack, release],
-					[6, -6],
+					[6, -6]
 				).ar(gate: trig)
 			]);
-			eg2 = Decay.ar(K2A.ar(trig), attack + (release * 0.5));
+			// TODO: why can't I do this?? attack + release + 1 seems to add up to... around 0??
+			// eg2 = Env.perc(0.001, attack + release + 1, curve: -8).ar(gate: trig);
+			eg2 = Env.perc(0.001, 1, curve: -8).ar(gate: trig);
 
 			Out.kr(\opRatioBus.ir, [
 				\ratioA.kr.lag(lag) + modulation[\ratioA],
