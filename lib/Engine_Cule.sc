@@ -425,7 +425,6 @@ Engine_Cule : CroneEngine {
 
 		// Triangle LFO
 		SynthDef.new(\lfoTri, {
-			// TODO: 'humanize' / modulate randomly?
 			var lfo = LFTri.kr(\freq.kr(1), 4.rand);
 			var gate = lfo > 0;
 			Out.kr(\stateBus.ir, lfo);
