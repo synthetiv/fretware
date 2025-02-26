@@ -425,11 +425,38 @@ function g.key(x, y, z)
 			end
 		elseif (x == 15 or x == 16) and y == 3 then
 			if z == 1 then
-				-- clock tempo increase/decrease
-				if x == 15 then
-					params:set('clock_tempo', params:get('clock_tempo') / 1.04)
-				elseif x == 16 then
-					params:set('clock_tempo', params:get('clock_tempo') * 1.04)
+				-- TODO: only change tempo if shift key is held. if not, just nudge -- by uhhhh... lattice something something??
+				if false then
+					if x == 15 then
+						-- pause for 1/32nd note.
+						clock.run(function()
+							local pause_time = clock.get_beat_sec() / 32
+							arp_lattice:stop()
+							clock.sleep(pause_time)
+							arp_lattice:start()
+						end)
+					elseif x == 16 then
+						-- make the clock run at double speed for the length of 1/16th note.
+						-- this has the effect of skipping forward by 1/32nd note.
+						clock.run(function()
+							local ppqn = arp_lattice.ppqn
+							local short_pulses = ppqn / 4
+							local half_pulse_length = clock.get_beat_sec() / (ppqn * 2)
+							arp_lattice:stop()
+							for n = 1, short_pulses do
+								clock.sleep(half_pulse_length)
+								arp_lattice:pulse()
+							end
+							arp_lattice:start()
+						end)
+					end
+				else
+					-- clock tempo increase/decrease
+					if x == 15 then
+						params:set('clock_tempo', params:get('clock_tempo') / 1.04)
+					elseif x == 16 then
+						params:set('clock_tempo', params:get('clock_tempo') * 1.04)
+					end
 				end
 			end
 		elseif not arp_direction_menu:key(x, y, z) then
