@@ -512,6 +512,14 @@ Engine_Cule : CroneEngine {
 			Out.ar(\outBus.ir, output);
 		}).add;
 
+		// Comb oscillator
+		SynthDef.new(\operatorComb, {
+			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
+			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus) * Select.kr(whichRatio, fmRatios);
+			var output = CombC.ar(InFeedback.ar(\inBus.ir), 1, hz.reciprocal, \index.ar(-1).lincurve(-1, 1, 0, -4));
+			Out.ar(\outBus.ir, output);
+		}).add;
+
 		// Band-limited pseudo-analog oscillator, square-saw mix
 		SynthDef.new(\operatorSquare, {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
@@ -812,7 +820,8 @@ Engine_Cule : CroneEngine {
 			var def = [
 				\operatorFM, \operatorFMFade,
 				\operatorFB, \operatorFBFade,
-				\operatorSquare, \operatorSquareFade,
+				\operatorComb, \operatorComb,
+				// \operatorSquare, \operatorSquareFade,
 				\operatorSaw, \operatorSawFade,
 				\nothing
 			].at(msg[5]);
