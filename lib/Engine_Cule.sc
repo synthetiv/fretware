@@ -60,9 +60,10 @@ Engine_Cule : CroneEngine {
 			\inBus, thatBus,
 			\outBus, thisBus
 		]);
-		newOp.map(\pitch,    Bus.newFrom(buses[\opPitch], op));
-		newOp.map(\ratio,    Bus.newFrom(buses[\opRatio], op));
-		newOp.map(\index,    Bus.newFrom(buses[\opIndex], op));
+		newOp.map(\pitch, Bus.newFrom(buses[\opPitch], op));
+		newOp.map(\ratio, Bus.newFrom(buses[\opRatio], op));
+		newOp.map(\index, Bus.newFrom(buses[\opIndex], op));
+		newOp.map(\trig, buses[\trig]);
 		synths.put(op + 1, newOp);
 	}
 
@@ -354,26 +355,26 @@ Engine_Cule : CroneEngine {
 			eg2 = Env.perc(0.001, 1, curve: -8).ar(gate: trig);
 
 			Out.kr(\opRatioBus.ir, [
-				\ratioA.kr.lag(lag) + modulation[\ratioA],
-				\ratioB.kr.lag(lag) + modulation[\ratioB]
+				\ratioA.kr.lag(0.1) + modulation[\ratioA],
+				\ratioB.kr.lag(0.1) + modulation[\ratioB]
 			]);
 
 			Out.ar(\opIndexBus.ir, [
-				\indexA.ar.lag(lag) + modulation[\indexA],
-				\indexB.ar.lag(lag) + modulation[\indexB]
+				\indexA.ar.lag(0.1) + modulation[\indexA],
+				\indexB.ar.lag(0.1) + modulation[\indexB]
 			]);
 
-			Out.kr(\opMixBus.ir, \opMix.kr.lag(lag) + modulation[\opMix]);
+			Out.kr(\opMixBus.ir, \opMix.kr.lag(0.1) + modulation[\opMix]);
 
-			fxA = \fxA.kr.lag(lag) + modulation[\fxA];
-			fxB = \fxB.kr.lag(lag) + modulation[\fxB];
+			fxA = \fxA.kr.lag(0.1) + modulation[\fxA];
+			fxB = \fxB.kr.lag(0.1) + modulation[\fxB];
 			Out.kr(\fxBus.ir, [ fxA, fxB ]);
 			Pause.kr(fxA > -1, \fxASynth.kr);
 			Pause.kr(fxB > -1, \fxBSynth.kr);
 
 			Out.ar(\cutoffBus.ir, [
-				\hpCutoff.ar.lag(lag) + modulation[\hpCutoff],
-				\lpCutoff.ar.lag(lag) + modulation[\lpCutoff]
+				\hpCutoff.ar.lag(0.1) + modulation[\hpCutoff],
+				\lpCutoff.ar.lag(0.1) + modulation[\lpCutoff]
 			]);
 
 			Out.kr(\rqBus.ir, [
@@ -403,7 +404,7 @@ Engine_Cule : CroneEngine {
 			Out.ar(\egBus.ir, [ eg, eg2 ]);
 			Out.kr(\handBus.ir, hand);
 
-			Out.kr(\panBus.ir, \pan.kr.lag(lag) + modulation[\pan]);
+			Out.kr(\panBus.ir, \pan.kr.lag(0.1) + modulation[\pan]);
 
 			pitch = pitch + \shift.kr;
 
@@ -413,8 +414,8 @@ Engine_Cule : CroneEngine {
 			Out.kr(\pitchBus.ir, pitch);
 
 			Out.ar(\opPitchBus.ir, [
-				\detuneA.ar.cubed.lag(lag) + modulation[\detuneA],
-				\detuneB.ar.cubed.lag(lag) + modulation[\detuneB]
+				\detuneA.ar.cubed.lag(0.1) + modulation[\detuneA],
+				\detuneB.ar.cubed.lag(0.1) + modulation[\detuneB]
 			] * 1.17 + pitch);
 			// max detune of 1.17 octaves is slightly larger than a ratio of 9/4
 
@@ -516,8 +517,26 @@ Engine_Cule : CroneEngine {
 		SynthDef.new(\operatorComb, {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
 			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus) * Select.kr(whichRatio, fmRatios);
-			var output = CombC.ar(InFeedback.ar(\inBus.ir), 1, hz.reciprocal, \index.ar(-1).lincurve(-1, 1, 0, -4));
-			Out.ar(\outBus.ir, output);
+			var delayTime = K2A.ar(hz.reciprocal);
+			var delayedDelayTime = DelayN.ar(K2A.ar(delayTime), 4, delayTime); // haha lol
+			var delta = delayedDelayTime - delayTime.abs;
+			var deltaOrInf = Select.ar(delta, [DC.ar(inf), delta]);
+			var slewedDelayTime = Slew.ar(
+				delayTime,
+				1 - 0.5.pow(deltaOrInf),
+				2.pow(deltaOrInf) - 1
+			);
+			var blockDur = BlockSize.ir * SampleDur.ir;
+			var inputDelayTime = Select.ar(
+				slewedDelayTime < blockDur,
+				slewedDelayTime - blockDur,
+				blockDur.trunc(slewedDelayTime) + blockDur // *some* multiple of delay time
+				// ^ ideally this would actually snap to a power of 2 of delay time...
+			);
+			var audioIn = DelayC.ar(InFeedback.ar(\inBus.ir).tanh, 1, inputDelayTime);
+			var trigIn = Env.perc(0, slewedDelayTime).ar(\trig.kr);
+			var output = CombC.ar(audioIn + trigIn, 1, slewedDelayTime, \index.ar(-1).lincurve(-1, 1, 0, -4));
+			Out.ar(\outBus.ir, output.tanh);
 		}).add;
 
 		// Band-limited pseudo-analog oscillator, square-saw mix

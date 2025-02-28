@@ -782,7 +782,7 @@ function init()
 		name = 'op type A',
 		id = 'opTypeA',
 		type = 'option',
-		options = { 'FM', 'FB', 'square', 'saw' },
+		options = { 'FM', 'FB', 'comb', 'saw' },
 		default = 1,
 		action = function(value)
 			local opFade = params:get('opFadeA')
@@ -806,7 +806,7 @@ function init()
 		name = 'op type B',
 		id = 'opTypeB',
 		type = 'option',
-		options = { 'FB', 'FM', 'square', 'saw' },
+		options = { 'FB', 'FM', 'comb', 'saw' },
 		default = 1,
 		action = function(value)
 			local opFade = params:get('opFadeB')
