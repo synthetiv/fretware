@@ -103,7 +103,8 @@ Engine_Cule : CroneEngine {
 			\amp,
 			\pan,
 			\ratioA,
-			\detuneA,
+			\detuneA, // TODO: maybe detune can be control rate... then op pitch buses can be control
+			// rate... and maybe that would save CPU
 			\indexA,
 			\ratioB,
 			\detuneB,
@@ -127,6 +128,8 @@ Engine_Cule : CroneEngine {
 			\opMix,
 			\fxA,
 			\fxB,
+			\attack,
+			\release,
 			\lfoAFreq,
 			\lfoBFreq,
 			\lfoCFreq
@@ -351,8 +354,10 @@ Engine_Cule : CroneEngine {
 				).ar(gate: trig)
 			]);
 			// TODO: why can't I do this?? attack + release + 1 seems to add up to... around 0??
-			// eg2 = Env.perc(0.001, attack + release + 1, curve: -8).ar(gate: trig);
-			eg2 = Env.perc(0.001, 1, curve: -8).ar(gate: trig);
+			// I think it's because Env.perc doesn't support audio-rate UGens as attack or decay args...
+			// I've made them control rate now; let's see if I'm right
+			eg2 = Env.perc(0.001, attack + release + 1, curve: -8).ar(gate: trig);
+			// eg2 = Env.perc(0.001, 1, curve: -8).ar(gate: trig);
 
 			Out.kr(\opRatioBus.ir, [
 				\ratioA.kr.lag(0.1) + modulation[\ratioA],
@@ -532,9 +537,15 @@ Engine_Cule : CroneEngine {
 				slewedDelayTime - blockDur,
 				blockDur.trunc(slewedDelayTime) + blockDur // *some* multiple of delay time
 				// ^ ideally this would actually snap to a power of 2 of delay time...
+				// TODO: surely there's actually a way to do that, using pow / exp / log / ??
+				// yes, get log2(blockDur/slewedDelayTime), wrap it from 0-1... something like that
 			);
 			var audioIn = DelayC.ar(InFeedback.ar(\inBus.ir).tanh, 1, inputDelayTime);
-			var trigIn = Env.perc(0, slewedDelayTime).ar(\trig.kr);
+			// TODO: why doesn't this envelope trigger?? >:(
+			// oh! might be related to the thing with the decay envelope in the main synth... it's like
+			// Env doesn't like having a UGen as an argument... but that SHOULD be fine...
+			// I've made it control rate now, let's see how that goes
+			var trigIn = Env.perc(0, A2K.kr(slewedDelayTime)).ar(\trig.kr);
 			var output = CombC.ar(audioIn + trigIn, 1, slewedDelayTime, \index.ar(-1).lincurve(-1, 1, 0, -4));
 			Out.ar(\outBus.ir, output.tanh);
 		}).add;
