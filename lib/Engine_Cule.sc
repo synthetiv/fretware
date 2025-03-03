@@ -353,11 +353,7 @@ Engine_Cule : CroneEngine {
 					[6, -6]
 				).ar(gate: trig)
 			]);
-			// TODO: why can't I do this?? attack + release + 1 seems to add up to... around 0??
-			// I think it's because Env.perc doesn't support audio-rate UGens as attack or decay args...
-			// I've made them control rate now; let's see if I'm right
-			eg2 = Env.perc(0.001, attack + release + 1, curve: -8).ar(gate: trig);
-			// eg2 = Env.perc(0.001, 1, curve: -8).ar(gate: trig);
+			eg2 = Env.perc(0.001, attack + release + 0.1, curve: -8).ar(gate: trig);
 
 			Out.kr(\opRatioBus.ir, [
 				\ratioA.kr.lag(0.1) + modulation[\ratioA],
@@ -518,12 +514,31 @@ Engine_Cule : CroneEngine {
 			Out.ar(\outBus.ir, output);
 		}).add;
 
-		// Comb oscillator
+		// Karplus-Strong oscillator
+		SynthDef.new(\operatorKarp, {
+			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
+			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus) * Select.kr(whichRatio, fmRatios);
+			var delayTime = K2A.ar(hz.reciprocal);
+			var delayedDelayTime = DelayN.ar(delayTime, 4, delayTime); // haha lol
+			var delta = delayedDelayTime - delayTime.abs;
+			var deltaOrInf = Select.ar(delta, [DC.ar(inf), delta]);
+			var slewedDelayTime = Slew.ar(
+				delayTime,
+				1 - 0.5.pow(deltaOrInf),
+				2.pow(deltaOrInf) - 1
+			);
+			var trigIn = Env.perc(0, slewedDelayTime, curve: -8).ar(gate: \trig.kr) * WhiteNoise.ar;
+			var output = trigIn + CombL.ar(trigIn, 1, slewedDelayTime,
+\index.ar(-1).linexp(-1, 1, -0.1, -32));
+			Out.ar(\outBus.ir, output * 12.dbamp);
+		}).add;
+
+		// Comb filter
 		SynthDef.new(\operatorComb, {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
 			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus) * Select.kr(whichRatio, fmRatios);
 			var delayTime = K2A.ar(hz.reciprocal);
-			var delayedDelayTime = DelayN.ar(K2A.ar(delayTime), 4, delayTime); // haha lol
+			var delayedDelayTime = DelayN.ar(delayTime, 4, delayTime); // haha lol
 			var delta = delayedDelayTime - delayTime.abs;
 			var deltaOrInf = Select.ar(delta, [DC.ar(inf), delta]);
 			var slewedDelayTime = Slew.ar(
@@ -532,21 +547,17 @@ Engine_Cule : CroneEngine {
 				2.pow(deltaOrInf) - 1
 			);
 			var blockDur = BlockSize.ir * SampleDur.ir;
+			// when desired pitch is higher than control rate, find the highest octave
+			// down from that pitch that will result in a delay time greater than the
+			// block size.
+			var nearestOctave = (slewedDelayTime / blockDur).ratiomidi.wrap(0, 12).midiratio * blockDur;
 			var inputDelayTime = Select.ar(
 				slewedDelayTime < blockDur,
-				slewedDelayTime - blockDur,
-				blockDur.trunc(slewedDelayTime) + blockDur // *some* multiple of delay time
-				// ^ ideally this would actually snap to a power of 2 of delay time...
-				// TODO: surely there's actually a way to do that, using pow / exp / log / ??
-				// yes, get log2(blockDur/slewedDelayTime), wrap it from 0-1... something like that
+				slewedDelayTime,
+				nearestOctave
 			);
-			var audioIn = DelayC.ar(InFeedback.ar(\inBus.ir).tanh, 1, inputDelayTime);
-			// TODO: why doesn't this envelope trigger?? >:(
-			// oh! might be related to the thing with the decay envelope in the main synth... it's like
-			// Env doesn't like having a UGen as an argument... but that SHOULD be fine...
-			// I've made it control rate now, let's see how that goes
-			var trigIn = Env.perc(0, A2K.kr(slewedDelayTime)).ar(\trig.kr);
-			var output = CombC.ar(audioIn + trigIn, 1, slewedDelayTime, \index.ar(-1).lincurve(-1, 1, 0, -4));
+			var audioIn = DelayC.ar(InFeedback.ar(\inBus.ir), 1, inputDelayTime - blockDur);
+			var output = CombL.ar(audioIn, 1, slewedDelayTime, \index.ar(-1).lincurve(-1, 1, 0, -3, -4));
 			Out.ar(\outBus.ir, output.tanh);
 		}).add;
 
@@ -850,9 +861,9 @@ Engine_Cule : CroneEngine {
 			var def = [
 				\operatorFM, \operatorFMFade,
 				\operatorFB, \operatorFBFade,
-				\operatorComb, \operatorComb,
-				// \operatorSquare, \operatorSquareFade,
+				\operatorKarp, \operatorComb,
 				\operatorSaw, \operatorSawFade,
+				\operatorSquare, \operatorSquareFade,
 				\nothing
 			].at(msg[5]);
 			this.swapOp(msg[3], msg[4], def);

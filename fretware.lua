@@ -806,7 +806,7 @@ function init()
 		name = 'op type B',
 		id = 'opTypeB',
 		type = 'option',
-		options = { 'FB', 'FM', 'comb', 'saw' },
+		options = { 'FB', 'FM', 'saw', 'square' },
 		default = 1,
 		action = function(value)
 			local opFade = params:get('opFadeB')
@@ -814,6 +814,8 @@ function init()
 				value = 2
 			elseif value == 2 then
 				value = 1
+			elseif value == 4 then
+				value = 5
 			end
 			engine.opTypeB((value - 1) * 2 + opFade - 1)
 		end
@@ -831,6 +833,8 @@ function init()
 				opType = 2
 			elseif opType == 2 then
 				opType = 1
+			elseif opType == 4 then
+				opType = 5
 			end
 			engine.opTypeB((opType - 1) * 2 + value - 1)
 		end
