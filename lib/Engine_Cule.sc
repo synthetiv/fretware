@@ -528,9 +528,8 @@ Engine_Cule : CroneEngine {
 				2.pow(deltaOrInf) - 1
 			);
 			var trigIn = Env.perc(0, slewedDelayTime, curve: -8).ar(gate: \trig.kr) * WhiteNoise.ar;
-			var output = trigIn + CombL.ar(trigIn, 1, slewedDelayTime,
-\index.ar(-1).linexp(-1, 1, -0.1, -32));
-			Out.ar(\outBus.ir, output * 12.dbamp);
+			var output = trigIn + CombL.ar(trigIn, 1, slewedDelayTime, \index.ar(-1).linexp(-1, 1, -0.1, -32));
+			Out.ar(\outBus.ir, output * 18.dbamp);
 		}).add;
 
 		// Comb filter
@@ -557,7 +556,7 @@ Engine_Cule : CroneEngine {
 				nearestOctave
 			);
 			var audioIn = DelayC.ar(InFeedback.ar(\inBus.ir), 1, inputDelayTime - blockDur);
-			var output = CombL.ar(audioIn, 1, slewedDelayTime, \index.ar(-1).lincurve(-1, 1, 0, -3, -4));
+			var output = CombC.ar(audioIn, 1, slewedDelayTime, \index.ar(-1).lincurve(-1, 1, 0, -3, -4));
 			Out.ar(\outBus.ir, output.tanh);
 		}).add;
 
