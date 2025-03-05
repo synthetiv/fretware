@@ -527,9 +527,15 @@ Engine_Cule : CroneEngine {
 				1 - 0.5.pow(deltaOrInf),
 				2.pow(deltaOrInf) - 1
 			);
-			var trigIn = Env.perc(0, slewedDelayTime, curve: -8).ar(gate: \trig.kr) * WhiteNoise.ar;
-			var output = trigIn + CombL.ar(trigIn, 1, slewedDelayTime, \index.ar(-1).linexp(-1, 1, -0.1, -32));
-			Out.ar(\outBus.ir, output * 18.dbamp);
+			// excitation signal is a mix of noise and a "sine wave chirp", h/t Nathan Ho
+			var trigEnv = Env.perc(0.001, 0.01).ar(gate: \trig.kr);
+			// TODO: test other chirp envs, sweep ranges...
+			var chirp = SinOsc.ar(trigEnv.linexp(0, 1, 50, 16000));
+			var noise = WhiteNoise.ar(trigEnv);
+			var decay = \index.ar(-1).linexp(-1, 1, -0.1, -32);
+			var damping = hz.explin(20, 2000, 0.6, 0);
+			var output = noise + Pluck.ar(chirp + noise, \trig.kr, 1, slewedDelayTime, decay, damping);
+			Out.ar(\outBus.ir, output);
 		}).add;
 
 		// Comb filter
@@ -556,6 +562,7 @@ Engine_Cule : CroneEngine {
 				nearestOctave
 			);
 			var audioIn = DelayC.ar(InFeedback.ar(\inBus.ir), 1, inputDelayTime - blockDur);
+			// TODO: it would be nice to be able to do some clipping INSIDE the feedback loop.
 			var output = CombC.ar(audioIn, 1, slewedDelayTime, \index.ar(-1).lincurve(-1, 1, 0, -3, -4));
 			Out.ar(\outBus.ir, output.tanh);
 		}).add;
