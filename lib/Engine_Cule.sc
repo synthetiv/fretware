@@ -519,8 +519,9 @@ Engine_Cule : CroneEngine {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
 			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus) * Select.kr(whichRatio, fmRatios);
 			var delayTime = K2A.ar(hz.reciprocal);
-			var delayedDelayTime = DelayN.ar(delayTime, 4, delayTime); // haha lol
-			var delta = delayedDelayTime - delayTime.abs;
+			var delayDelayBuf = LocalBuf.new(SampleRate.ir * 2);
+			var delayedDelayTime = BufDelayN.ar(delayDelayBuf, delayTime, delayTime); // haha lol
+			var delta = delayedDelayTime - delayTime;
 			var deltaOrInf = Select.ar(delta, [DC.ar(inf), delta]);
 			var slewedDelayTime = Slew.ar(
 				delayTime,
@@ -534,7 +535,7 @@ Engine_Cule : CroneEngine {
 			var noise = WhiteNoise.ar(trigEnv);
 			var decay = \index.ar(-1).linexp(-1, 1, -0.1, -32);
 			var damping = hz.explin(20, 2000, 0.6, 0);
-			var output = noise + Pluck.ar(chirp + noise, \trig.kr, 1, slewedDelayTime, decay, damping);
+			var output = noise + Pluck.ar(chirp + noise, \trig.kr, 2, slewedDelayTime, decay, damping);
 			Out.ar(\outBus.ir, output);
 		}).add;
 
@@ -542,29 +543,31 @@ Engine_Cule : CroneEngine {
 		SynthDef.new(\operatorComb, {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
 			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus) * Select.kr(whichRatio, fmRatios);
-			var delayTime = K2A.ar(hz.reciprocal);
-			var delayedDelayTime = DelayN.ar(delayTime, 4, delayTime); // haha lol
-			var delta = delayedDelayTime - delayTime.abs;
+			// when desired pitch is higher than control rate, find the highest octave
+			// DOWN from that pitch that will result in a delay time greater than the
+			// block size.
+			var delaySafeHz = hz.min((hz / ControlRate.ir).ratiomidi.wrap(-12, 0).midiratio * ControlRate.ir);
+			var delayTime = K2A.ar(delaySafeHz.reciprocal);
+			var delayDelayBuf = LocalBuf.new(SampleRate.ir * 2);
+			var delayedDelayTime = BufDelayN.ar(delayDelayBuf, delayTime, delayTime); // haha lol
+			var delta = delayedDelayTime - delayTime;
 			var deltaOrInf = Select.ar(delta, [DC.ar(inf), delta]);
 			var slewedDelayTime = Slew.ar(
 				delayTime,
 				1 - 0.5.pow(deltaOrInf),
 				2.pow(deltaOrInf) - 1
 			);
-			var blockDur = BlockSize.ir * SampleDur.ir;
-			// when desired pitch is higher than control rate, find the highest octave
-			// down from that pitch that will result in a delay time greater than the
-			// block size.
-			var nearestOctave = (slewedDelayTime / blockDur).ratiomidi.wrap(0, 12).midiratio * blockDur;
-			var inputDelayTime = Select.ar(
-				slewedDelayTime < blockDur,
-				slewedDelayTime,
-				nearestOctave
+			var decayFactor = -60.dbamp.pow(slewedDelayTime / \index.ar(-1).lincurve(-1, 1, 0, 4, 8)).neg;
+			// var damping = slewedDelayTime.reciprocal.explin(20, 2000, 0.6, 0);
+			var delayBuf = LocalBuf.new(SampleRate.ir * 2);
+			var delayedIn = BufDelayC.ar(
+				delayBuf,
+				// OnePole.ar(LocalIn.ar * decayFactor, damping).tanh + InFeedback.ar(\inBus.ir),
+				(LocalIn.ar * decayFactor).tanh + InFeedback.ar(\inBus.ir),
+				slewedDelayTime - (BlockSize.ir * SampleDur.ir)
 			);
-			var audioIn = DelayC.ar(InFeedback.ar(\inBus.ir), 1, inputDelayTime - blockDur);
-			// TODO: it would be nice to be able to do some clipping INSIDE the feedback loop.
-			var output = CombC.ar(audioIn, 1, slewedDelayTime, \index.ar(-1).lincurve(-1, 1, 0, -3, -4));
-			Out.ar(\outBus.ir, output.tanh);
+			LocalOut.ar(delayedIn);
+			Out.ar(\outBus.ir, delayedIn);
 		}).add;
 
 		// Band-limited pseudo-analog oscillator, square-saw mix
