@@ -266,9 +266,9 @@ xvi_mappings = {
 	'lfoBFreq',
 	'lfoCFreq'
 }
-xvi_values = {}
+xvi_state = {}
 for s = 1, #xvi_mappings do
-	xvi_values[s] = { now = 0, while_selected = 0 }
+	xvi_state[s] = { value = nil, delta = 0 }
 end
 xvi_autoselect_time = 0
 
@@ -1224,9 +1224,9 @@ function init()
 		if message.type == 'pitchbend' then
 			local fader = message.ch
 			local new_value = message.val
-			local saved_values = xvi_values[fader]
+			local state = xvi_state[fader]
 			-- scale to [0, 1]. 16383 = max 14-bit pitchbend value
-			local delta_raw = (new_value - saved_values.now) / 16383
+			local delta_raw = (new_value - (state.value or new_value)) / 16383
 			local source_held = false
 			for source = 1, #editor.source_names do
 				if source_menu.held[source] then
@@ -1240,13 +1240,20 @@ function init()
 				local param = params:lookup_param(xvi_mappings[fader])
 				param:set_raw(param.raw + delta_raw)
 			end
-			saved_values.now = new_value
+			state.delta = state.delta + math.abs(delta_raw)
+			state.value = new_value
 			local now = util.time()
 			if editor.selected_dest == fader then
-				saved_values.while_selected = new_value
-			elseif now - xvi_autoselect_time > 0.3 then
-				if math.abs(saved_values.now - saved_values.while_selected) > 100 then
-					saved_values.while_selected = new_value
+				-- as long as the currently selected fader is being moved, don't change selection
+				xvi_autoselect_time = now
+				state.delta = 0
+			else
+				-- we'll scale accumulated changes by time, so that a big move over a short time is as
+				-- likely to change selection as a small move after a long pause, but that small move
+				-- wouldn't change selection if the selected fader was moved recently
+				local t = math.min(0.3, now - xvi_autoselect_time) / 0.3
+				if state.delta * t > 0.125 then
+					state.delta = 0
 					editor.selected_dest = fader
 					xvi_autoselect_time = now
 				end
