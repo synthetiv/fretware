@@ -820,8 +820,6 @@ function init()
 				value = 2
 			elseif value == 2 then
 				value = 1
-			elseif value > 2 then
-				value = value + 2
 			end
 			engine.opTypeB((value - 1) * 2 + opFade - 1)
 		end
@@ -839,8 +837,6 @@ function init()
 				opType = 2
 			elseif opType == 2 then
 				opType = 1
-			elseif opType > 2 then
-				opType = opType + 2
 			end
 			engine.opTypeB((opType - 1) * 2 + value - 1)
 		end
