@@ -530,12 +530,11 @@ Engine_Cule : CroneEngine {
 			);
 			// excitation signal is a mix of noise and a "sine wave chirp", h/t Nathan Ho
 			var trigEnv = Env.perc(0.001, 0.01).ar(gate: \trig.kr);
-			// TODO: test other chirp envs, sweep ranges...
 			var chirp = SinOsc.ar(trigEnv.linexp(0, 1, 50, 16000));
 			var noise = WhiteNoise.ar(trigEnv);
 			var decay = \index.ar(-1).linexp(-1, 1, -0.1, -32);
 			var damping = hz.explin(20, 2000, 0.6, 0);
-			var output = noise + Pluck.ar(chirp + noise, \trig.kr, 2, slewedDelayTime, decay, damping);
+			var output = chirp * trigEnv + noise + Pluck.ar(chirp + noise, \trig.kr, 2, slewedDelayTime, decay, damping);
 			Out.ar(\outBus.ir, output);
 		}).add;
 
