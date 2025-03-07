@@ -530,7 +530,7 @@ Engine_Cule : CroneEngine {
 			);
 			// excitation signal is a mix of noise and a "sine wave chirp", h/t Nathan Ho
 			var trigEnv = Env.perc(0.001, 0.01).ar(gate: \trig.kr);
-			var chirp = SinOsc.ar(trigEnv.linexp(0, 1, 50, 16000));
+			var chirp = SinOsc.ar(trigEnv.linexp(0, 1, 20, 16000));
 			var noise = WhiteNoise.ar(trigEnv);
 			var decay = \index.ar(-1).linexp(-1, 1, -0.1, -32);
 			var damping = hz.explin(20, 2000, 0.6, 0);
@@ -556,13 +556,40 @@ Engine_Cule : CroneEngine {
 				1 - 0.5.pow(deltaOrInf),
 				2.pow(deltaOrInf) - 1
 			);
-			var decayFactor = -60.dbamp.pow(slewedDelayTime / \index.ar(-1).lincurve(-1, 1, 0, 4, 8)).neg;
-			// var damping = slewedDelayTime.reciprocal.explin(20, 2000, 0.6, 0);
+			var decayFactor = -60.dbamp.pow(slewedDelayTime / \index.ar(-1).lincurve(-1, 1, 0, 8, 8)).neg;
 			var delayBuf = LocalBuf.new(SampleRate.ir * 2);
 			var delayedIn = BufDelayC.ar(
 				delayBuf,
-				// OnePole.ar(LocalIn.ar * decayFactor, damping).tanh + InFeedback.ar(\inBus.ir),
 				(LocalIn.ar * decayFactor).tanh + InFeedback.ar(\inBus.ir),
+				slewedDelayTime - (BlockSize.ir * SampleDur.ir)
+			);
+			LocalOut.ar(delayedIn);
+			Out.ar(\outBus.ir, delayedIn);
+		}).add;
+
+		// Comb with external audio input
+		SynthDef.new(\operatorCombExt, {
+			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
+			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus) * Select.kr(whichRatio, fmRatios);
+			// when desired pitch is higher than control rate, find the highest octave
+			// DOWN from that pitch that will result in a delay time greater than the
+			// block size.
+			var delaySafeHz = hz.min((hz / ControlRate.ir).ratiomidi.wrap(-12, 0).midiratio * ControlRate.ir);
+			var delayTime = K2A.ar(delaySafeHz.reciprocal);
+			var delayDelayBuf = LocalBuf.new(SampleRate.ir * 2);
+			var delayedDelayTime = BufDelayN.ar(delayDelayBuf, delayTime, delayTime); // haha lol
+			var delta = delayedDelayTime - delayTime;
+			var deltaOrInf = Select.ar(delta, [DC.ar(inf), delta]);
+			var slewedDelayTime = Slew.ar(
+				delayTime,
+				1 - 0.5.pow(deltaOrInf),
+				2.pow(deltaOrInf) - 1
+			);
+			var decayFactor = -60.dbamp.pow(slewedDelayTime / \index.ar(-1).lincurve(-1, 1, 0, 8, 8)).neg;
+			var delayBuf = LocalBuf.new(SampleRate.ir * 2);
+			var delayedIn = BufDelayC.ar(
+				delayBuf,
+				(LocalIn.ar * decayFactor).tanh + SoundIn.ar,
 				slewedDelayTime - (BlockSize.ir * SampleDur.ir)
 			);
 			LocalOut.ar(delayedIn);
@@ -869,9 +896,10 @@ Engine_Cule : CroneEngine {
 			var def = [
 				\operatorFM, \operatorFMFade,
 				\operatorFB, \operatorFBFade,
-				\operatorKarp, \operatorComb,
 				\operatorSaw, \operatorSawFade,
 				\operatorSquare, \operatorSquareFade,
+				\operatorKarp, \operatorKarp,
+				\operatorComb, \operatorCombExt,
 				\nothing
 			].at(msg[5]);
 			this.swapOp(msg[3], msg[4], def);
