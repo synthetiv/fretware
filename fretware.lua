@@ -22,6 +22,7 @@ arp_menu.on_select = function(source)
 	-- enable arp when a source is selected, disable when toggled off
 	if source and not k.arping then
 		k.arping = true
+		k.gliding = false
 	elseif not source then
 		k:arp(false)
 		k.arping = false

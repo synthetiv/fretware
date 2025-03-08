@@ -172,6 +172,7 @@ function Keyboard:key(x, y, z)
 				self:set_bend_targets()
 				if self.gliding then
 					self.arping = false
+					arp_menu:select(false)
 				end
 			end
 		elseif x >= self.x + 5 and x <= self.x + 10 then
