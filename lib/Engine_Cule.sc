@@ -165,6 +165,7 @@ Engine_Cule : CroneEngine {
 			\fxTypeA,
 			\fxTypeB,
 			\egType,
+			\eg2Time,
 			\ampMode,
 			\lfoTypeA,
 			\lfoTypeB,
@@ -353,7 +354,7 @@ Engine_Cule : CroneEngine {
 					[6, -6]
 				).ar(gate: trig)
 			]);
-			eg2 = Env.perc(0.001, attack + release + 0.1, curve: -8).ar(gate: trig);
+			eg2 = Env.perc(0.001, \eg2Time.kr(1) + attack + release, curve: -8).ar(gate: trig);
 
 			Out.kr(\opRatioBus.ir, [
 				\ratioA.kr.lag(0.1) + modulation[\ratioA],

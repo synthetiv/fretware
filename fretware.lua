@@ -955,30 +955,6 @@ function init()
 		end
 	}
 
-	params:add_group('eg settings', 2)
-
-	params:add {
-		name = 'eg type',
-		id = 'eg_type',
-		type = 'option',
-		options = { 'gated ar', 'trig\'d ar' },
-		default = 2,
-		action = function(value)
-			engine.egType(value - 1)
-		end
-	}
-
-	params:add {
-		name = 'amp mode',
-		id = 'amp_mode',
-		type = 'option',
-		options = { 'tip', 'tip*eg', 'eg' },
-		default = 1,
-		action = function(value)
-			engine.ampMode(value - 1)
-		end
-	}
-
 	params:add_group('voice params', #editor.dests - 7)
 
 	for d = 1, #editor.dests do
@@ -1003,7 +979,7 @@ function init()
 
 		if source == 'eg' then
 			-- EG group gets extra parameters
-			params:add_group('eg', 2 + #editor.dests)
+			params:add_group('eg', 4 + #editor.dests)
 			params:add {
 				name = 'attack',
 				id = 'attack',
@@ -1022,6 +998,37 @@ function init()
 				action = function(value)
 					dest_sliders.release:set_value(params:get_raw('release') * 2 - 1)
 					engine.release(value)
+				end
+			}
+			params:add {
+				name = 'eg type',
+				id = 'eg_type',
+				type = 'option',
+				options = { 'gated ar', 'trig\'d ar' },
+				default = 2,
+				action = function(value)
+					engine.egType(value - 1)
+				end
+			}
+			params:add {
+				name = 'amp mode',
+				id = 'amp_mode',
+				type = 'option',
+				options = { 'tip', 'tip*eg', 'eg' },
+				default = 1,
+				action = function(value)
+					engine.ampMode(value - 1)
+				end
+			}
+		elseif source == 'eg2' then
+			params:add_group(source, 1 + #editor.dests)
+			params:add {
+				name = 'eg2 time offset',
+				id = 'eg2Time',
+				type = 'control',
+				controlspec = controlspec.new(0.001, 13, 'exp', 0, 1, 's'),
+				action = function(value)
+					engine.eg2Time(value)
 				end
 			}
 		elseif source == 'lfoA' or source == 'lfoB' or source == 'lfoC' then
