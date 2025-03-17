@@ -1128,6 +1128,8 @@ function init()
 	params:set('cut_input_tape', -math.huge) -- do NOT feed echo from tape
 	params:set('monitor_level', -math.huge) -- input monitoring off (it will go through the engine)
 
+	params:set('clock_source', 3) -- always default to link clock
+
 	reset_loop_clock()
 	clock.run(function()
 		clock.sync(4)
