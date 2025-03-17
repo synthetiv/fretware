@@ -205,7 +205,12 @@ editor = {
 			voice_param = 'outLevel'
 		}
 	},
-	selected_dest = 1
+	selected_dest = 1,
+	autoselect_time = 0,
+	encoder_autoselect_deltas = {
+		[2] = 0,
+		[3] = 0
+	}
 }
 
 dest_sliders = {
@@ -232,7 +237,7 @@ dest_sliders = {
 	lfoCFreq = Slider.new(359, 8, 2, 55),
 
 	pan      = Slider.new(383, 8, 2, 55, 0),
-	amp      = Slider.new(402, 8, 2, 55, 0)
+	amp      = Slider.new(402, 8, 2, 55)
 }
 
 source_sliders = {}
@@ -271,7 +276,6 @@ xvi_state = {}
 for s = 1, #xvi_mappings do
 	xvi_state[s] = { value = nil, delta = 0 }
 end
-xvi_autoselect_time = 0
 
 held_keys = { false, false, false }
 
@@ -616,8 +620,6 @@ function init()
 
 	norns.enc.accel(1, false)
 	norns.enc.sens(1, 8)
-	norns.enc.accel(2, false)
-	norns.enc.sens(2, 8)
 
 	k.on_select_voice = function(v)
 		-- if any other voice is recording, stop recording & start looping it
@@ -1121,10 +1123,10 @@ function init()
 
 	params:set('reverb', 1) -- off
 	params:set('input_level', 0) -- ADC input at unity
-	params:set('cut_input_adc', 0) -- feed echo from ext input
+	params:set('cut_input_adc', -math.huge) -- no ext input to echo (it will go through the engine)
 	params:set('cut_input_eng', -8) -- feed echo from internal synth (this can also be MIDI mapped)
 	params:set('cut_input_tape', -math.huge) -- do NOT feed echo from tape
-	params:set('monitor_level', -math.huge) -- monitor off (ext. echo fully wet)
+	params:set('monitor_level', -math.huge) -- input monitoring off (it will go through the engine)
 
 	reset_loop_clock()
 	clock.run(function()
@@ -1223,47 +1225,67 @@ function init()
 	end
 
 	xvi = midi_devices_by_name['MiSW XVI-M'] or {}
+	sysex_response = {}
 	function xvi.event(data)
 		local message = midi.to_msg(data)
 		if message.type == 'pitchbend' then
 			local fader = message.ch
-			local new_value = message.val
-			local state = xvi_state[fader]
 			-- scale to [0, 1]. 16383 = max 14-bit pitchbend value
-			local delta_raw = (new_value - (state.value or new_value)) / 16383
-			local source_held = false
+			local new_value = message.val / 16383
+			local state = xvi_state[fader]
+			local delta_raw = (new_value - (state.value or new_value))
 			for source = 1, #editor.source_names do
 				if source_menu.held[source] then
 					local prefix = editor.source_names[source] .. '_'
 					local param = params:lookup_param(prefix .. xvi_mappings[fader])
 					param:set_raw(param.raw + delta_raw)
-					source_held = true
 				end
 			end
-			if not source_held then
-				local param = params:lookup_param(xvi_mappings[fader])
-				param:set_raw(param.raw + delta_raw)
-			end
+			local param = params:lookup_param(xvi_mappings[fader])
+			param:set_raw(new_value)
 			state.delta = state.delta + math.abs(delta_raw)
 			state.value = new_value
 			local now = util.time()
 			if editor.selected_dest == fader then
 				-- as long as the currently selected fader is being moved, don't change selection
-				xvi_autoselect_time = now
+				editor.autoselect_time = now
 				state.delta = 0
 			else
 				-- we'll scale accumulated changes by time, so that a big move over a short time is as
 				-- likely to change selection as a small move after a long pause, but that small move
 				-- wouldn't change selection if the selected fader was moved recently
-				local t = math.min(0.3, now - xvi_autoselect_time) / 0.3
-				if state.delta * t > 0.125 then
+				local t = math.min(0.3, now - editor.autoselect_time) / 0.3
+				if state.delta * t > 0.05 then
 					state.delta = 0
 					editor.selected_dest = fader
-					xvi_autoselect_time = now
+					editor.autoselect_time = now
+					screen.ping()
+				end
+			end
+		elseif data[1] == 0xf0 then
+			xvi.receiving_sysex = true
+			xvi.sysex_data = data
+		elseif xvi.receiving_sysex then
+			for n, v in ipairs(data) do
+				table.insert(xvi.sysex_data, v)
+				if v == 0xf7 then
+					xvi.receiving_sysex = false
+					while n < #xvi.sysex_data do
+						local line = ''
+						for j = 1, 8 do
+							line = line .. string.format('%02x%02x ', xvi.sysex_data[n] or 0, xvi.sysex_data[n + 1] or 0)
+							n = n + 2
+						end
+						print(line)
+					end
 				end
 			end
 		end
 	end
+
+	-- trigger sysex config dump from xvi -- supposedly this SHOULD also
+	-- cause it to send fader values, but it doesn't :(
+	-- xvi:send { 0xf0, 0x7d, 0, 0, 0x1f, 0xf7 }
 
 	grid_redraw()
 end
@@ -1351,17 +1373,31 @@ end
 
 function enc(n, d)
 	if n == 1 then
-		source_menu:select_value(util.wrap(source_menu.value + d, 1, #editor.source_names))
-	elseif n == 2 then
 		editor.selected_dest = util.wrap(editor.selected_dest + d, 1, #editor.dests)
-	elseif n == 3 then
-		local dest = editor.dests[editor.selected_dest]
-		if not held_keys[3] then
-			params:delta(editor.source_names[source_menu.value] .. '_' .. dest.name, d)
-		elseif dest.voice_param then
-			params:delta(dest.voice_param .. '_' .. k.selected_voice, d)
+	else
+		-- adjust amp or pan
+		local mod_suffix = (n == 2 and '_pan') or '_amp'
+		local param_prefix = (n == 2 and 'pan_') or 'outLevel_'
+		for source = 1, #editor.source_names do
+			if source_menu.held[source] then
+				-- TODO: let's see how this scale is
+				params:delta(editor.source_names[source] .. mod_suffix, d)
+			end
+		end
+		params:delta(param_prefix .. k.selected_voice, d)
+		-- maybe auto-select amp or pan
+		local now = util.time()
+		editor.encoder_autoselect_deltas[n] = editor.encoder_autoselect_deltas[n] + math.abs(d)
+		if editor.selected_dest == 15 + n then
+			editor.autoselect_time = now
+			editor.encoder_autoselect_deltas[n] = 0
 		else
-			params:delta(dest.name, d)
+			local t = math.min(0.3, now - editor.autoselect_time) / 0.3
+			if editor.encoder_autoselect_deltas[n] * t > 0.05 then
+				editor.encoder_autoselect_deltas[n] = 0
+				editor.selected_dest = 15 + n
+				editor.autoselect_time = now
+			end
 		end
 	end
 end
