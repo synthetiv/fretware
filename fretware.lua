@@ -1306,6 +1306,8 @@ function redraw()
 	screen.translate(0, 64)
 	screen.rotate(util.degs_to_rads(-90))
 
+	screen.font_face(68)
+
 	local voice = voice_states[k.selected_voice]
 	local source_name = editor.source_names[source_menu.value]
 
@@ -1323,8 +1325,8 @@ function redraw()
 			dest_slider:redraw(active and 1 or 0, active and 3 or 1)
 
 			screen.level(active and 10 or 1)
-			screen.move(1, dest_slider.y - 3)
-			screen.text(editor.dests[d].label)
+			screen.move(0, dest_slider.y - 3)
+			screen.text(editor.dests[d].label:upper())
 			screen.stroke()
 		end
 	end
