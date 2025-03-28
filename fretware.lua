@@ -214,43 +214,43 @@ editor = {
 }
 
 dest_sliders = {
-	ratioA   = Slider.new(82, 8, 2, 55),
-	detuneA  = Slider.new(101, 8, 2, 55, 0),
-	indexA   = Slider.new(120, 8, 2, 55),
+	ratioA   = Slider.new(1,  82, 61, 2),
+	detuneA  = Slider.new(1, 101, 61, 2, 0),
+	indexA   = Slider.new(1, 120, 61, 2),
 
-	opMix    = Slider.new(196, 8, 2, 55, 0),
+	opMix    = Slider.new(1, 196, 61, 2, 0),
 
-	ratioB   = Slider.new(139, 8, 2, 55),
-	detuneB  = Slider.new(158, 8, 2, 55, 0),
-	indexB   = Slider.new(177, 8, 2, 55),
+	ratioB   = Slider.new(1, 139, 61, 2),
+	detuneB  = Slider.new(1, 158, 61, 2, 0),
+	indexB   = Slider.new(1, 177, 61, 2),
 
-	fxA      = Slider.new(215, 8, 2, 55),
-	fxB      = Slider.new(234, 8, 2, 55),
-	hpCutoff = Slider.new(253, 8, 2, 55),
-	lpCutoff = Slider.new(253, 8, 2, 55, 1),
+	fxA      = Slider.new(1, 215, 61, 2),
+	fxB      = Slider.new(1, 234, 61, 2),
+	hpCutoff = Slider.new(1, 253, 61, 2),
+	lpCutoff = Slider.new(1, 253, 61, 2, 1),
 
-	attack   = Slider.new(277, 8, 2, 55),
-	release  = Slider.new(516, 8, 2, 55),
+	attack   = Slider.new(1, 277, 61, 2),
+	release  = Slider.new(1, 516, 61, 2),
 
-	lfoAFreq = Slider.new(321, 8, 2, 55),
-	lfoBFreq = Slider.new(340, 8, 2, 55),
-	lfoCFreq = Slider.new(359, 8, 2, 55),
+	lfoAFreq = Slider.new(1, 321, 61, 2),
+	lfoBFreq = Slider.new(1, 340, 61, 2),
+	lfoCFreq = Slider.new(1, 359, 61, 2),
 
-	pan      = Slider.new(383, 8, 2, 55, 0),
-	amp      = Slider.new(402, 8, 2, 55)
+	pan      = Slider.new(1, 383, 61, 2, 0),
+	amp      = Slider.new(1, 402, 61, 2)
 }
 
 source_sliders = {}
 for s = 1, #editor.dests do
 	source_sliders[editor.dests[s].name] = {
-		amp    = Slider.new(82, 7, 4, 57, 0),
-		hand   = Slider.new(82, 7, 4, 57, 0),
-		eg     = Slider.new(82, 7, 4, 57, 0),
-		eg2    = Slider.new(82, 7, 4, 57, 0),
-		lfoA   = Slider.new(82, 7, 4, 57, 0),
-		lfoB   = Slider.new(82, 7, 4, 57, 0),
-		lfoC   = Slider.new(82, 7, 4, 57, 0),
-		sh     = Slider.new(82, 7, 4, 57, 0)
+		amp    = Slider.new(0, 82, 63, 4, 0),
+		hand   = Slider.new(0, 82, 63, 4, 0),
+		eg     = Slider.new(0, 82, 63, 4, 0),
+		eg2    = Slider.new(0, 82, 63, 4, 0),
+		lfoA   = Slider.new(0, 82, 63, 4, 0),
+		lfoB   = Slider.new(0, 82, 63, 4, 0),
+		lfoC   = Slider.new(0, 82, 63, 4, 0),
+		sh     = Slider.new(0, 82, 63, 4, 0)
 	}
 end
 
@@ -1139,27 +1139,27 @@ function init()
 	redraw_metro = metro.init {
 		time = 1 / 30,
 		event = function(n)
-			local x = 66
+			local y = 66
 			for p = 1, editor.selected_dest - 1 do
 				if editor.dests[p].has_divider then
-					x = x - 23
+					y = y - 23
 				else
-					x = x - 16
+					y = y - 16
 				end
 			end
 			for p = 1, #editor.dests do
 				local dest = editor.dests[p]
 				local slider = dest_sliders[dest.name]
 				if slider.hidden then
-					slider.x = x
+					slider.y = y
 					slider.hidden = false
-				elseif slider.x ~= x then
-					slider.x = math.floor(slider.x + (x - slider.x) * 0.6)
+				elseif slider.y ~= y then
+					slider.y = math.floor(slider.y + (y - slider.y) * 0.6)
 				end
 				if dest.has_divider then
-					x = x + 23
+					y = y + 23
 				else
-					x = x + 16
+					y = y + 16
 				end
 			end
 			grid_redraw()
@@ -1299,73 +1299,50 @@ end
 function redraw()
 	-- TODO: show held pitch(es) based on how they're specified in scala file!!; indicate bend/glide
 	screen.clear()
+	-- screen.restore()
 	screen.fill() -- prevent a flash of stroke when leaving system UI
 
-	-- TODO: icons
+	screen.save()
+	screen.translate(0, 64)
+	screen.rotate(util.degs_to_rads(-90))
 
 	local voice = voice_states[k.selected_voice]
 	local source_name = editor.source_names[source_menu.value]
 
-	screen.level(source_menu:is_selected(1) and 15 or 3)
-	screen.move(0, 5)
-	screen.text('Am')
-
-	screen.level(source_menu:is_selected(2) and 15 or 3)
-	screen.move_rel(6, 0)
-	screen.text('Hd')
-
-	screen.level(source_menu:is_selected(3) and 15 or 3)
-	screen.move_rel(6, 0)
-	screen.text('En')
-
-	screen.level(source_menu:is_selected(4) and 15 or 3)
-	screen.move_rel(6, 0)
-	screen.text('En2')
-
-	screen.level(source_menu:is_selected(5) and 15 or 3)
-	screen.move_rel(6, 0)
-	screen.text('La')
-	screen.level(voice.lfoA_gate and 15 or 3)
-	screen.text('.')
-
-	screen.level(source_menu:is_selected(6) and 15 or 3)
-	screen.move_rel(6, 0)
-	screen.text('Lb')
-	screen.level(voice.lfoB_gate and 15 or 3)
-	screen.text('.')
-
-	screen.level(source_menu:is_selected(7) and 15 or 3)
-	screen.move_rel(6, 0)
-	screen.text('Lc')
-	screen.level(voice.lfoC_gate and 15 or 3)
-	screen.text('.')
-
-	screen.level(source_menu:is_selected(8) and 15 or 3)
-	screen.move_rel(6, 0)
-	screen.text('Sh')
-	screen.level(voice.lfoC_gate and 15 or 3)
-	screen.text('.')
-
-	-- TODO: fix this
 	for d = 1, #editor.dests do
 
 		local dest = editor.dests[d].name
 		local active = editor.selected_dest == d
 		local dest_slider = dest_sliders[dest]
 
-		if dest_slider.x >= -4 and dest_slider.x <= 132 then
+		if dest_slider.y >= -4 and dest_slider.y <= 132 then
 			local source_slider = source_sliders[dest][source_name]
-			source_slider.x = dest_slider.x - 1
+			source_slider.y = dest_slider.y - 1
 			source_slider:redraw(active and 2 or 1, active and 15 or 4)
 
 			dest_slider:redraw(active and 1 or 0, active and 3 or 1)
 
 			screen.level(active and 10 or 1)
-			screen.text_rotate(dest_slider.x - 3, 63, editor.dests[d].label, -90)
+			screen.move(1, dest_slider.y - 3)
+			screen.text(editor.dests[d].label)
 			screen.stroke()
 		end
 	end
 
+	screen.rect(0, 0, 64, 8)
+	screen.level(0)
+	screen.fill()
+
+	screen.level(3)
+	screen.move(0, 5)
+	screen.text(source_name:upper())
+	screen.text(' MOD')
+	screen.move_rel(1, 0)
+	screen.line_rel(64, 0)
+	screen.level(1)
+	screen.stroke()
+
+	screen.restore()
 	screen.update()
 end
 

@@ -42,17 +42,16 @@ function Slider:redraw(bg_level, fg_level)
 	screen.fill()
 	
 	--draws the value
-	fill_start = util.linlin(self.min_value, self.max_value, 0, self.height - 1, self.start_value)
-	fill_height = util.linlin(self.min_value, self.max_value, 0, self.height - 1, self.value) - fill_start
-	-- TODO: offset so that height is always 1: when height > 0, height = 1; when height < 0, height = -1, and draw from 1 pixel higher. height should be an odd number, and it is
-	if fill_height >= 0 then
-		fill_height = math.max(0, fill_height) + 1
+	fill_start = util.linlin(self.min_value, self.max_value, 0, self.width - 1, self.start_value)
+	fill_width = util.linlin(self.min_value, self.max_value, 0, self.width - 1, self.value) - fill_start
+	if fill_width >= 0 then
+		fill_width = math.max(0, fill_width) + 1
 		-- fill_start = fill_start - 1
 	else
-		fill_height = math.min(0, fill_height) - 1
+		fill_width = math.min(0, fill_width) - 1
 		fill_start = fill_start + 1
 	end
-	screen.rect(self.x, self.y + self.height - fill_start, self.width, -fill_height)
+	screen.rect(self.x + fill_start, self.y, fill_width, self.height)
 	screen.level(fg_level)
 	screen.fill()
 end
