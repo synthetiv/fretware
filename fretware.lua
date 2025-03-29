@@ -785,14 +785,15 @@ function init()
 		name = 'op type A',
 		id = 'opTypeA',
 		type = 'option',
-		options = { 'FM', 'FB', --[[ 'saw', 'square', ]] 'pluck', 'comb' },
+		options = { 'FM', 'FB', 'saw', 'square', 'pluck', 'comb', 'comb ext' },
 		default = 1,
 		action = function(value)
-			local opFade = params:get('opFadeA')
-			if value > 2 then
-				value = value + 2
+			if value == 1 then
+				value = 2
+			elseif value == 2 then
+				value = 1
 			end
-			engine.opTypeA((value - 1) * 2 + opFade - 1)
+			engine.opTypeA(value - 1)
 		end
 	}
 
@@ -803,11 +804,7 @@ function init()
 		options = { 'off', 'on' },
 		default = 1,
 		action = function(value)
-			local opType = params:get('opTypeA')
-			if opType > 2 then
-				opType = opType + 2
-			end
-			engine.opTypeA((opType - 1) * 2 + value - 1)
+			engine.opFadeA(value - 1)
 		end
 	}
 
@@ -815,16 +812,10 @@ function init()
 		name = 'op type B',
 		id = 'opTypeB',
 		type = 'option',
-		options = { 'FB', 'FM', --[[ 'saw', 'square', ]] 'pluck', 'comb' },
+		options = { 'FM', 'FB', 'saw', 'square', 'pluck', 'comb', 'comb ext' },
 		default = 1,
 		action = function(value)
-			local opFade = params:get('opFadeB')
-			if value == 1 then
-				value = 2
-			elseif value == 2 then
-				value = 1
-			end
-			engine.opTypeB((value - 1) * 2 + opFade - 1)
+			engine.opTypeB(value - 1)
 		end
 	}
 
@@ -835,13 +826,7 @@ function init()
 		options = { 'off', 'on' },
 		default = 1,
 		action = function(value)
-			local opType = params:get('opTypeB')
-			if opType == 1 then
-				opType = 2
-			elseif opType == 2 then
-				opType = 1
-			end
-			engine.opTypeB((opType - 1) * 2 + value - 1)
+			engine.opFadeB(value - 1)
 		end
 	}
 

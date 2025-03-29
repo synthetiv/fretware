@@ -7,6 +7,7 @@ Engine_Cule : CroneEngine {
 
 	var controlDef;
 
+	var opTypeDefNames;
 	var modulationDestNames;
 	var controlRateDestNames;
 	var modulationSourceNames;
@@ -20,10 +21,12 @@ Engine_Cule : CroneEngine {
 
 	var baseFreqBus;
 	var voiceBuses;
+	var voiceOpStates;
 	var voiceSynths;
 	var patchBuses;
 	var replySynth;
 	var polls;
+	var opFadeReplyFunc;
 	var opTypeReplyFunc;
 	var fxTypeReplyFunc;
 	var lfoTypeReplyFunc;
@@ -51,7 +54,10 @@ Engine_Cule : CroneEngine {
 	}
 
 	swapOp {
-		arg v, op, defName; // op A = 0, B = 1
+		arg v, op; // op A = 0, B = 1
+		var opState = voiceOpStates[v][op];
+		var defNames = opTypeDefNames[opState[\type]];
+		var defName = if(defNames.class === Dictionary, defNames, { defNames[opState[\fade]] });
 		var buses = voiceBuses[v];
 		var synths = voiceSynths[v];
 		var thisBus = Bus.newFrom(buses[\opAudio], op);
@@ -94,6 +100,17 @@ Engine_Cule : CroneEngine {
 	}
 
 	alloc {
+
+		opTypeDefNames = [
+			[ \operatorFM, \operatorFMFade ],
+			[ \operatorFB, \operatorFBFade ],
+			[ \operatorSaw, \operatorSawFade ],
+			[ \operatorSquare, \operatorSquareFade ],
+			\operatorKarp,
+			\operatorComb,
+			\operatorCombExt,
+			\nothing
+		];
 
 		// TODO: reorganize this stuff. dry it out. 'pan' should be "declared" with rate = control,
 		// scope = voice (as opposed to patch)... and so on.
@@ -160,7 +177,9 @@ Engine_Cule : CroneEngine {
 			\pitchSlew,
 			\hpRQ,
 			\lpRQ,
+			\opFadeA,
 			\opTypeA,
+			\opFadeB,
 			\opTypeB,
 			\fxTypeA,
 			\fxTypeB,
@@ -239,6 +258,7 @@ Engine_Cule : CroneEngine {
 			// send signals to sclang to handle op, fx, and lfo type changes
 			var voiceIndex = \voiceIndex.ir;
 			Dictionary[
+				\opFade -> [ \opFadeA, \opFadeB ],
 				\opType -> [ \opTypeA, \opTypeB ],
 				\fxType -> [ \fxTypeA, \fxTypeB ],
 				\lfoType -> [ \lfoTypeA, \lfoTypeB, \lfoTypeC ]
@@ -766,6 +786,15 @@ Engine_Cule : CroneEngine {
 			});
 		});
 
+		voiceOpStates = Array.fill(nVoices, {
+			Array.fill(2, {
+				Dictionary[
+					\type -> 0,
+					\fade -> 0,
+				];
+			});
+		});
+
 		voiceSynths = Array.fill(nVoices, {
 			arg i;
 
@@ -892,18 +921,16 @@ Engine_Cule : CroneEngine {
 			];
 		});
 
+		opFadeReplyFunc = OSCFunc({
+			arg msg;
+			voiceOpStates[msg[3]][msg[4]][\fade] = msg[5];
+			this.swapOp(msg[3], msg[4]);
+		}, path: '/opFade', srcID: context.server.addr);
+
 		opTypeReplyFunc = OSCFunc({
 			arg msg;
-			var def = [
-				\operatorFM, \operatorFMFade,
-				\operatorFB, \operatorFBFade,
-				\operatorSaw, \operatorSawFade,
-				\operatorSquare, \operatorSquareFade,
-				\operatorKarp, \operatorKarp,
-				\operatorComb, \operatorCombExt,
-				\nothing
-			].at(msg[5]);
-			this.swapOp(msg[3], msg[4], def);
+			voiceOpStates[msg[3]][msg[4]][\type] = msg[5];
+			this.swapOp(msg[3], msg[4]);
 		}, path: '/opType', srcID: context.server.addr);
 
 		fxTypeReplyFunc = OSCFunc({
@@ -1022,6 +1049,7 @@ Engine_Cule : CroneEngine {
 		patchBuses.do({ |bus| bus.free });
 		voiceBuses.do({ |dict| dict.do({ |bus| bus.free; }); });
 		baseFreqBus.free;
+		opFadeReplyFunc.free;
 		opTypeReplyFunc.free;
 		fxTypeReplyFunc.free;
 		lfoTypeReplyFunc.free;
