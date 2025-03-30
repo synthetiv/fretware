@@ -4,15 +4,6 @@ local Slider = {}
 Slider.__index = Slider
 
 --- Create a new Slider object.
--- @tparam number x X position, defaults to 0.
--- @tparam number y Y position, defaults to 0.
--- @tparam number value Current value, defaults to 0.
--- @tparam number min_value Minimum value, defaults to -1.
--- @tparam number max_value Maximum value, defaults to 1.
--- @tparam number start_value Sets where fill line is drawn from, defaults to 0.
--- @tparam string units String to display after value text.
--- @tparam string title String to be displayed instead of value text.
--- @treturn Slider Instance of Slider.
 function Slider.new(x, y, width, height, start_value, value)
 	local slider = {
 		x = x,
@@ -20,9 +11,9 @@ function Slider.new(x, y, width, height, start_value, value)
 		width = width,
 		height = height,
 		value = value or 0,
-		min_value = -1,
+		min_value = 0,
 		max_value = 1,
-		start_value = start_value or -1
+		start_value = start_value or 0.5
 	}
 	setmetatable(slider, Slider)
 	return slider

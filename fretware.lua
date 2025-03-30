@@ -5,6 +5,7 @@ musicutil = require 'musicutil'
 Lattice = require 'lattice'
 
 Slider = include 'lib/slider'
+FaderMapping = include 'lib/fadermapping'
 
 n_voices = 3
 
@@ -213,48 +214,10 @@ editor = {
 	}
 }
 
-dest_sliders = {
-	ratioA   = Slider.new(1,  82, 61, 2),
-	detuneA  = Slider.new(1, 101, 61, 2, 0),
-	indexA   = Slider.new(1, 120, 61, 2),
+dest_mappings = {}
+source_mappings = {}
 
-	opMix    = Slider.new(1, 196, 61, 2, 0),
-
-	ratioB   = Slider.new(1, 139, 61, 2),
-	detuneB  = Slider.new(1, 158, 61, 2, 0),
-	indexB   = Slider.new(1, 177, 61, 2),
-
-	fxA      = Slider.new(1, 215, 61, 2),
-	fxB      = Slider.new(1, 234, 61, 2),
-	hpCutoff = Slider.new(1, 253, 61, 2),
-	lpCutoff = Slider.new(1, 253, 61, 2, 1),
-
-	attack   = Slider.new(1, 277, 61, 2),
-	release  = Slider.new(1, 516, 61, 2),
-
-	lfoAFreq = Slider.new(1, 321, 61, 2),
-	lfoBFreq = Slider.new(1, 340, 61, 2),
-	lfoCFreq = Slider.new(1, 359, 61, 2),
-
-	pan      = Slider.new(1, 383, 61, 2, 0),
-	amp      = Slider.new(1, 402, 61, 2)
-}
-
-source_sliders = {}
-for s = 1, #editor.dests do
-	source_sliders[editor.dests[s].name] = {
-		amp    = Slider.new(0, 82, 63, 4, 0),
-		hand   = Slider.new(0, 82, 63, 4, 0),
-		eg     = Slider.new(0, 82, 63, 4, 0),
-		eg2    = Slider.new(0, 82, 63, 4, 0),
-		lfoA   = Slider.new(0, 82, 63, 4, 0),
-		lfoB   = Slider.new(0, 82, 63, 4, 0),
-		lfoC   = Slider.new(0, 82, 63, 4, 0),
-		sh     = Slider.new(0, 82, 63, 4, 0)
-	}
-end
-
-xvi_mappings = {
+xvi_params = {
 	'ratioA',
 	'detuneA',
 	'indexA',
@@ -273,7 +236,7 @@ xvi_mappings = {
 	'lfoCFreq'
 }
 xvi_state = {}
-for s = 1, #xvi_mappings do
+for s = 1, #xvi_params do
 	xvi_state[s] = { value = nil, delta = 0 }
 end
 
@@ -629,8 +592,9 @@ function init()
 			end
 		end
 		engine.select_voice(v)
-		dest_sliders.amp:set_value(params:get_raw('outLevel_' .. v) * 2 - 1)
-		dest_sliders.pan:set_value(params:get_raw('pan_' .. v) * 2 - 1)
+		-- TODO: handle amp + pan
+		-- dest_sliders.amp:set_value(params:get_raw('outLevel_' .. v) * 2 - 1)
+		-- dest_sliders.pan:set_value(params:get_raw('pan_' .. v) * 2 - 1)
 		send_pitch()
 	end
 
@@ -955,7 +919,6 @@ function init()
 				type = 'control',
 				controlspec = controlspec.new(-1, 1, 'lin', 0, dest.default),
 				action = function(value)
-					dest_sliders[dest.name]:set_value(value)
 					engine_command(value)
 				end
 			}
@@ -974,7 +937,6 @@ function init()
 				type = 'control',
 				controlspec = controlspec.new(0.001, 7, 'exp', 0, 0.001, 's'),
 				action = function(value)
-					dest_sliders.attack:set_value(params:get_raw('attack') * 2 - 1)
 					engine.attack(value - 0.0005)
 				end
 			}
@@ -984,7 +946,6 @@ function init()
 				type = 'control',
 				controlspec = controlspec.new(0.001, 26, 'exp', 0, 1, 's'),
 				action = function(value)
-					dest_sliders.release:set_value(params:get_raw('release') * 2 - 1)
 					engine.release(value)
 				end
 			}
@@ -1024,14 +985,12 @@ function init()
 			params:add_group(source, 1 + #editor.dests)
 			local freq_param = source .. 'Freq'
 			local freq_command = engine[freq_param]
-			local dest_slider = dest_sliders[freq_param]
 			params:add {
 				name = source .. ' freq',
 				id = freq_param,
 				type = 'control',
 				controlspec = controlspec.new(0.03, 21, 'exp', 0, 0.2, 'Hz'),
 				action = function(value, param)
-					dest_slider:set_value(params:get_raw(freq_param) * 2 - 1)
 					freq_command(value)
 				end
 			}
@@ -1043,7 +1002,6 @@ function init()
 			local dest = editor.dests[d]
 			local engine_command = engine[source .. '_' .. dest.name]
 			local action = function(value)
-				source_sliders[dest.name][source]:set_value(value)
 				-- create a dead zone near 0.0
 				value = (value > 0 and 1 or -1) * (1 - math.min(1, (1 - math.abs(value)) * 1.1))
 				engine_command(value)
@@ -1051,7 +1009,6 @@ function init()
 			if dest.name == 'detuneA' or dest.name == 'detuneB' then
 				-- set detune modulation on a curve
 				action = function(value)
-					source_sliders[dest.name][source]:set_value(value)
 					-- create a dead zone near 0.0
 					local sign = (value > 0 and 1 or -1)
 					value = 1 - math.min(1, (1 - math.abs(value)) * 1.1)
@@ -1083,7 +1040,8 @@ function init()
 			default = 0.3,
 			action = function(value)
 				if v == k.selected_voice then
-					dest_sliders.amp:set_value(params:get_raw('outLevel_' .. v) * 2 - 1)
+					-- TODO: handle amp
+					-- dest_sliders.amp:set_value(params:get_raw('outLevel_' .. v) * 2 - 1)
 				end
 				voice_states[v].mix_level = value
 				engine.outLevel(v, value)
@@ -1097,11 +1055,27 @@ function init()
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				if v == k.selected_voice then
-					dest_sliders.pan:set_value(params:get_raw('pan_' .. v) * 2 - 1)
+					-- TODO: handle pan
+					-- dest_sliders.pan:set_value(params:get_raw('pan_' .. v) * 2 - 1)
 				end
 				engine.pan(v, value)
 			end
 		}
+	end
+
+	for d = 1, 16 do -- TODO: amp + pan
+		local dest_name = editor.dests[d].name
+		local slider_start_value = 0
+		if dest_name == 'detuneA' or dest_name == 'opMix' or dest_name == 'detuneB' then
+			slider_start_value = 0.5
+		elseif dest_name == 'lpCutoff' then
+			slider_start_value = 1
+		end
+		dest_mappings[d] = FaderMapping.new(d, dest_name, slider_start_value, 'inner')
+		source_mappings[d] = {}
+		for s = 1, #editor.source_names do
+			source_mappings[d][s] = FaderMapping.new(d, editor.source_names[s] .. '_' .. dest_name)
+		end
 	end
 
 	params:bang()
@@ -1132,13 +1106,10 @@ function init()
 					y = y - 16
 				end
 			end
-			for p = 1, #editor.dests do
+			for p = 1, 16 do -- TODO
 				local dest = editor.dests[p]
-				local slider = dest_sliders[dest.name]
-				if slider.hidden then
-					slider.y = y
-					slider.hidden = false
-				elseif slider.y ~= y then
+				local slider = dest_mappings[p].slider
+				if slider.y ~= y then
 					slider.y = math.floor(slider.y + (y - slider.y) * 0.6)
 				end
 				if dest.has_divider then
@@ -1220,17 +1191,14 @@ function init()
 			-- scale to [0, 1]. 16383 = max 14-bit pitchbend value
 			local new_value = message.val / 16383
 			local state = xvi_state[fader]
-			local delta_raw = (new_value - (state.value or new_value))
+			local old_value = state.value or new_value
 			for source = 1, #editor.source_names do
 				if source_menu.held[source] then
-					local prefix = editor.source_names[source] .. '_'
-					local param = params:lookup_param(prefix .. xvi_mappings[fader])
-					param:set_raw(param.raw + delta_raw)
+					source_mappings[source][fader]:move(old_value, new_value)
 				end
 			end
-			local param = params:lookup_param(xvi_mappings[fader])
-			param:set_raw(new_value)
-			state.delta = state.delta + math.abs(delta_raw)
+			dest_mappings[fader]:move(old_value, new_value)
+			state.delta = state.delta + math.abs(new_value - old_value)
 			state.value = new_value
 			local now = util.time()
 			if editor.selected_dest == fader then
@@ -1294,17 +1262,20 @@ function redraw()
 	screen.font_face(68)
 
 	local voice = voice_states[k.selected_voice]
-	local source_name = editor.source_names[source_menu.value]
 
-	for d = 1, #editor.dests do
+	for d = 1, 16 do -- TODO: include amp and pan
 
 		local dest = editor.dests[d].name
 		local active = editor.selected_dest == d
-		local dest_slider = dest_sliders[dest]
+		local dest_slider = dest_mappings[d].slider
 
 		if dest_slider.y >= -4 and dest_slider.y <= 132 then
-			local source_slider = source_sliders[dest][source_name]
+			if xvi_state[d].value then
+				dest_slider.x = math.floor((dest_slider.value - xvi_state[d].value) * 64 + 0.5) + 1
+			end
+			local source_slider = source_mappings[d][source_menu.value].slider
 			source_slider.y = dest_slider.y - 1
+			source_slider.x = dest_slider.x - 1
 			source_slider:redraw(active and 2 or 1, active and 15 or 4)
 
 			dest_slider:redraw(active and 1 or 0, active and 3 or 1)
@@ -1322,7 +1293,7 @@ function redraw()
 
 	screen.level(3)
 	screen.move(0, 5)
-	screen.text(source_name:upper())
+	screen.text(editor.source_names[source_menu.value]:upper())
 	screen.text(' MOD')
 	screen.move_rel(1, 0)
 	screen.line_rel(64, 0)
