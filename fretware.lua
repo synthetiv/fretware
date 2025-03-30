@@ -1341,8 +1341,11 @@ function enc(n, d)
 			end
 		end
 		if not changed_source then
-			local param = (n == 2 and 'pan') or 'outLevel'
-			voice_mappings[param][k.selected_voice]:delta(d)
+			if n == 2 then
+				voice_mappings.pan[k.selected_voice]:delta(d)
+			elseif n == 3 then
+				voice_mappings.outLevel[k.selected_voice]:delta(d * 2)
+			end
 		end
 		-- maybe auto-select amp or pan
 		local now = util.time()
