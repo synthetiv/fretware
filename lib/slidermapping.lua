@@ -1,10 +1,9 @@
-local FaderMapping = {}
-FaderMapping.__index = FaderMapping
+local SliderMapping = {}
+SliderMapping.__index = SliderMapping
 
-function FaderMapping.new(fader, param_name, slider_start_value, slider_style)
+function SliderMapping.new(param_name, slider_start_value, slider_style)
 	local param = params:lookup_param(param_name)
 	local mapping = {
-		fader = fader,
 		param = param,
 		value = 0
 	}
@@ -20,12 +19,12 @@ function FaderMapping.new(fader, param_name, slider_start_value, slider_style)
 	else
 		mapping.slider = Slider.new(0, 0, 63, 4, slider_start_value)
 	end
-	setmetatable(mapping, FaderMapping)
+	setmetatable(mapping, SliderMapping)
 	return mapping
 end
 
--- respond to a fader movement. values must be scaled to [0, 1]
-function FaderMapping:move(old_value, new_value)
+-- respond to an absolute movement. values must be scaled to [0, 1]
+function SliderMapping:move(old_value, new_value)
 	local intersected = (old_value <= self.value and self.value <= new_value)
 		or (old_value >= self.value and self.value >= new_value)
 	if intersected then
@@ -33,10 +32,15 @@ function FaderMapping:move(old_value, new_value)
 	end
 end
 
--- set value directly.
-function FaderMapping:set(new_value)
+-- respond to a relative change.
+function SliderMapping:delta(delta)
+	self.param:delta(delta)
+end
+
+-- set value directly, without affecting param.
+function SliderMapping:set(new_value)
 	self.value = new_value
 	self.slider.value = new_value
 end
 
-return FaderMapping
+return SliderMapping

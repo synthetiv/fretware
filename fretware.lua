@@ -5,7 +5,7 @@ musicutil = require 'musicutil'
 Lattice = require 'lattice'
 
 Slider = include 'lib/slider'
-FaderMapping = include 'lib/fadermapping'
+SliderMapping = include 'lib/slidermapping'
 
 n_voices = 3
 
@@ -215,6 +215,7 @@ editor = {
 }
 
 dest_mappings = {}
+voice_mappings = {}
 source_mappings = {}
 
 xvi_params = {
@@ -592,9 +593,6 @@ function init()
 			end
 		end
 		engine.select_voice(v)
-		-- TODO: handle amp + pan
-		-- dest_sliders.amp:set_value(params:get_raw('outLevel_' .. v) * 2 - 1)
-		-- dest_sliders.pan:set_value(params:get_raw('pan_' .. v) * 2 - 1)
 		send_pitch()
 	end
 
@@ -1039,10 +1037,6 @@ function init()
 			k = 2,
 			default = 0.3,
 			action = function(value)
-				if v == k.selected_voice then
-					-- TODO: handle amp
-					-- dest_sliders.amp:set_value(params:get_raw('outLevel_' .. v) * 2 - 1)
-				end
 				voice_states[v].mix_level = value
 				engine.outLevel(v, value)
 			end
@@ -1054,27 +1048,34 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
-				if v == k.selected_voice then
-					-- TODO: handle pan
-					-- dest_sliders.pan:set_value(params:get_raw('pan_' .. v) * 2 - 1)
-				end
 				engine.pan(v, value)
 			end
 		}
 	end
 
-	for d = 1, 16 do -- TODO: amp + pan
-		local dest_name = editor.dests[d].name
+	for d = 1, #editor.dests do
+		local dest = editor.dests[d]
+		local dest_name = dest.name
 		local slider_start_value = 0
-		if dest_name == 'detuneA' or dest_name == 'opMix' or dest_name == 'detuneB' then
+		if dest_name == 'detuneA' or dest_name == 'opMix' or dest_name == 'detuneB' or dest_name == 'pan' then
 			slider_start_value = 0.5
 		elseif dest_name == 'lpCutoff' then
 			slider_start_value = 1
 		end
-		dest_mappings[d] = FaderMapping.new(d, dest_name, slider_start_value, 'inner')
+		if dest.voice_param then
+			local voice_param = dest.voice_param
+			local mappings = {}
+			for v = 1, n_voices do
+				print(voice_param .. '_' .. v)
+				mappings[v] = SliderMapping.new(voice_param .. '_' .. v, slider_start_value, 'inner')
+			end
+			voice_mappings[voice_param] = mappings
+		else
+			dest_mappings[d] = SliderMapping.new(dest_name, slider_start_value, 'inner')
+		end
 		source_mappings[d] = {}
 		for s = 1, #editor.source_names do
-			source_mappings[d][s] = FaderMapping.new(d, editor.source_names[s] .. '_' .. dest_name)
+			source_mappings[d][s] = SliderMapping.new(editor.source_names[s] .. '_' .. dest_name)
 		end
 	end
 
@@ -1106,9 +1107,14 @@ function init()
 					y = y - 16
 				end
 			end
-			for p = 1, 16 do -- TODO
+			for p = 1, #editor.dests do
 				local dest = editor.dests[p]
-				local slider = dest_mappings[p].slider
+				local slider = nil
+				if dest.voice_param then
+					slider = voice_mappings[dest.voice_param][k.selected_voice].slider
+				else
+					slider = dest_mappings[p].slider
+				end
 				if slider.y ~= y then
 					slider.y = math.floor(slider.y + (y - slider.y) * 0.6)
 				end
@@ -1192,12 +1198,16 @@ function init()
 			local new_value = message.val / 16383
 			local state = xvi_state[fader]
 			local old_value = state.value or new_value
+			local changed_source = false
 			for source = 1, #editor.source_names do
 				if source_menu.held[source] then
-					source_mappings[source][fader]:move(old_value, new_value)
+					source_mappings[fader][source]:delta(new_value - old_value)
+					changed_source = true
 				end
 			end
-			dest_mappings[fader]:move(old_value, new_value)
+			if not changed_source then
+				dest_mappings[fader]:move(old_value, new_value)
+			end
 			state.delta = state.delta + math.abs(new_value - old_value)
 			state.value = new_value
 			local now = util.time()
@@ -1263,15 +1273,23 @@ function redraw()
 
 	local voice = voice_states[k.selected_voice]
 
-	for d = 1, 16 do -- TODO: include amp and pan
+	for d = 1, #editor.dests do
 
-		local dest = editor.dests[d].name
+		local dest = editor.dests[d]
 		local active = editor.selected_dest == d
-		local dest_slider = dest_mappings[d].slider
+		local dest_slider = nil
+		if dest.voice_param then
+			dest_slider = voice_mappings[dest.voice_param][k.selected_voice].slider
+		else
+			dest_slider = dest_mappings[d].slider
+		end
 
 		if dest_slider.y >= -4 and dest_slider.y <= 132 then
-			if xvi_state[d].value then
+			-- TODO: maybe just indicate actual fader position, instead of offsetting -- it's a lil weird
+			if d <= 16 and xvi_state[d].value then
 				dest_slider.x = math.floor((dest_slider.value - xvi_state[d].value) * 64 + 0.5) + 1
+			else
+				dest_slider.x = 1
 			end
 			local source_slider = source_mappings[d][source_menu.value].slider
 			source_slider.y = dest_slider.y - 1
@@ -1313,15 +1331,19 @@ function enc(n, d)
 		editor.selected_dest = util.wrap(editor.selected_dest + d, 1, #editor.dests)
 	else
 		-- adjust amp or pan
-		local mod_suffix = (n == 2 and '_pan') or '_amp'
-		local param_prefix = (n == 2 and 'pan_') or 'outLevel_'
+		-- TODO: handle 'delta' and auto-selection stuff in SliderMapping class
+		local param_index = 15 + n
+		local changed_source = false
 		for source = 1, #editor.source_names do
 			if source_menu.held[source] then
-				-- TODO: let's see how this scale is
-				params:delta(editor.source_names[source] .. mod_suffix, d)
+				source_mappings[param_index][source]:delta(d)
+				changed_source = true
 			end
 		end
-		params:delta(param_prefix .. k.selected_voice, d)
+		if not changed_source then
+			local param = (n == 2 and 'pan') or 'outLevel'
+			voice_mappings[param][k.selected_voice]:delta(d)
+		end
 		-- maybe auto-select amp or pan
 		local now = util.time()
 		editor.encoder_autoselect_deltas[n] = editor.encoder_autoselect_deltas[n] + math.abs(d)
