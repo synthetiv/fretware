@@ -440,6 +440,7 @@ function g.key(x, y, z)
 					for dest = 1, #editor.dests do
 						local dest_name = editor.dests[dest].name
 						params:lookup_param(source_name .. '_' .. dest_name):set_default()
+						-- TODO: what's this for again??
 						_menu.set_mode(false)
 					end
 				end
@@ -743,6 +744,7 @@ function init()
 
 	params:add_group('modes', 9)
 
+	-- TODO: is something up with these?
 	params:add {
 		name = 'op type A',
 		id = 'opTypeA',
@@ -750,11 +752,6 @@ function init()
 		options = { 'FM', 'FB', 'saw', 'square', 'pluck', 'comb', 'comb ext' },
 		default = 1,
 		action = function(value)
-			if value == 1 then
-				value = 2
-			elseif value == 2 then
-				value = 1
-			end
 			engine.opTypeA(value - 1)
 		end
 	}
@@ -774,9 +771,14 @@ function init()
 		name = 'op type B',
 		id = 'opTypeB',
 		type = 'option',
-		options = { 'FM', 'FB', 'saw', 'square', 'pluck', 'comb', 'comb ext' },
+		options = { 'FB', 'FM', 'saw', 'square', 'pluck', 'comb', 'comb ext' },
 		default = 1,
 		action = function(value)
+			if value == 1 then
+				value = 2
+			elseif value == 2 then
+				value = 1
+			end
 			engine.opTypeB(value - 1)
 		end
 	}

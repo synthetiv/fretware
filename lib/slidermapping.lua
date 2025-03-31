@@ -34,7 +34,7 @@ end
 
 -- respond to a relative change.
 function SliderMapping:delta(delta)
-	self.param:delta(delta)
+	self.param:set_raw(self.param:get_raw() + delta)
 end
 
 -- set value directly, without affecting param.
