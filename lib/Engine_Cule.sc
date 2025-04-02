@@ -699,8 +699,9 @@ Engine_Cule : CroneEngine {
 
 		SynthDef.new(\fxDecimator, {
 			var bus = \bus.ir;
+			var intensity = \intensity.ar;
 			ReplaceOut.ar(bus,
-				Decimator.ar(In.ar(bus), SampleRate.ir, \intensity.ar.linlin(-1, 1, 24, 1))
+				Decimator.ar(In.ar(bus), intensity.linexp(-1, 1, SampleRate.ir, 1500), intensity.linexp(-1, 1, 14, 1))
 			);
 		}).add;
 
@@ -935,7 +936,7 @@ Engine_Cule : CroneEngine {
 
 		fxTypeReplyFunc = OSCFunc({
 			arg msg;
-			var def = [\fxSquiz, \fxWaveLoss, \fxFold, \fxDecimator, \fxChorus, \nothing].at(msg[5]);
+			var def = [\fxSquiz, \fxFold, \fxWaveLoss, \fxDecimator, \fxChorus, \nothing].at(msg[5]);
 			this.swapFx(msg[3], msg[4], def);
 		}, path: '/fxType', srcID: context.server.addr);
 

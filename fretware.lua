@@ -801,7 +801,7 @@ function init()
 		options = { 'squiz', 'fold' },
 		default = 1,
 		action = function(value)
-			engine.fxTypeA(value == 1 and 0 or 2)
+			engine.fxTypeA(value - 1)
 		end
 	}
 
@@ -809,10 +809,10 @@ function init()
 		name = 'fx type B',
 		id = 'fxTypeB',
 		type = 'option',
-		options = { 'waveloss', 'decimator' },
+		options = { 'waveloss', 'chorus' },
 		default = 1,
 		action = function(value)
-			engine.fxTypeB(value == 1 and 1 or 3)
+			engine.fxTypeB(value == 1 and 2 or 4)
 		end
 	}
 
