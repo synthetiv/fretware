@@ -744,7 +744,6 @@ function init()
 
 	params:add_group('modes', 9)
 
-	-- TODO: is something up with these?
 	params:add {
 		name = 'op type A',
 		id = 'opTypeA',
@@ -775,9 +774,9 @@ function init()
 		default = 1,
 		action = function(value)
 			if value == 1 then
-				value = 2
+				value = 2 -- default to FB
 			elseif value == 2 then
-				value = 1
+				value = 8 -- and use delayed FM for FM
 			end
 			engine.opTypeB(value - 1)
 		end

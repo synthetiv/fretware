@@ -57,7 +57,7 @@ Engine_Cule : CroneEngine {
 		arg v, op; // op A = 0, B = 1
 		var opState = voiceOpStates[v][op];
 		var defNames = opTypeDefNames[opState[\type]];
-		var defName = if(defNames.class === Dictionary, defNames, { defNames[opState[\fade]] });
+		var defName = if(defNames.class === Array, { defNames[opState[\fade]] }, defNames);
 		var buses = voiceBuses[v];
 		var synths = voiceSynths[v];
 		var thisBus = Bus.newFrom(buses[\opAudio], op);
@@ -109,6 +109,7 @@ Engine_Cule : CroneEngine {
 			\operatorKarp,
 			\operatorComb,
 			\operatorCombExt,
+			\operatorFMD,
 			\nothing
 		];
 
@@ -531,6 +532,38 @@ Engine_Cule : CroneEngine {
 				hz,
 				\ratio.kr,
 				(InFeedback.ar(\inBus.ir) * \index.ar(-1).lincurve(-1, 1, 0, 13pi, 4, \min) * 0.7.pow(pitch)).mod(2pi)
+			);
+			Out.ar(\outBus.ir, output);
+		}).add;
+
+		// External-FM operator with a tuned delay at its FM input
+		SynthDef.new(\operatorFMD, {
+			var pitch = \pitch.kr;
+			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
+			var hz = 2.pow(pitch) * In.kr(baseFreqBus);
+			// we'll delay the input signal by the shortest possible amount of time
+			// that is (a) greater than block size, and (b) an octave multiple of
+			// the oscillator pitch
+			var delaySafeHz = (hz / ControlRate.ir).ratiomidi.wrap(-12, 0).midiratio * ControlRate.ir;
+			var delayTime = K2A.ar(delaySafeHz.reciprocal);
+			var delayDelayBuf = LocalBuf.new(SampleRate.ir * 2);
+			var delayedDelayTime = BufDelayN.ar(delayDelayBuf, delayTime, delayTime); // haha lol
+			var delta = delayedDelayTime - delayTime;
+			var deltaOrInf = Select.ar(delta, [DC.ar(inf), delta]);
+			var slewedDelayTime = Slew.ar(
+				delayTime,
+				1 - 0.5.pow(deltaOrInf),
+				2.pow(deltaOrInf) - 1
+			);
+			var delayBuf = LocalBuf.new(SampleRate.ir * 2);
+			var delayedIn = BufDelayC.ar(
+				delayBuf,
+				InFeedback.ar(\inBus.ir),
+				slewedDelayTime - (BlockSize.ir * SampleDur.ir)
+			);
+			var output = SinOsc.ar(
+				hz * Select.kr(whichRatio, fmRatios),
+				(delayedIn * \index.ar(-1).lincurve(-1, 1, 0, 13pi, 4, \min) * 0.7.pow(pitch)).mod(2pi)
 			);
 			Out.ar(\outBus.ir, output);
 		}).add;
