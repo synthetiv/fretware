@@ -748,7 +748,7 @@ function init()
 		name = 'op type A',
 		id = 'opTypeA',
 		type = 'option',
-		options = { 'FM', 'FB', 'saw', 'square', 'pluck', 'comb', 'comb ext' },
+		options = { 'FM', 'FB', 'sample', 'saw', 'square', 'pluck', 'comb', 'comb ext' },
 		default = 1,
 		action = function(value)
 			engine.opTypeA(value - 1)
@@ -770,7 +770,7 @@ function init()
 		name = 'op type B',
 		id = 'opTypeB',
 		type = 'option',
-		options = { 'FB', 'FM', 'saw', 'square', 'pluck', 'comb', 'comb ext' },
+		options = { 'FB', 'FM', 'sample', 'saw', 'square', 'pluck', 'comb', 'comb ext' },
 		default = 1,
 		action = function(value)
 			if value == 1 then

@@ -19,6 +19,10 @@ Engine_Cule : CroneEngine {
 	var fmRatiosInterleaved;
 	var nRatios;
 
+	var sampleData;
+	var sampleOffsetPoints;
+	var sampleOffsets;
+
 	var baseFreqBus;
 	var voiceBuses;
 	var voiceOpStates;
@@ -104,6 +108,7 @@ Engine_Cule : CroneEngine {
 		opTypeDefNames = [
 			[ \operatorFM, \operatorFMFade ],
 			[ \operatorFB, \operatorFBFade ],
+			\operatorSample,
 			[ \operatorSaw, \operatorSawFade ],
 			[ \operatorSquare, \operatorSquareFade ],
 			\operatorKarp,
@@ -206,6 +211,95 @@ Engine_Cule : CroneEngine {
 			1, 2, /* 3, */ 4, /* 5, */ 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
 		fmRatiosInterleaved = fmRatios.clump(2).flop;
 		nRatios = fmRatios.size;
+
+		sampleOffsetPoints = [
+			0,
+			4097,
+			8193,
+			12289,
+			16385,
+			24577,
+			26625,
+			28673,
+			30721,
+			32769,
+			34817,
+			36865,
+			40961,
+			45052, // or the start may be 45057
+			47104,
+			49153,
+			57345,
+			65537,
+			73729,
+			81921,
+			86017,
+			90113,
+			94209,
+			98305,
+			102401,
+			106497,
+			110593,
+			114689,
+			118785,
+			122881,
+			126977,
+			131073,
+			135169,
+			139265,
+			143361,
+			147457,
+			149505,
+			151553,
+			155649,
+			157697,
+			159745,
+			163841,
+			167938,
+			172033,
+			176129,
+			180241,
+			184324,
+			188417, // looped waveforms start here
+			190465, // all are 2048 samples long
+			192513,
+			194561,
+			196609,
+			198657,
+			200705,
+			202753,
+			204801,
+			206849,
+			208897,
+			210945,
+			212993,
+			215041,
+			217089,
+			219137,
+			221185,
+			223233,
+			225281,
+			227329,
+			229377,
+			231425,
+			233473,
+			235521, // noise waveforms start here-ish
+			237569,
+			239617,
+			241665,
+			243713,
+			245761,
+			247809,
+			249857,
+			251905,
+			253953,
+			256001,
+			258049,
+			260097,
+			262145 // and then we're into non-loop zone again
+		];
+		sampleOffsets = Buffer.loadCollection(context.server, sampleOffsetPoints);
+		sampleData = Buffer.read(context.server, "/home/we/dust/data/fretware/d50.wav", 0, sampleOffsetPoints.reverse[0]);
 
 		baseFreqBus = Bus.control(context.server);
 
@@ -650,6 +744,23 @@ Engine_Cule : CroneEngine {
 			Out.ar(\outBus.ir, delayedIn);
 		}).add;
 
+		// Sample player
+		SynthDef.new(\operatorSample, {
+			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
+			// TODO: this base freq of 188 was tuned by ear! is there a better way?
+			var rate = 2.pow(\pitch.kr) * In.kr(baseFreqBus) / \sampleBase.kr(188) * Select.kr(whichRatio, fmRatios);
+			var whichSample = Latch.ar(\index.kr.linlin(-1, 1, 0, sampleOffsetPoints.size + 1).trunc, \trig.tr);
+			// TODO: why don't these snap properly...?
+			var startOffset = BufRd.ar(1, sampleOffsets, whichSample, interpolation: 1);
+			var endOffset = BufRd.ar(1, sampleOffsets, whichSample + 1, interpolation: 1);
+			var shouldLoop = whichSample >= 47;
+			var phase = Select.ar(shouldLoop, [
+				(startOffset + Sweep.ar(\trig.tr, rate * SampleRate.ir)).min(endOffset),
+				Phasor.ar(Changed.ar(whichSample), rate, startOffset, endOffset, startOffset)
+			]);
+			Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase, 0, 0));
+		}).add;
+
 		// Band-limited pseudo-analog oscillator, square-saw mix
 		SynthDef.new(\operatorSquare, {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
@@ -1056,6 +1167,13 @@ Engine_Cule : CroneEngine {
 			voiceSynths[selectedVoice][0].set(\gate, value, \trig, value);
 		});
 
+		// temporary command for determining the D50 samples' base frequency
+		this.addCommand(\tuneSample, "f", {
+			arg msg;
+			var value = msg[1];
+			voiceSynths[selectedVoice][1].set(\sampleBase, value);
+		});
+
 		[ \pitch, \tip, \palm ].do({
 			arg name;
 			this.addCommand(name, "f", { |msg|
@@ -1078,6 +1196,8 @@ Engine_Cule : CroneEngine {
 	}
 
 	free {
+		sampleData.free;
+		sampleOffsets.free;
 		replySynth.free;
 		voiceSynths.do({ |synths| synths.do({ |synth| synth.free }) });
 		patchBuses.do({ |bus| bus.free });
