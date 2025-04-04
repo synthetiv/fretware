@@ -788,6 +788,8 @@ Engine_Cule : CroneEngine {
 		SynthDef.new(\operatorSampleLoop, {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
 			// base freq is 187.5 because looped slices are 2048 samples long with 32 cycles per slice
+			// meaning 64 samples = 1 cycle. playing back at 48k would therefore give you 750 Hz,
+			// which we then drop down a few octaves.
 			var rate = 2.pow(\pitch.kr) * In.kr(baseFreqBus) / 187.5 * Select.kr(whichRatio, fmRatios);
 			// TODO: the use of 'index' here means sample choice is modulated by amp by default,
 			// which usually doesn't sound great, and is confusing. use \ratio instead??
