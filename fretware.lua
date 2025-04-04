@@ -1195,8 +1195,10 @@ function init()
 		local message = midi.to_msg(data)
 		if message.type == 'pitchbend' then
 			local fader = message.ch
-			-- scale to [0, 1]. 16383 = max 14-bit pitchbend value
-			local new_value = message.val / 16383
+			-- scale to [0, 1].
+			-- max 14-bit pitchbend value is 16383, but xvi only returns up to 16380
+			-- 12 bits of resolution is plenty
+			local new_value = message.val / 16380
 			local state = xvi_state[fader]
 			local old_value = state.value or new_value
 			local changed_source = false
