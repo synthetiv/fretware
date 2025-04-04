@@ -1335,17 +1335,18 @@ function enc(n, d)
 		-- TODO: handle 'delta' and auto-selection stuff in SliderMapping class
 		local param_index = 15 + n
 		local changed_source = false
+		local d_scaled = d / 128
 		for source = 1, #editor.source_names do
 			if source_menu.held[source] then
-				source_mappings[param_index][source]:delta(d)
+				source_mappings[param_index][source]:delta(d_scaled)
 				changed_source = true
 			end
 		end
 		if not changed_source then
 			if n == 2 then
-				voice_mappings.pan[k.selected_voice]:delta(d)
+				voice_mappings.pan[k.selected_voice]:delta(d_scaled)
 			elseif n == 3 then
-				voice_mappings.outLevel[k.selected_voice]:delta(d * 2)
+				voice_mappings.outLevel[k.selected_voice]:delta(d_scaled)
 			end
 		end
 		-- maybe auto-select amp or pan
