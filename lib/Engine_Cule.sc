@@ -251,7 +251,7 @@ Engine_Cule : CroneEngine {
 			256001,
 			258049,
 			260097,
-			// NON-LOOPS ARE HERE
+			nil, // this is where the one-shots are. skip them this time around.
 			731137, // back to loops...
 			735233,
 			737281, // the really long ones start here
@@ -273,8 +273,16 @@ Engine_Cule : CroneEngine {
 			2985985, // ladies and gentlemen, let's move your body
 			3063807 // the end!!
 		];
-		// TODO: make two-channel buffers of start AND end points! boom.
-		loopingSampleOffsets = Buffer.loadCollection(context.server, loopingSampleOffsetPoints);
+		loopingSampleOffsetPoints = loopingSampleOffsetPoints.collect({ |start, index|
+			var end = loopingSampleOffsetPoints[index + 1];
+			if(start.isNil || end.isNil, {
+				// Skip this part of the sample data. We'll filter out this nil later.
+				nil;
+			}, {
+				[ start, end ];
+			});
+		}).removeEvery([ nil ]);
+		loopingSampleOffsets = Buffer.loadCollection(context.server, loopingSampleOffsetPoints.flatten, 2);
 
 		oneShotSampleOffsetPoints = [
 			0,
@@ -324,7 +332,7 @@ Engine_Cule : CroneEngine {
 			176129,
 			180241,
 			184324,
-			// LOOPS ARE HERE
+			nil, // skip looping section...
 			262145,
 			303107,
 			368641,
@@ -334,9 +342,17 @@ Engine_Cule : CroneEngine {
 			507906,
 			557058,
 			655362,
-			681988,
+			681988
 		];
-		oneShotSampleOffsets = Buffer.loadCollection(context.server, oneShotSampleOffsetPoints);
+		oneShotSampleOffsetPoints = oneShotSampleOffsetPoints.collect({ |start, index|
+			var end = oneShotSampleOffsetPoints[index + 1];
+			if(start.isNil || end.isNil, {
+				nil;
+			}, {
+				[ start, end ];
+			});
+		}).removeEvery([ nil ]);
+		oneShotSampleOffsets = Buffer.loadCollection(context.server, oneShotSampleOffsetPoints.flatten, 2);
 
 		sampleData = Buffer.read(context.server, "/home/we/dust/data/fretware/d50.wav", 0, -1);
 
@@ -794,13 +810,14 @@ Engine_Cule : CroneEngine {
 			// TODO: the use of 'index' here means sample choice is modulated by amp by default,
 			// which usually doesn't sound great, and is confusing. use \ratio instead??
 			// and index could control... uhhhhhhhhhh... saturation... tone... something
+			// -- something such as phase modulation
 			var whichSample = \index.ar.linlin(-1, 1, 0, loopingSampleOffsetPoints.size - 1).trunc;
-			var startOffset = BufRd.ar(1, loopingSampleOffsets, whichSample, interpolation: 1);
-			var endOffset = BufRd.ar(1, loopingSampleOffsets, whichSample + 1, interpolation: 1);
 			var sampleChanged = Changed.ar(whichSample) + Impulse.ar(0);
-			var loopStart = Latch.ar(startOffset, sampleChanged);
-			var loopEnd = Latch.ar(endOffset, sampleChanged);
-			var phase = Phasor.ar(sampleChanged, rate, loopStart, loopEnd, loopStart);
+			var bounds = Latch.ar(
+				BufRd.ar(2, loopingSampleOffsets, whichSample, interpolation: 1),
+				sampleChanged
+			);
+			var phase = Phasor.ar(sampleChanged, rate, bounds[0], bounds[1], bounds[0]);
 			Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase, 0, 0));
 		}).add;
 
@@ -814,9 +831,8 @@ Engine_Cule : CroneEngine {
 				\index.ar.linlin(-1, 1, 0, oneShotSampleOffsetPoints.size - 1).trunc,
 				\trig.tr
 			);
-			var startOffset = BufRd.ar(1, oneShotSampleOffsets, whichSample, interpolation: 1);
-			var endOffset = BufRd.ar(1, oneShotSampleOffsets, whichSample + 1, interpolation: 1);
-			var phase = (startOffset + Sweep.ar(\trig.tr, rate * SampleRate.ir)).min(endOffset);
+			var bounds = BufRd.ar(2, oneShotSampleOffsets, whichSample, interpolation: 1);
+			var phase = (bounds[0] + Sweep.ar(\trig.tr, rate * SampleRate.ir)).min(bounds[1]);
 			Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase, 0, 0));
 		}).add;
 
