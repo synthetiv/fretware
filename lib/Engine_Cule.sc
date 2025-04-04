@@ -259,15 +259,17 @@ Engine_Cule : CroneEngine {
 			1040503,
 			1138690,
 			1202176,
-			1335304, // this is the one filter sweep one that also includes a decay
-			1485156, // this is a guess at a loop point
+			1335304, // this is a filter sweep that decays.
+			nil, // I haven't been able to find a good loop point for it.
 			1531905, // end of decay / start of next sample
 			1712129, // voice
 			1843201,
-			1921025,
-			1998849, // bit of a guess
-			2243046, // also a bit of a guess
-			2408487, // this'n too
+			1921025, // start/end points below are a little uncertain
+			nil, // that last one starts a chord, skip it
+			// 1998849, // another chord!
+			2243046,
+			2408487, // another chord, last one
+			nil,
 			2539521,
 			2801627,
 			2985985, // ladies and gentlemen, let's move your body
