@@ -776,7 +776,7 @@ function init()
 			if value == 1 then
 				value = 2 -- default to FB
 			elseif value == 2 then
-				value = 8 -- and use delayed FM for FM
+				value = 9 -- and use delayed FM for FM
 			end
 			engine.opTypeB(value - 1)
 		end
