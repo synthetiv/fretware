@@ -213,6 +213,7 @@ Engine_Cule : CroneEngine {
 		nRatios = fmRatios.size;
 
 		sampleOffsetPoints = [
+			/*
 			0,
 			4097,
 			8193,
@@ -260,6 +261,7 @@ Engine_Cule : CroneEngine {
 			176129,
 			180241,
 			184324,
+			*/
 			188417, // looped waveforms start here
 			190465, // all are 2048 samples long
 			192513,
@@ -296,7 +298,28 @@ Engine_Cule : CroneEngine {
 			256001,
 			258049,
 			260097,
-			262145 // and then we're into non-loop zone again
+			262145,
+			// I'm skipping a bunch of long one-hits here
+			731137, // back to loops...
+			735233,
+			737281, // the big ones start here
+			909313,
+			1040503,
+			1138690,
+			1202176,
+			1335304, // this is the one filter sweep one that also includes a decay
+			1485156, // this is a guess at a loop point
+			1531905, // end of decay / start of next sample
+			1712129, // voice
+			1843201,
+			1921025,
+			1998849, // bit of a guess
+			2243046, // also a bit of a guess
+			2408487, // this'n too
+			2539521,
+			2801627,
+			2985985, // ladies and gentlemen, let's move your body
+			3063808 // the end!!
 		];
 		sampleOffsets = Buffer.loadCollection(context.server, sampleOffsetPoints);
 		sampleData = Buffer.read(context.server, "/home/we/dust/data/fretware/d50.wav", 0, sampleOffsetPoints.reverse[0]);
@@ -747,17 +770,21 @@ Engine_Cule : CroneEngine {
 		// Sample player
 		SynthDef.new(\operatorSample, {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
-			// TODO: this base freq of 188 was tuned by ear! is there a better way?
-			var rate = 2.pow(\pitch.kr) * In.kr(baseFreqBus) / \sampleBase.kr(188) * Select.kr(whichRatio, fmRatios);
-			var whichSample = Latch.ar(\index.kr.linlin(-1, 1, 0, sampleOffsetPoints.size + 1).trunc, \trig.tr);
+			// base freq is 187.5 because looped samples are 2048 samples long with 32 cycles per sample
+			var rate = 2.pow(\pitch.kr) * In.kr(baseFreqBus) / \sampleBase.kr(187.5) * Select.kr(whichRatio, fmRatios);
+			var whichSample = \index.ar.linlin(-1, 1, 0, sampleOffsetPoints.size + 1).trunc;
 			// TODO: why don't these snap properly...?
 			var startOffset = BufRd.ar(1, sampleOffsets, whichSample, interpolation: 1);
 			var endOffset = BufRd.ar(1, sampleOffsets, whichSample + 1, interpolation: 1);
-			var shouldLoop = whichSample >= 47;
-			var phase = Select.ar(shouldLoop, [
-				(startOffset + Sweep.ar(\trig.tr, rate * SampleRate.ir)).min(endOffset),
-				Phasor.ar(Changed.ar(whichSample), rate, startOffset, endOffset, startOffset)
-			]);
+			// var shouldLoop = whichSample >= 47;
+			var sampleChanged = Changed.ar(whichSample);
+			var loopStart = Latch.ar(startOffset, sampleChanged);
+			var loopEnd = Latch.ar(endOffset, sampleChanged);
+			// var phase = Select.ar(shouldLoop, [
+			// 	(Latch.ar(startOffset, \trig.tr) + Sweep.ar(\trig.tr, rate * SampleRate.ir)).min(Latch.ar(endOffset, \trig.tr)),
+			// 	Phasor.ar(sampleChanged, rate, loopStart, loopEnd, loopStart)
+			// ]);
+			var phase = Phasor.ar(sampleChanged, rate, loopStart, loopEnd, loopStart);
 			Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase, 0, 0));
 		}).add;
 
