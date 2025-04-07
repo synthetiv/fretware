@@ -20,6 +20,7 @@ Engine_Cule : CroneEngine {
 	var nRatios;
 
 	var d50Resources;
+	var sq80Resources;
 
 	var baseFreqBus;
 	var voiceBuses;
@@ -66,9 +67,6 @@ Engine_Cule : CroneEngine {
 		// TODO: crossfade two voices when switching waves
 		SynthDef.new(prefix.asString ++ "Loop", {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
-			// base freq is 187.5 because looped slices are 2048 samples long with 32 cycles per slice
-			// meaning 64 samples = 1 cycle. playing back at 48k would therefore give you 750 Hz,
-			// which we then drop down a few octaves.
 			var rate = 2.pow(\pitch.kr) * In.kr(baseFreqBus) / baseFreq * Select.kr(whichRatio, fmRatios);
 			// TODO: the use of 'index' here means sample choice is modulated by amp by default,
 			// which usually doesn't sound great, and is confusing. use \ratio instead??
@@ -157,7 +155,7 @@ Engine_Cule : CroneEngine {
 		opTypeDefNames = [
 			[ \operatorFM, \operatorFMFade ],
 			[ \operatorFB, \operatorFBFade ],
-			[ \operatorD50Loop, \operatorD50OneShot ],
+			[ \operatorSQ80Loop, \operatorSQ80OneShot ],
 			[ \operatorSquare, \operatorSquareFade ],
 			[ \operatorSaw, \operatorSawFade ],
 			\operatorKarp,
@@ -750,9 +748,42 @@ Engine_Cule : CroneEngine {
 			Out.ar(\outBus.ir, output * 6.dbamp);
 		}).add;
 
+		// TODO: fill in the rest of the loops and one-shots
+		sq80Resources = this.buildRomplerDefs(
+			\operatorSQ80,
+			// these samples are (around?) 1024 samples per cycle.
+			48000 / 1024 / 2,
+			"/home/we/dust/data/fretware/sq80.wav",
+			(((0..64) * 1024).dupEach.shift(1).clump(2).copyToEnd(1) - [ 0, 1]),
+			[
+				[ 65536, 73663 ],
+				[ 73728, 77759 ],
+				[ 77824, 81855 ],
+				[ 81920, 90047 ],
+				[ 90112, 98239 ],
+				[ 98304, 106431 ],
+				[ 106496, 114623 ],
+				[ 131072, 141247 ],
+				[ 141312, 143295 ],
+				[ 143360, 147391 ],
+				[ 147456, 163775 ],
+				[ 163840, 176063 ],
+				[ 176130, 180207 ],
+				[ 180224, 192447 ],
+				[ 192512, 196543 ],
+				[ 229376, 233407 ],
+				[ 233472, 237503 ],
+				[ 245760, 248815 ],
+				[ 250880, 251871 ],
+				[ 251904, 253887 ]
+			]
+		);
+
 		d50Resources = this.buildRomplerDefs(
 			\operatorD50,
-			187.5,
+			// looped slices are 2048 samples long, with 32 cycles per slice
+			// meaning 64 samples = 1 cycle
+			48000 / 64 / 2,
 			"/home/we/dust/data/fretware/d50.wav",
 			[
 				188417, 190465, 192513, 194561, 196609, 198657, 200705, 202753,
@@ -1177,6 +1208,7 @@ Engine_Cule : CroneEngine {
 	}
 
 	free {
+		sq80Resources.do({ |rsrc| rsrc.free });
 		d50Resources.do({ |rsrc| rsrc.free });
 		replySynth.free;
 		voiceSynths.do({ |synths| synths.do({ |synth| synth.free }) });
