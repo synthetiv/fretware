@@ -111,8 +111,8 @@ Engine_Cule : CroneEngine {
 			[ \operatorFM, \operatorFMFade ],
 			[ \operatorFB, \operatorFBFade ],
 			[ \operatorSampleLoop, \operatorSampleHit ],
-			[ \operatorSaw, \operatorSawFade ],
 			[ \operatorSquare, \operatorSquareFade ],
+			[ \operatorSaw, \operatorSawFade ],
 			\operatorKarp,
 			\operatorComb,
 			\operatorCombExt,
@@ -815,6 +815,9 @@ Engine_Cule : CroneEngine {
 			// -- something such as phase modulation
 			var whichSample = \index.ar.linlin(-1, 1, 0, loopingSampleOffsetPoints.size - 1).trunc;
 			var sampleChanged = Changed.ar(whichSample) + Impulse.ar(0);
+			// TODO: okay, now delay the sampleChanged trigger until the current loop is finished
+			// oh, but the loops don't even necessarily start & end on zero crossings,
+			// so is that even worth it?
 			var bounds = Latch.ar(
 				BufRd.ar(2, loopingSampleOffsets, whichSample, interpolation: 1),
 				sampleChanged

@@ -439,7 +439,13 @@ function g.key(x, y, z)
 					local source_name = editor.source_names[source]
 					for dest = 1, #editor.dests do
 						local dest_name = editor.dests[dest].name
-						params:lookup_param(source_name .. '_' .. dest_name):set_default()
+						local defaults = editor.dests[dest].source_defaults
+						local param = params:lookup_param(source_name .. '_' .. dest_name)
+						if defaults and defaults[source_name] then
+							param:set(defaults[source_name])
+						else
+							param:set_default()
+						end
 						-- TODO: what's this for again??
 						_menu.set_mode(false)
 					end
@@ -748,10 +754,18 @@ function init()
 		name = 'op type A',
 		id = 'opTypeA',
 		type = 'option',
-		options = { 'FM', 'FB', 'sample', 'saw', 'square', 'pluck', 'comb', 'comb ext' },
+		options = { 'FM', 'FB', 'sample', 'square', 'saw', 'pluck', 'comb', 'comb ext' },
 		default = 1,
 		action = function(value)
 			engine.opTypeA(value - 1)
+			-- TODO: this is an ugly hack. do something nicer.
+			if value == 3 then
+				editor.dests[3].source_defaults.amp = 0
+				params:set('amp_indexA', 0)
+			else
+				editor.dests[3].source_defaults.amp = 0.2
+				params:set('amp_indexA', 0.2)
+			end
 		end
 	}
 
@@ -770,7 +784,7 @@ function init()
 		name = 'op type B',
 		id = 'opTypeB',
 		type = 'option',
-		options = { 'FB', 'FM', 'sample', 'saw', 'square', 'pluck', 'comb', 'comb ext' },
+		options = { 'FB', 'FM', 'sample', 'square', 'saw', 'pluck', 'comb', 'comb ext' },
 		default = 1,
 		action = function(value)
 			if value == 1 then
@@ -779,6 +793,13 @@ function init()
 				value = 9 -- and use delayed FM for FM
 			end
 			engine.opTypeB(value - 1)
+			if value == 3 then
+				editor.dests[7].source_defaults.amp = 0
+				params:set('amp_indexB', 0)
+			else
+				editor.dests[7].source_defaults.amp = 0.2
+				params:set('amp_indexB', 0.2)
+			end
 		end
 	}
 
