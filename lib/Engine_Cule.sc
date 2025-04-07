@@ -19,11 +19,7 @@ Engine_Cule : CroneEngine {
 	var fmRatiosInterleaved;
 	var nRatios;
 
-	var sampleData;
-	var loopingSampleOffsetPoints;
-	var loopingSampleOffsets;
-	var oneShotSampleOffsetPoints;
-	var oneShotSampleOffsets;
+	var d50Resources;
 
 	var baseFreqBus;
 	var voiceBuses;
@@ -57,6 +53,57 @@ Engine_Cule : CroneEngine {
 			uGen.ar(hz * Select.kr(whichRatio / 2, fmRatiosInterleaved[1]), uGenArg),
 			whichOsc
 		);
+	}
+
+	buildRomplerDefs {
+		arg prefix, baseFreq, path, loopPairs, oneShotPairs;
+
+		var loopOffsetData = Buffer.loadCollection(context.server, loopPairs.flatten, 2);
+		var oneShotOffsetData = Buffer.loadCollection(context.server, oneShotPairs.flatten, 2);
+		var sampleData = Buffer.read(context.server, path, 0, -1);
+
+		// Looping sample player
+		// TODO: crossfade two voices when switching waves
+		SynthDef.new(prefix.asString ++ "Loop", {
+			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
+			// base freq is 187.5 because looped slices are 2048 samples long with 32 cycles per slice
+			// meaning 64 samples = 1 cycle. playing back at 48k would therefore give you 750 Hz,
+			// which we then drop down a few octaves.
+			var rate = 2.pow(\pitch.kr) * In.kr(baseFreqBus) / baseFreq * Select.kr(whichRatio, fmRatios);
+			// TODO: the use of 'index' here means sample choice is modulated by amp by default,
+			// which usually doesn't sound great, and is confusing. use \ratio instead??
+			// and index could control... uhhhhhhhhhh... saturation... tone... something
+			// -- something such as phase modulation
+			var whichSample = \index.ar.linlin(-1, 1, 0, loopPairs.size - 1).trunc;
+			var sampleChanged = Changed.ar(whichSample) + Impulse.ar(0);
+			// TODO: okay, now delay the sampleChanged trigger until the current loop is finished
+			// oh, but the loops don't even necessarily start & end on zero crossings,
+			// so is that even worth it?
+			var bounds = Latch.ar(
+				BufRd.ar(2, loopOffsetData, whichSample, interpolation: 1),
+				sampleChanged
+			);
+			var phase = Phasor.ar(sampleChanged, rate, bounds[0], bounds[1], bounds[0]);
+			Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase, 0, 0));
+		}).add;
+
+		// One-shot sample player
+		// TODO: an alternate version would retrigger somehow: either loop these samples too,
+		// or allow a change in index to trigger again once the currently playing sample finishes
+		SynthDef.new(prefix.asString ++ "OneShot", {
+			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
+			var rate = 2.pow(\pitch.kr) * In.kr(baseFreqBus) / 187.5 * Select.kr(whichRatio, fmRatios);
+			var whichSample = Latch.ar(
+				\index.ar.linlin(-1, 1, 0, oneShotPairs.size - 1).trunc,
+				\trig.tr
+			);
+			var bounds = BufRd.ar(2, oneShotOffsetData, whichSample, interpolation: 1);
+			var phase = (bounds[0] + Sweep.ar(\trig.tr, rate * SampleRate.ir)).min(bounds[1]);
+			Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase, 0, 0));
+		}).add;
+
+		// return buffers so we can free them later
+		[ loopOffsetData, oneShotOffsetData, sampleData ];
 	}
 
 	swapOp {
@@ -110,7 +157,7 @@ Engine_Cule : CroneEngine {
 		opTypeDefNames = [
 			[ \operatorFM, \operatorFMFade ],
 			[ \operatorFB, \operatorFBFade ],
-			[ \operatorSampleLoop, \operatorSampleHit ],
+			[ \operatorD50Loop, \operatorD50OneShot ],
 			[ \operatorSquare, \operatorSquareFade ],
 			[ \operatorSaw, \operatorSawFade ],
 			\operatorKarp,
@@ -213,150 +260,6 @@ Engine_Cule : CroneEngine {
 			1, 2, /* 3, */ 4, /* 5, */ 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
 		fmRatiosInterleaved = fmRatios.clump(2).flop;
 		nRatios = fmRatios.size;
-
-		loopingSampleOffsetPoints = [
-			188417, // looped waveforms start here
-			190465, // all are 2048 samples long
-			192513,
-			194561,
-			196609,
-			198657,
-			200705,
-			202753,
-			204801,
-			206849,
-			208897,
-			210945,
-			212993,
-			215041,
-			217089,
-			219137,
-			221185,
-			223233,
-			225281,
-			227329,
-			229377,
-			231425,
-			233473,
-			235521, // noise waveforms start here-ish
-			237569,
-			239617,
-			241665,
-			243713,
-			245761,
-			247809,
-			249857,
-			251905,
-			253953,
-			256001,
-			258049,
-			260097,
-			nil, // this is where the one-shots are. skip them this time around.
-			731137, // back to loops...
-			735233,
-			737281, // the really long ones start here
-			909313,
-			1040503,
-			1138690,
-			1202176,
-			1335304, // this is a filter sweep that decays.
-			nil, // I haven't been able to find a good loop point for it.
-			1531905, // end of decay / start of next sample
-			1712129, // voice
-			1843201,
-			1921025, // start/end points below are a little uncertain
-			nil, // that last one starts a chord, skip it
-			// 1998849, // another chord!
-			2243046,
-			2408487, // another chord, last one
-			nil,
-			2539521,
-			2801627,
-			2985985, // ladies and gentlemen, let's move your body
-			3063807 // the end!!
-		];
-		loopingSampleOffsetPoints = loopingSampleOffsetPoints.collect({ |start, index|
-			var end = loopingSampleOffsetPoints[index + 1];
-			if(start.isNil || end.isNil, {
-				// Skip this part of the sample data. We'll filter out this nil later.
-				nil;
-			}, {
-				[ start, end ];
-			});
-		}).removeEvery([ nil ]);
-		loopingSampleOffsets = Buffer.loadCollection(context.server, loopingSampleOffsetPoints.flatten, 2);
-
-		oneShotSampleOffsetPoints = [
-			0,
-			4097,
-			8193,
-			12289,
-			16385,
-			24577,
-			26625,
-			28673,
-			30721,
-			32769,
-			34817,
-			36865,
-			40961,
-			45052, // or the start may be 45057
-			47104,
-			49153,
-			57345,
-			65537,
-			73729,
-			81921,
-			86017,
-			90113,
-			94209,
-			98305,
-			102401,
-			106497,
-			110593,
-			114689,
-			118785,
-			122881,
-			126977,
-			131073,
-			135169,
-			139265,
-			143361,
-			147457,
-			149505,
-			151553,
-			155649,
-			157697,
-			159745,
-			163841,
-			167938,
-			172033,
-			176129,
-			180241,
-			184324,
-			nil, // skip looping section...
-			262145,
-			303107,
-			368641,
-			442371,
-			458754,
-			491522,
-			507906,
-			557058,
-			655362,
-			681988
-		];
-		oneShotSampleOffsetPoints = oneShotSampleOffsetPoints.collect({ |start, index|
-			var end = oneShotSampleOffsetPoints[index + 1];
-			if(start.isNil || end.isNil, {
-				nil;
-			}, {
-				[ start, end ];
-			});
-		}).removeEvery([ nil ]);
-		oneShotSampleOffsets = Buffer.loadCollection(context.server, oneShotSampleOffsetPoints.flatten, 2);
-
-		sampleData = Buffer.read(context.server, "/home/we/dust/data/fretware/d50.wav", 0, -1);
 
 		baseFreqBus = Bus.control(context.server);
 
@@ -801,46 +704,6 @@ Engine_Cule : CroneEngine {
 			Out.ar(\outBus.ir, delayedIn);
 		}).add;
 
-		// Looping sample player
-		// TODO: crossfade two voices when switching waves
-		SynthDef.new(\operatorSampleLoop, {
-			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
-			// base freq is 187.5 because looped slices are 2048 samples long with 32 cycles per slice
-			// meaning 64 samples = 1 cycle. playing back at 48k would therefore give you 750 Hz,
-			// which we then drop down a few octaves.
-			var rate = 2.pow(\pitch.kr) * In.kr(baseFreqBus) / 187.5 * Select.kr(whichRatio, fmRatios);
-			// TODO: the use of 'index' here means sample choice is modulated by amp by default,
-			// which usually doesn't sound great, and is confusing. use \ratio instead??
-			// and index could control... uhhhhhhhhhh... saturation... tone... something
-			// -- something such as phase modulation
-			var whichSample = \index.ar.linlin(-1, 1, 0, loopingSampleOffsetPoints.size - 1).trunc;
-			var sampleChanged = Changed.ar(whichSample) + Impulse.ar(0);
-			// TODO: okay, now delay the sampleChanged trigger until the current loop is finished
-			// oh, but the loops don't even necessarily start & end on zero crossings,
-			// so is that even worth it?
-			var bounds = Latch.ar(
-				BufRd.ar(2, loopingSampleOffsets, whichSample, interpolation: 1),
-				sampleChanged
-			);
-			var phase = Phasor.ar(sampleChanged, rate, bounds[0], bounds[1], bounds[0]);
-			Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase, 0, 0));
-		}).add;
-
-		// One-shot sample player
-		// TODO: an alternate version would retrigger somehow: either loop these samples too,
-		// or allow a change in index to trigger again once the currently playing sample finishes
-		SynthDef.new(\operatorSampleHit, {
-			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
-			var rate = 2.pow(\pitch.kr) * In.kr(baseFreqBus) / 187.5 * Select.kr(whichRatio, fmRatios);
-			var whichSample = Latch.ar(
-				\index.ar.linlin(-1, 1, 0, oneShotSampleOffsetPoints.size - 1).trunc,
-				\trig.tr
-			);
-			var bounds = BufRd.ar(2, oneShotSampleOffsets, whichSample, interpolation: 1);
-			var phase = (bounds[0] + Sweep.ar(\trig.tr, rate * SampleRate.ir)).min(bounds[1]);
-			Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase, 0, 0));
-		}).add;
-
 		// Band-limited pseudo-analog oscillator, square-saw mix
 		SynthDef.new(\operatorSquare, {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
@@ -887,7 +750,40 @@ Engine_Cule : CroneEngine {
 			Out.ar(\outBus.ir, output * 6.dbamp);
 		}).add;
 
-		// TODO: other, lighter-weight operators
+		d50Resources = this.buildRomplerDefs(
+			\operatorD50,
+			187.5,
+			"/home/we/dust/data/fretware/d50.wav",
+			[
+				188417, 190465, 192513, 194561, 196609, 198657, 200705, 202753,
+				204801, 206849, 208897, 210945, 212993, 215041, 217089, 219137,
+				221185, 223233, 225281, 227329, 229377, 231425, 233473, 235521,
+				237569, 239617, 241665, 243713, 245761, 247809, 249857, 251905,
+				253953, 256001, 258049, 260097, nil, // one-shots start here
+				731137, 735233, 737281, 909313, 1040503, 1138690, 1202176, 1335304,
+				// next one is (kind of??) a one-shot again
+				nil, 1531905, 1712129, 1843201,
+				// the following start/end points are a little uncertain
+				1921025, nil, 2243046, 2408487, nil, 2539521, 2801627, 2985985,
+				3063807 // the end
+			].dupEach.shift(1).clump(2).reject({
+				arg range, index;
+				(index == 0) || range.includes(nil);
+			}),
+			[
+				0, 4097, 8193, 12289, 16385, 24577, 26625, 28673,
+				30721, 32769, 34817, 36865, 40961, 45052, /* or maybe 45057 */ 47104, 49153,
+				57345, 65537, 73729, 81921, 86017, 90113, 94209, 98305,
+				102401, 106497, 110593, 114689, 118785, 122881, 126977, 131073,
+				135169, 139265, 143361, 147457, 149505, 151553, 155649, 157697,
+				159745, 163841, 167938, 172033, 176129, 180241, 184324, nil, // loops here
+				262145, 303107, 368641, 442371, 458754, 491522, 507906, 557058,
+				655362, 681988
+			].dupEach.shift(1).clump(2).reject({
+				arg range, index;
+				(index == 0) || range.includes(nil);
+			})
+		);
 
 		SynthDef.new(\operatorMixer, {
 			// TODO: pause op synths when they're fully mixed out??
@@ -1281,9 +1177,7 @@ Engine_Cule : CroneEngine {
 	}
 
 	free {
-		sampleData.free;
-		loopingSampleOffsets.free;
-		oneShotSampleOffsets.free;
+		d50Resources.do({ |rsrc| rsrc.free });
 		replySynth.free;
 		voiceSynths.do({ |synths| synths.do({ |synth| synth.free }) });
 		patchBuses.do({ |bus| bus.free });
