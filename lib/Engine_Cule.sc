@@ -754,7 +754,16 @@ Engine_Cule : CroneEngine {
 			// these samples are (around?) 1024 samples per cycle.
 			48000 / 1024 / 2,
 			"/home/we/dust/data/fretware/sq80.wav",
-			(((0..64) * 1024).dupEach.shift(1).clump(2).copyToEnd(1) - [ 0, 1]),
+			[
+				// 1024-sample waves
+				([(0..64), (112..128), (232..240)] * 1024)
+					.collect({ |set| set.dupEach.shift(1).clump(2).copyToEnd(1) }).flatten,
+				// 512-sample waves
+				([(486..490), (496..512)] * 512)
+					.collect({ |set| set.dupEach.shift(1).clump(2).copyToEnd(1) }).flatten,
+				// 8192-sample voices
+				((24..28) * 8192).dupEach.shift(1).clump(2).copyToEnd(1)
+			].flatten - [0, 1],
 			[
 				[ 65536, 73663 ],
 				[ 73728, 77759 ],
