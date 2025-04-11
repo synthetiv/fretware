@@ -809,7 +809,7 @@ Engine_Cule : CroneEngine {
 			].dupEach.shift(1).clump(2).reject({
 				arg range, index;
 				(index == 0) || range.includes(nil);
-			}),
+			}).collect({ |pair| pair - [0, 1] }),
 			[
 				0, 4097, 8193, 12289, 16385, 24577, 26625, 28673,
 				30721, 32769, 34817, 36865, 40961, 45052, /* or maybe 45057 */ 47104, 49153,
@@ -822,7 +822,7 @@ Engine_Cule : CroneEngine {
 			].dupEach.shift(1).clump(2).reject({
 				arg range, index;
 				(index == 0) || range.includes(nil);
-			})
+			}).collect({ |pair| pair - [0, 1] })
 		);
 
 		SynthDef.new(\operatorMixer, {
