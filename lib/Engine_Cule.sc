@@ -93,7 +93,7 @@ Engine_Cule : CroneEngine {
 				waveChanged
 			);
 			var phase = Phasor.ar(waveChanged, rate * params[2], params[0], params[1], params[0]);
-			Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase, 0, 0));
+			Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase, 0, 4));
 		}).add;
 
 		// One-shot sample player
@@ -111,7 +111,7 @@ Engine_Cule : CroneEngine {
 			var whichWave = Select.ar(whichRange, BufRd.ar(16, waveMapsOneShot, whichMap, interpolation: 1));
 			var params = BufRd.ar(3, waveParams, whichWave, interpolation: 1);
 			var phase = (params[0] + Sweep.ar(\trig.tr, rate * SampleRate.ir * params[2])).min(params[1]);
-			Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase, 0, 0));
+			Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase, 0, 4));
 		}).add;
 
 		// return buffers so we can free them later
