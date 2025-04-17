@@ -17,6 +17,7 @@ Engine_Cule : CroneEngine {
 
 	var fmRatios;
 	var fmRatiosInterleaved;
+	var fmIntervals;
 	var nRatios;
 
 	var d50Resources;
@@ -57,48 +58,53 @@ Engine_Cule : CroneEngine {
 	}
 
 	buildRomplerDefs {
-		arg prefix, baseFreq, path, loopPairs, oneShotPairs;
+		arg prefix, baseFreq, path, waveParamsArray, waveMapsLoopArray, waveMapsOneShotArray;
 
-		var loopOffsetData = Buffer.loadCollection(context.server, loopPairs.flatten, 2);
-		var oneShotOffsetData = Buffer.loadCollection(context.server, oneShotPairs.flatten, 2);
+		// start, end, and pitch offset from baseFreq
+		// TODO: OK, now write this data in
+		var waveParams = Buffer.loadCollection(context.server, waveParamsArray.flatten, 3);
+		var waveMapsLoop = Buffer.loadCollection(context.server, waveMapsLoopArray.flatten, 16);
+		var waveMapsOneShot = Buffer.loadCollection(context.server, waveMapsOneShotArray.flatten, 16);
 		var sampleData = Buffer.read(context.server, path, 0, -1);
 
 		// Looping sample player
 		// TODO: crossfade two voices when switching waves
 		SynthDef.new(prefix.asString ++ "Loop", {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
-			var rate = 2.pow(\pitch.kr) * In.kr(baseFreqBus) / baseFreq * Select.kr(whichRatio, fmRatios);
+			var pitch = \pitch.kr + Select.kr(whichRatio, fmIntervals);
+			var rate = 2.pow(pitch) * In.kr(baseFreqBus) / baseFreq;
 			// TODO: the use of 'index' here means sample choice is modulated by amp by default,
 			// which usually doesn't sound great, and is confusing. use \ratio instead??
 			// and index could control... uhhhhhhhhhh... saturation... tone... something
-			// -- something such as phase modulation
-			var whichSample = \index.ar.linlin(-1, 1, 0, loopPairs.size - 1).trunc;
-			var sampleChanged = Changed.ar(whichSample) + Impulse.ar(0);
-			// TODO: okay, now delay the sampleChanged trigger until the current loop is finished
-			// oh, but the loops don't even necessarily start & end on zero crossings,
-			// so is that even worth it?
-			var bounds = Latch.ar(
-				BufRd.ar(2, loopOffsetData, whichSample, interpolation: 1),
-				sampleChanged
+			// -- something such as phase modulation... or sync or something
+			var whichMap = \index.ar.linlin(-1, 1, 0, waveMapsLoopArray.size - 1).trunc;
+			var whichRange = pitch.linlin(0, 8/12, 0, 1, nil);
+			var whichWave = Select.ar(whichRange, BufRd.ar(16, waveMapsLoop, whichMap, interpolation: 1));
+			var waveChanged = Changed.ar(whichWave) + Impulse.ar(0);
+			// TODO: okay, now delay the sampleChanged trigger until the current loop is finished.
+			// no, I don't know how.
+			var params = Latch.ar(
+				BufRd.ar(3, waveParams, whichWave, interpolation: 1),
+				waveChanged
 			);
-			var phase = Phasor.ar(sampleChanged, rate, bounds[0], bounds[1], bounds[0]);
+			var phase = Phasor.ar(waveChanged, rate * params[3], params[0], params[1], params[0]);
 			Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase, 0, 0));
 		}).add;
 
 		// One-shot sample player
 		// TODO: an alternate version would retrigger somehow: either loop these samples too,
 		// or allow a change in index to trigger again once the currently playing sample finishes
-		SynthDef.new(prefix.asString ++ "OneShot", {
-			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
-			var rate = 2.pow(\pitch.kr) * In.kr(baseFreqBus) / 187.5 * Select.kr(whichRatio, fmRatios);
-			var whichSample = Latch.ar(
-				\index.ar.linlin(-1, 1, 0, oneShotPairs.size - 1).trunc,
-				\trig.tr
-			);
-			var bounds = BufRd.ar(2, oneShotOffsetData, whichSample, interpolation: 1);
-			var phase = (bounds[0] + Sweep.ar(\trig.tr, rate * SampleRate.ir)).min(bounds[1]);
-			Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase, 0, 0));
-		}).add;
+		// SynthDef.new(prefix.asString ++ "OneShot", {
+		// 	var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
+		// 	var rate = 2.pow(\pitch.kr) * In.kr(baseFreqBus) / 187.5 * Select.kr(whichRatio, fmRatios);
+		// 	var whichSample = Latch.ar(
+		// 		\index.ar.linlin(-1, 1, 0, oneShotParams.size - 1).trunc,
+		// 		\trig.tr
+		// 	);
+		// 	var bounds = BufRd.ar(2, oneShotOffsetData, whichSample, interpolation: 1);
+		// 	var phase = (bounds[0] + Sweep.ar(\trig.tr, rate * SampleRate.ir)).min(bounds[1]);
+		// 	Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase, 0, 0));
+		// }).add;
 
 		// return buffers so we can free them later
 		[ loopOffsetData, oneShotOffsetData, sampleData ];
@@ -257,6 +263,7 @@ Engine_Cule : CroneEngine {
 		fmRatios = [1/128, 1/64, 1/32, 1/16, 1/8, 1/4, 1/2,
 			1, 2, /* 3, */ 4, /* 5, */ 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
 		fmRatiosInterleaved = fmRatios.clump(2).flop;
+		fmIntervals = fmRatios.ratiomidi / 12;
 		nRatios = fmRatios.size;
 
 		baseFreqBus = Bus.control(context.server);
@@ -763,7 +770,7 @@ Engine_Cule : CroneEngine {
 					.collect({ |set| set.dupEach.shift(1).clump(2).copyToEnd(1) }).flatten,
 				// 8192-sample voices
 				((24..28) * 8192).dupEach.shift(1).clump(2).copyToEnd(1)
-			].flatten - [0, 1],
+			].flatten - [[ 0, 1 ]],
 			[
 				[ 65536, 73663 ],
 				[ 73728, 77759 ],
