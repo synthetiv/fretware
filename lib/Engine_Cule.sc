@@ -83,7 +83,7 @@ Engine_Cule : CroneEngine {
 			// and index could control... uhhhhhhhhhh... saturation... tone... something
 			// -- something such as phase modulation... or sync or something
 			var whichMap = \index.ar.linlin(-1, 1, 0, waveMapsLoopArray.size - 1).trunc;
-			var whichRange = pitch.linlin(0, 1, 9, 10.5, nil); // TODO: not at all sure about this pitch scaling
+			var whichRange = pitch.linlin(0, 1, \mapLo.kr(9), \mapHi.kr(10.5), nil); // TODO: not at all sure about this pitch scaling
 			var whichWave = Select.ar(whichRange, BufRd.ar(16, waveMapsLoop, whichMap, interpolation: 1));
 			var waveChanged = Changed.ar(whichWave) + Impulse.ar(0);
 			// TODO: okay, now delay the sampleChanged trigger until the current loop is finished.
@@ -107,7 +107,7 @@ Engine_Cule : CroneEngine {
 				\index.ar.linlin(-1, 1, 0, waveMapsOneShotArray.size - 1).trunc,
 				\trig.tr
 			);
-			var whichRange = pitch.linlin(0, 1, 9, 10.5, nil);
+			var whichRange = pitch.linlin(0, 1, \mapLo.kr(9), \mapHi.kr(10.5), nil);
 			var whichWave = Select.ar(whichRange, BufRd.ar(16, waveMapsOneShot, whichMap, interpolation: 1));
 			var params = BufRd.ar(3, waveParams, whichWave, interpolation: 1);
 			var phase = (params[0] + Sweep.ar(\trig.tr, rate * SampleRate.ir * params[2])).min(params[1]);
@@ -1198,6 +1198,16 @@ Engine_Cule : CroneEngine {
 			this.addCommand(name, "if", { |msg|
 				voiceSynths[msg[1] - 1][0].set(name, msg[2]);
 			});
+		});
+
+		// TODO: remove this once correct/good map range has been determined
+		// usage: engine.mapRange(voice, op, lo, hi)
+		this.addCommand(\mapRange, "iiff", {
+			arg msg;
+			voiceSynths[msg[1] - 1][msg[2]].set(
+				\mapLo, msg[3],
+				\mapHi, msg[4]
+			);
 		});
 	}
 
