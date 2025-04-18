@@ -1344,9 +1344,8 @@ function redraw()
 		elseif clock_source == 2 then
 			screen.text('MIDI')
 		elseif clock_source == 3 then
-			screen.text('LINK [')
+			screen.text('LINK: ')
 			screen.text(clock.link.get_number_of_peers())
-			screen.text(']')
 		elseif clock_source == 4 then
 			screen.text('CROW')
 		else
