@@ -100,25 +100,24 @@ Engine_Cule : CroneEngine {
 		}).add;
 
 		// One-shot sample player
-		// TODO: an alternate version would retrigger somehow: either loop these samples too,
-		// or allow a change in index to trigger again once the currently playing sample finishes
 		SynthDef.new(prefix.asString ++ "OneShot", {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
 			var pitch = \pitch.kr + Select.kr(whichRatio, fmIntervals);
 			var rate = 2.pow(pitch) * In.kr(baseFreqBus) / baseFreq;
-			var whichMap = Latch.ar(
-				\index.ar.linlin(-1, 1, 0, waveMapsOneShotArray.size - 1).trunc,
-				// TODO: trig gated by LocalIn from Sweep "done"
-				// ...or trig + (done * changed(whichMap))
-				\trig.tr
-			);
+			var stopped = LocalIn.ar(1);
+			var whichMap = \index.ar.linlin(-1, 1, 0, waveMapsOneShotArray.size - 1).trunc;
 			var whichRange = pitch.linlin(0, 1, \mapLo.kr(9), \mapHi.kr(10.5), nil);
 			var whichWave = Select.ar(whichRange, BufRd.ar(16, waveMapsOneShot, whichMap, interpolation: 1));
-			var params = BufRd.ar(3, waveParams, whichWave, interpolation: 1);
-			var phase = (params[0] + Sweep.ar(\trig.tr, rate * SampleRate.ir * params[2])).min(params[1]);
-			// TODO: LocalOut(sweep >= end)
-			// and use that to mute output or pause Sweep too, I think
-			Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase, 0, 4));
+			// retrigger on sample change
+			var trig = \trig.tr + (stopped * Changed.ar(whichWave));
+			var params = Latch.ar(
+				BufRd.ar(3, waveParams, whichWave, interpolation: 1),
+				trig
+			);
+			var phase = (params[0] + Sweep.ar(trig, rate * SampleRate.ir * params[2]));
+			// save a "we've reached the end of this sample" flag for next block
+			LocalOut.ar(phase >= params[1]);
+			Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase.min(params[1]), 0, 4));
 		}).add;
 
 		// return buffers so we can free them later
