@@ -82,8 +82,7 @@ Engine_Cule : CroneEngine {
 			// which usually doesn't sound great, and is confusing. use \ratio instead??
 			// and index could control... uhhhhhhhhhh... saturation... tone... something
 			// -- something such as phase modulation... or sync or something
-			// TODO: is -1 correct here? yeah, should be...
-			var whichMap = \index.ar.linlin(-1, 1, 0, waveMapsLoopArray.size - 1).trunc;
+			var whichMap = \index.ar.linlin(-1, 1, 0, waveMapsLoopArray.size - 0.5).trunc;
 			var whichRange = pitch.linlin(-1/24, 23/24, \mapLo.kr(9), \mapHi.kr(10.5), nil);
 			var whichWave = Select.ar(whichRange, BufRd.ar(16, waveMapsLoop, whichMap, interpolation: 1));
 			var waveChanged = Changed.ar(whichWave) + Impulse.ar(0);
@@ -107,7 +106,7 @@ Engine_Cule : CroneEngine {
 			var pitch = \pitch.kr + Select.kr(whichRatio, fmIntervals);
 			var rate = 2.pow(pitch) * In.kr(baseFreqBus) / baseFreq;
 			var stopped = LocalIn.ar(1);
-			var whichMap = \index.ar.linlin(-1, 1, 0, waveMapsOneShotArray.size - 1).trunc;
+			var whichMap = \index.ar.linlin(-1, 1, 0, waveMapsOneShotArray.size - 0.5).trunc;
 			var whichRange = pitch.linlin(0, 1, \mapLo.kr(9), \mapHi.kr(10.5), nil);
 			var whichWave = Select.ar(whichRange, BufRd.ar(16, waveMapsOneShot, whichMap, interpolation: 1));
 			// retrigger on sample change
