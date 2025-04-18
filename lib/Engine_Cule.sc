@@ -84,12 +84,10 @@ Engine_Cule : CroneEngine {
 			var whichMap = \index.ar.linlin(-1, 1, 0, waveMapsLoopArray.size - 0.5).trunc;
 			var whichRange = pitch.linlin(-1/24, 23/24, 9, 10.5, nil);
 			var whichWave = Select.ar(whichRange, BufRd.ar(16, waveMapsLoop, whichMap, interpolation: 1));
-			var waveChanged = Changed.ar(whichWave) + Impulse.ar(0);
 			var duckTime = 0.005;
-			var env = Env.new([0, 1.2, 0], duckTime.dup).ar(gate: waveChanged);
-			var duckEnv = (1 - env).max(0);
-			var duckDelayBuf = LocalBuf.new(SampleRate.ir * duckTime);
-			var delayedTrig = BufDelayN.ar(duckDelayBuf, waveChanged, duckTime, duckTime);
+			var waveChanged = Trig.ar(Changed.ar(whichWave) + Impulse.ar(0), duckTime);
+			var duckEnv = Env.new([1, 0, 0, 1], [duckTime, SampleDur.ir, duckTime]).ar(gate: waveChanged);
+			var delayedTrig = TDelay.ar(waveChanged, duckTime);
 			var params = Latch.ar(
 				BufRd.ar(3, waveParams, whichWave, interpolation: 1),
 				delayedTrig
@@ -107,12 +105,10 @@ Engine_Cule : CroneEngine {
 			var whichRange = pitch.linlin(0, 1, 9, 10.5, nil);
 			var whichWave = Select.ar(whichRange, BufRd.ar(16, waveMapsOneShot, whichMap, interpolation: 1));
 			// retrigger on sample change
-			var trig = \trig.tr;
 			var duckTime = 0.003;
-			var env = Env.new([0, 1.2, 0], duckTime.dup).ar(gate: trig);
-			var duckEnv = (1 - env).max(0);
-			var duckDelayBuf = LocalBuf.new(SampleRate.ir * duckTime);
-			var delayedTrig = BufDelayN.ar(duckDelayBuf, trig, duckTime, duckTime);
+			var trig = Trig.ar(\trig.tr, duckTime); // don't retrigger DURING a duck
+			var duckEnv = Env.new([1, 0, 0, 1], [duckTime, SampleDur.ir, duckTime]).ar(gate: trig);
+			var delayedTrig = TDelay.ar(trig, duckTime);
 			var params = Latch.ar(
 				BufRd.ar(3, waveParams, whichWave, interpolation: 1),
 				delayedTrig
