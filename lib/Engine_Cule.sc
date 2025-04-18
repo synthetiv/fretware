@@ -86,14 +86,15 @@ Engine_Cule : CroneEngine {
 			var whichRange = pitch.linlin(-1/24, 23/24, \mapLo.kr(9), \mapHi.kr(10.5), nil);
 			var whichWave = Select.ar(whichRange, BufRd.ar(16, waveMapsLoop, whichMap, interpolation: 1));
 			var waveChanged = Changed.ar(whichWave) + Impulse.ar(0);
-			// TODO: okay, now delay the sampleChanged trigger until the current loop is finished.
-			// no, I don't know how.
+			var duck = Env.new([1, 0, 1], 0.005.dup).ar(gate: waveChanged);
+			var duckDelayBuf = LocalBuf.new(SampleRate.ir * 0.01);
+			var delayedChange = BufDelayN.ar(duckDelayBuf, waveChanged, 0.01, 0.005);
 			var params = Latch.ar(
 				BufRd.ar(3, waveParams, whichWave, interpolation: 1),
-				waveChanged
+				delayedChange
 			);
-			var phase = Phasor.ar(waveChanged, rate * params[2], params[0], params[1], params[0]);
-			Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase, 0, 4));
+			var phase = Phasor.ar(delayedChange, rate * params[2], params[0], params[1], params[0]);
+			Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase, 0, 4) * duck);
 			// TODO: try LoopBuf instead; maybe that would solve the (possible) problem of interpolating
 			// between end and start points... not sure it does, though, and it doesn't seem to 'reset' well...
 			// var read = LoopBuf.ar(1, sampleData, rate * params[2], 1 - waveChanged, params[0], params[0], params[1] + 1, 4);
@@ -111,14 +112,17 @@ Engine_Cule : CroneEngine {
 			var whichWave = Select.ar(whichRange, BufRd.ar(16, waveMapsOneShot, whichMap, interpolation: 1));
 			// retrigger on sample change
 			var trig = \trig.tr + (stopped * Changed.ar(whichWave));
+			var duck = Env.new([1, 0, 1], 0.003.dup).ar(gate: trig);
+			var duckDelayBuf = LocalBuf.new(SampleRate.ir * 0.01);
+			var delayedTrig = BufDelayN.ar(duckDelayBuf, trig, 0.01, 0.003);
 			var params = Latch.ar(
 				BufRd.ar(3, waveParams, whichWave, interpolation: 1),
-				trig
+				delayedTrig
 			);
-			var phase = (params[0] + Sweep.ar(trig, rate * SampleRate.ir * params[2]));
+			var phase = (params[0] + Sweep.ar(delayedTrig, rate * SampleRate.ir * params[2]));
 			// save a "we've reached the end of this sample" flag for next block
 			LocalOut.ar(phase >= params[1]);
-			Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase.min(params[1]), 0, 4));
+			Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase.min(params[1]), 0, 4) * duck);
 		}).add;
 
 		// return buffers so we can free them later
