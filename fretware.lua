@@ -1335,8 +1335,27 @@ function redraw()
 
 	screen.level(3)
 	screen.move(0, 5)
-	screen.text(editor.source_names[source_menu.value]:upper())
-	screen.text(' MOD')
+	if arp_menu.open then
+		-- TODO: icon instead? does this text fit?
+		screen.text('CLOCK: ')
+		local clock_source = params:get('clock_source')
+		if clock_source == 1 then
+			screen.text('INT')
+		elseif clock_source == 2 then
+			screen.text('MIDI')
+		elseif clock_source == 3 then
+			screen.text('LINK [')
+			screen.text(clock.link.get_number_of_peers())
+			screen.text(']')
+		elseif clock_source == 4 then
+			screen.text('CROW')
+		else
+			screen.text('??')
+		end
+	else
+		screen.text(editor.source_names[source_menu.value]:upper())
+		screen.text(' MOD')
+	end
 	screen.move_rel(1, 0)
 	screen.line_rel(64, 0)
 	screen.level(1)
