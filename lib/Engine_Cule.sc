@@ -106,12 +106,11 @@ Engine_Cule : CroneEngine {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
 			var pitch = \pitch.kr + Select.kr(whichRatio, fmIntervals);
 			var rate = 2.pow(pitch) * In.kr(baseFreqBus) / baseFreq;
-			var stopped = LocalIn.ar(1);
 			var whichMap = \index.ar.linlin(-1, 1, 0, waveMapsOneShotArray.size - 0.5).trunc;
 			var whichRange = pitch.linlin(0, 1, 9, 10.5, nil);
 			var whichWave = Select.ar(whichRange, BufRd.ar(16, waveMapsOneShot, whichMap, interpolation: 1));
 			// retrigger on sample change
-			var trig = \trig.tr + (stopped * Changed.ar(whichWave));
+			var trig = \trig.tr;
 			var duck = Env.new([1, 0, 1], 0.003.dup).ar(gate: trig);
 			var duckDelayBuf = LocalBuf.new(SampleRate.ir * 0.01);
 			var delayedTrig = BufDelayN.ar(duckDelayBuf, trig, 0.01, 0.003);
@@ -120,8 +119,6 @@ Engine_Cule : CroneEngine {
 				delayedTrig
 			);
 			var phase = (params[0] + Sweep.ar(delayedTrig, rate * SampleRate.ir * params[2]));
-			// save a "we've reached the end of this sample" flag for next block
-			LocalOut.ar(phase >= params[1]);
 			Out.ar(\outBus.ir, BufRd.ar(1, sampleData, phase.min(params[1]), 0, 4) * duck);
 		}).add;
 
