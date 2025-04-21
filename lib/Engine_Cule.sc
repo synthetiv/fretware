@@ -178,7 +178,7 @@ Engine_Cule : CroneEngine {
 			\operatorKarp,
 			\operatorComb,
 			\operatorCombExt,
-			\operatorFMD,
+			[ \operatorFMD, \operatorFMDFade ],
 			\nothing
 		];
 
@@ -633,6 +633,37 @@ Engine_Cule : CroneEngine {
 			);
 			var output = SinOsc.ar(
 				hz * Select.kr(whichRatio, fmRatios),
+				(delayedIn * \index.ar(-1).lincurve(-1, 1, 0, 13pi, 4, \min) * 0.7.pow(pitch)).mod(2pi)
+			);
+			Out.ar(\outBus.ir, output);
+		}).add;
+
+		// External-FM operator with a tuned delay at its FM input, crossfading between ratios
+		// TODO: dry this out, ffs
+		SynthDef.new(\operatorFMDFade, {
+			var pitch = \pitch.kr;
+			var hz = 2.pow(pitch) * In.kr(baseFreqBus);
+			var delaySafeHz = (hz / ControlRate.ir).ratiomidi.wrap(-12, 0).midiratio * ControlRate.ir;
+			var delayTime = K2A.ar(delaySafeHz.reciprocal);
+			var delayDelayBuf = LocalBuf.new(SampleRate.ir * 2);
+			var delayedDelayTime = BufDelayN.ar(delayDelayBuf, delayTime, delayTime); // haha lol
+			var delta = delayedDelayTime - delayTime;
+			var deltaOrInf = Select.ar(delta, [DC.ar(inf), delta]);
+			var slewedDelayTime = Slew.ar(
+				delayTime,
+				1 - 0.5.pow(deltaOrInf),
+				2.pow(deltaOrInf) - 1
+			);
+			var delayBuf = LocalBuf.new(SampleRate.ir * 2);
+			var delayedIn = BufDelayC.ar(
+				delayBuf,
+				InFeedback.ar(\inBus.ir),
+				slewedDelayTime - (BlockSize.ir * SampleDur.ir)
+			);
+			var output = this.harmonicOsc(
+				SinOsc,
+				hz,
+				\ratio.kr,
 				(delayedIn * \index.ar(-1).lincurve(-1, 1, 0, 13pi, 4, \min) * 0.7.pow(pitch)).mod(2pi)
 			);
 			Out.ar(\outBus.ir, output);
