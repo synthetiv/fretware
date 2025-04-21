@@ -83,6 +83,8 @@ source_menu.get_key_level = function(value, selected, held)
 	return (held and 11 or (selected and 6 or 3)) + level
 end
 
+link_peers = 0
+
 Echo = include 'lib/echo'
 echo = Echo.new()
 
@@ -298,6 +300,13 @@ for d = 1, #arp_divs do
 		end
 	}
 end
+-- update peer count every quarter note
+arp_lattice:new_sprocket {
+	division = 1/4,
+	action = function()
+		link_peers = clock.link.get_number_of_peers()
+	end
+}
 
 arp_lattice_reset = {
 	key_held = false,
@@ -1345,7 +1354,7 @@ function redraw()
 			screen.text('MIDI')
 		elseif clock_source == 3 then
 			screen.text('LINK: ')
-			screen.text(clock.link.get_number_of_peers())
+			screen.text(link_peers)
 		elseif clock_source == 4 then
 			screen.text('CROW')
 		else
