@@ -1143,7 +1143,7 @@ function init()
 				local slider = nil
 				if dest.voice_param then
 					slider = voice_mappings[dest.voice_param][k.selected_voice].slider
-				else
+				elseif dest_mappings[p] then
 					slider = dest_mappings[p].slider
 				end
 				if slider.y ~= y then

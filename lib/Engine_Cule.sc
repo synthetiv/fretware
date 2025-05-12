@@ -20,7 +20,7 @@ Engine_Cule : CroneEngine {
 	var fmIntervals;
 	var nRatios;
 
-	var d50Resources;
+	// var d50Resources;
 	var sq80Resources;
 
 	var baseFreqBus;
@@ -118,7 +118,7 @@ Engine_Cule : CroneEngine {
 		}).add;
 
 		// return buffers so we can free them later
-		[ waveParams, waveMapsLoop, waveMapsOneShot, sampleData ];
+		^[ waveParams, waveMapsLoop, waveMapsOneShot, sampleData ];
 	}
 
 	swapOp {
@@ -1237,7 +1237,7 @@ Engine_Cule : CroneEngine {
 
 	free {
 		sq80Resources.do({ |rsrc| rsrc.free });
-		d50Resources.do({ |rsrc| rsrc.free });
+		// d50Resources.do({ |rsrc| rsrc.free });
 		replySynth.free;
 		voiceSynths.do({ |synths| synths.do({ |synth| synth.free }) });
 		patchBuses.do({ |bus| bus.free });
