@@ -361,7 +361,7 @@ Engine_Cule : CroneEngine {
 			# recPitch, recTip, recHand, recGate, recTrig = BufRd.kr(nRecordedModulators, buffer, loopPhase, interpolation: 1);
 			// new pitch values can "punch through" frozen ones when gate is high
 			freezeWithoutGate = freeze.min(1 - gate);
-			pitch = Select.kr(freezeWithoutGate, [ pitch, recPitch ]);
+			pitch = Select.kr(freezeWithoutGate, [ pitch, recPitch + \shift.kr ]);
 			// punch tip through too, only when gate is high
 			tip = Select.kr(freezeWithoutGate, [ tip, recTip ]);
 			// mix incoming hand data with recorded hand (fade in when freeze is engaged)
@@ -498,8 +498,6 @@ Engine_Cule : CroneEngine {
 			Out.kr(\handBus.ir, hand);
 
 			Out.kr(\panBus.ir, \pan.kr.lag(0.1) + modulation[\pan]);
-
-			pitch = pitch + \shift.kr;
 
 			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
 			// if I try that, SC seems to just hang forever, no error message
