@@ -189,6 +189,8 @@ Engine_Cule : CroneEngine {
 		modulationDestNames = [
 			\amp,
 			\pan,
+			\loopPosition,
+			\loopRate,
 			\ratioA,
 			\detuneA, // TODO: maybe detune can be control rate... then op pitch buses can be control
 			// rate... and maybe that would save CPU
@@ -210,6 +212,8 @@ Engine_Cule : CroneEngine {
 
 		controlRateDestNames = [
 			\pan,
+			\loopPosition,
+			\loopRate,
 			\ratioA,
 			\ratioB,
 			\opMix,
@@ -259,7 +263,7 @@ Engine_Cule : CroneEngine {
 			\lfoTypeA,
 			\lfoTypeB,
 			\lfoTypeC,
-			modulationDestNames.difference([ \pan ]),
+			modulationDestNames.difference([ \amp, \pan, \loopPosition, \loopRate ]),
 			Array.fill(modulationSourceNames.size, { |s|
 				Array.fill(modulationDestNames.size, { |d|
 					(modulationSourceNames[s] ++ '_' ++ modulationDestNames[d]).asSymbol;
@@ -342,40 +346,6 @@ Engine_Cule : CroneEngine {
 				});
 			});
 
-			// create buffer for looping pitch/amp/control data
-			bufferRate = ControlRate.ir * bufferRateScale;
-			bufferLength = context.server.sampleRate / context.server.options.blockSize * maxLoopTime * bufferRateScale;
-			bufferPhase = Phasor.kr(rate: bufferRateScale * (1 - freeze), end: bufferLength);
-			buffer = LocalBuf.new(bufferLength, nRecordedModulators);
-			loopLength = (loopLength * bufferRate).min(bufferLength);
-			loopPhase = Phasor.kr(
-				Trig.kr(freeze) + t_loopReset,
-				bufferRateScale * loopRate,
-				0, loopLength, 0
-			);
-			// offset by loopPosition, but constrain to loop bounds
-			loopPhase = (loopPhase + (loopLength * loopPosition)).wrap(0, loopLength);
-			trig = Trig.kr(\trig.tr, 0.01);
-			hand = tip - palm;
-			BufWr.kr([pitch, tip, hand, gate, trig], buffer, bufferPhase);
-			// read values from recorded loop (if any)
-			# recPitch, recTip, recHand, recGate, recTrig = BufRd.kr(
-				nRecordedModulators,
-				buffer,
-				bufferPhase - loopLength + loopPhase,
-				interpolation: 1
-			);
-			// new pitch values can "punch through" frozen ones when gate is high
-			freezeWithoutGate = freeze.min(1 - gate);
-			pitch = Select.kr(freezeWithoutGate, [ pitch, recPitch + \shift.kr ]);
-			// punch tip through too, only when gate is high
-			tip = Select.kr(freezeWithoutGate, [ tip, recTip ]);
-			// mix incoming hand data with recorded hand (fade in when freeze is engaged)
-			hand = hand + (Linen.kr(freeze, 0.3, 1, 0) * recHand);
-			// combine incoming gates with recorded gates
-			gate = gate.max(freeze * recGate);
-			trig = trig.max(freeze * recTrig);
-
 			// calculate modulation matrix
 
 			// this feedback loop is needed in order for modulators to modulate one another
@@ -433,6 +403,40 @@ Engine_Cule : CroneEngine {
 					}));
 				});
 			});
+
+			// create buffer for looping pitch/amp/control data
+			bufferRate = ControlRate.ir * bufferRateScale;
+			bufferLength = context.server.sampleRate / context.server.options.blockSize * maxLoopTime * bufferRateScale;
+			bufferPhase = Phasor.kr(rate: bufferRateScale * (1 - freeze), end: bufferLength);
+			buffer = LocalBuf.new(bufferLength, nRecordedModulators);
+			loopLength = (loopLength * bufferRate).min(bufferLength);
+			loopPhase = Phasor.kr(
+				Trig.kr(freeze) + t_loopReset,
+				bufferRateScale * loopRate * 8.pow(modulation[\loopRate]),
+				0, loopLength, 0
+			);
+			// offset by loopPosition, but constrain to loop bounds
+			loopPhase = (loopPhase + (loopLength * (loopPosition + modulation[\loopPosition]))).wrap(0, loopLength);
+			trig = Trig.kr(\trig.tr, 0.01);
+			hand = tip - palm;
+			BufWr.kr([pitch, tip, hand, gate, trig], buffer, bufferPhase);
+			// read values from recorded loop (if any)
+			# recPitch, recTip, recHand, recGate, recTrig = BufRd.kr(
+				nRecordedModulators,
+				buffer,
+				bufferPhase - loopLength + loopPhase,
+				interpolation: 1
+			);
+			// new pitch values can "punch through" frozen ones when gate is high
+			freezeWithoutGate = freeze.min(1 - gate);
+			pitch = Select.kr(freezeWithoutGate, [ pitch, recPitch + \shift.kr ]);
+			// punch tip through too, only when gate is high
+			tip = Select.kr(freezeWithoutGate, [ tip, recTip ]);
+			// mix incoming hand data with recorded hand (fade in when freeze is engaged)
+			hand = hand + (Linen.kr(freeze, 0.3, 1, 0) * recHand);
+			// combine incoming gates with recorded gates
+			gate = gate.max(freeze * recGate);
+			trig = trig.max(freeze * recTrig);
 
 			attack = attack * 8.pow(modulation[\attack]);
 			release = release * 8.pow(modulation[\release]);

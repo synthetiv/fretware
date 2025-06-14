@@ -206,13 +206,25 @@ editor = {
 			name = 'amp',
 			label = 'amp',
 			voice_param = 'outLevel'
+		},
+		{
+			name = 'loopRate',
+			label = 'loop rate',
+			voice_param = 'loopRate'
+		},
+		{
+			name = 'loopPosition',
+			label = 'loop position',
+			voice_param = 'loopPosition'
 		}
 	},
 	selected_dest = 1,
 	autoselect_time = 0,
 	encoder_autoselect_deltas = {
 		[2] = 0,
-		[3] = 0
+		[3] = 0,
+		[4] = 0,
+		[5] = 0
 	}
 }
 
@@ -342,8 +354,8 @@ function clear_voice_loop(v)
 		return
 	end
 	engine.clearLoop(v)
-	params:lookup_param('loop_rate_' .. v):set_default()
-	params:lookup_param('loop_position_' .. v):set_default()
+	params:lookup_param('loopRate_' .. v):set_default()
+	params:lookup_param('loopPosition_' .. v):set_default()
 	voice.looping = false
 	if voice.loop_clock then
 		clock.cancel(voice.loop_clock)
@@ -368,8 +380,8 @@ end
 -- and some logic from loop_clock callback should be moved into the new play_
 function set_voice_loop(v, length)
 	engine.setLoop(v, length)
-	params:lookup_param('loop_rate_' .. v):set_default()
-	params:lookup_param('loop_position_' .. v):set_default()
+	params:lookup_param('loopRate_' .. v):set_default()
+	params:lookup_param('loopPosition_' .. v):set_default()
 end
 
 function play_voice_loop(v)
@@ -599,7 +611,7 @@ function reset_loop_clock()
 						end)
 					elseif voice.looping then
 						-- update rate so it will be adjusted to match tempo as needed
-						params:lookup_param('loop_rate_' .. v):bang()
+						params:lookup_param('loopRate_' .. v):bang()
 					end
 				end
 			end
@@ -1098,7 +1110,7 @@ function init()
 
 		params:add {
 			name = 'loop rate',
-			id = 'loop_rate_' .. v,
+			id = 'loopRate_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(0.25, 4, 'exp', 0, 1),
 			action = function(value)
@@ -1117,7 +1129,7 @@ function init()
 
 		params:add {
 			name = 'loop position',
-			id = 'loop_position_' .. v,
+			id = 'loopPosition_' .. v,
 			type = 'control',
 			controlspec = controlspec.new(-4, 4, 'lin', 0, 0),
 			action = function(value)
@@ -1428,6 +1440,10 @@ function enc(n, d)
 		editor.selected_dest = util.wrap(editor.selected_dest + d, 1, #editor.dests)
 	else
 		-- adjust amp or pan
+		-- or, when K2 is held, adjust loop rate or position
+		if held_keys[2] then
+			n = n + 2
+		end
 		-- TODO: handle 'delta' and auto-selection stuff in SliderMapping class
 		local param_index = 15 + n
 		local changed_source = false
@@ -1443,6 +1459,10 @@ function enc(n, d)
 				voice_mappings.pan[k.selected_voice]:delta(d_scaled)
 			elseif n == 3 then
 				voice_mappings.outLevel[k.selected_voice]:delta(d_scaled)
+			elseif n == 4 then
+				voice_mappings.loopRate[k.selected_voice]:delta(d_scaled)
+			elseif n == 5 then
+				voice_mappings.loopPosition[k.selected_voice]:delta(d_scaled)
 			end
 		end
 		-- maybe auto-select amp or pan
