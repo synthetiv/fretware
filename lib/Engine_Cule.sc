@@ -313,13 +313,13 @@ Engine_Cule : CroneEngine {
 				t_loopReset = 0,
 				loopLength = 0.3,
 				loopPosition = 0,
-				loopRateScale = 1,
+				loopRate = 1,
 				attack = 0.01,
 				release = 0.3;
 
 			var modulators,
 				bufferRate, bufferLength, bufferPhase, buffer,
-				loopStart, loopPhase, loopTrigger, loopOffset,
+				loopStart, loopPhase,
 				modulation = Dictionary.new,
 				lag = 0.01,
 				fxA, fxB,
@@ -347,13 +347,10 @@ Engine_Cule : CroneEngine {
 			bufferLength = context.server.sampleRate / context.server.options.blockSize * maxLoopTime * bufferRateScale;
 			bufferPhase = Phasor.kr(rate: bufferRateScale * (1 - freeze), end: bufferLength);
 			buffer = LocalBuf.new(bufferLength, nRecordedModulators);
-			loopStart = bufferPhase - (loopLength * bufferRate).min(bufferLength);
-			loopPhase = Phasor.kr(Trig.kr(freeze) + t_loopReset, bufferRateScale * loopRateScale, loopStart, bufferPhase, loopStart);
-			// TODO: confirm that this is really firing when it's supposed to (i.e. when loopPhase
-			// resets)! if not, either fix it, or do away with it
-			loopTrigger = Trig.kr(BinaryOpUGen.new('==', loopPhase, loopStart));
-			loopOffset = Latch.kr(bufferLength - (loopLength * bufferRate), loopTrigger) * loopPosition;
-			loopPhase = loopPhase - loopOffset;
+			loopLength = (loopLength * bufferRate).min(bufferLength);
+			loopStart = bufferPhase - loopLength;
+			loopPhase = Phasor.kr(Trig.kr(freeze) + t_loopReset, bufferRateScale * loopRate, loopStart, bufferPhase, loopStart);
+			loopPhase = loopPhase + (loopLength * loopPosition);
 			trig = Trig.kr(\trig.tr, 0.01);
 			hand = tip - palm;
 			BufWr.kr([pitch, tip, hand, gate, trig], buffer, bufferPhase);
@@ -361,7 +358,7 @@ Engine_Cule : CroneEngine {
 			# recPitch, recTip, recHand, recGate, recTrig = BufRd.kr(nRecordedModulators, buffer, loopPhase, interpolation: 1);
 			// new pitch values can "punch through" frozen ones when gate is high
 			freezeWithoutGate = freeze.min(1 - gate);
-			pitch = Select.kr(freezeWithoutGate, [ pitch, recPitch ]);
+			pitch = Select.kr(freezeWithoutGate, [ pitch, recPitch + \shift.kr ]);
 			// punch tip through too, only when gate is high
 			tip = Select.kr(freezeWithoutGate, [ tip, recTip ]);
 			// mix incoming hand data with recorded hand (fade in when freeze is engaged)
@@ -498,8 +495,6 @@ Engine_Cule : CroneEngine {
 			Out.kr(\handBus.ir, hand);
 
 			Out.kr(\panBus.ir, \pan.kr.lag(0.1) + modulation[\pan]);
-
-			pitch = pitch + \shift.kr;
 
 			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
 			// if I try that, SC seems to just hang forever, no error message
@@ -1179,7 +1174,6 @@ Engine_Cule : CroneEngine {
 			arg msg;
 			voiceSynths[msg[1] - 1][0].set(
 				\loopLength, msg[2],
-				\loopRateScale, 1,
 				\freeze, 1
 			);
 		});
@@ -1223,7 +1217,8 @@ Engine_Cule : CroneEngine {
 
 		[
 			\freeze,
-			\loopRateScale,
+			\loopPosition,
+			\loopRate,
 			\shift,
 			\pan,
 			\outLevel,

@@ -361,11 +361,17 @@ function record_voice_loop(v)
 	end
 end
 
+function set_voice_loop(v, length)
+	engine.setLoop(v, length)
+	params:lookup_param('loop_rate_' .. v):set_default()
+	params:lookup_param('loop_position_' .. v):set_default()
+end
+
 function play_voice_loop(v)
 	-- stop recording, start looping
 	local voice = voice_states[v]
 	if loop_free then
-		engine.setLoop(v, util.time() - voice.loop_armed)
+		set_voice_loop(v, util.time() - voice.loop_armed)
 		-- TODO: maybe loop states should be polled from SC, so that we don't need to send as many
 		-- messages TO SC...?
 		voice.looping = true
@@ -572,7 +578,7 @@ function reset_loop_clock()
 						-- TODO: is rounding really appropriate here?
 						local loop_length_ticks = math.floor(loop_length_beats / rate + 0.5)
 						local loop_tick = 1
-						engine.setLoop(v, beat_sec * loop_length_beats)
+						set_voice_loop(v, beat_sec * loop_length_beats)
 						voice.looping = true
 						voice.looping_next = false
 						voice.loop_armed = false
@@ -588,7 +594,7 @@ function reset_loop_clock()
 						end)
 					elseif voice.looping then
 						-- adjust rate to match tempo as needed
-						engine.loopRateScale(v, clock.get_beat_sec() / voice.loop_beat_sec)
+						engine.loopRate(v, params:get('loop_rate_' .. v) * clock.get_beat_sec() / voice.loop_beat_sec)
 					end
 				end
 			end
@@ -1055,9 +1061,11 @@ function init()
 		end
 	end
 
-	params:add_group('voice mix', n_voices * 2)
+	params:add_group('voice mix/etc', n_voices * 4)
 
 	for v = 1, n_voices do
+
+		local voice = voice_states[v]
 
 		params:add {
 			name = 'voice level ' .. v,
@@ -1068,7 +1076,7 @@ function init()
 			k = 2,
 			default = 0.3,
 			action = function(value)
-				voice_states[v].mix_level = value
+				voice.mix_level = value
 				engine.outLevel(v, value)
 			end
 		}
@@ -1082,6 +1090,39 @@ function init()
 				engine.pan(v, value)
 			end
 		}
+
+		params:add {
+			name = 'loop rate',
+			id = 'loop_rate_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(0.25, 4, 'exp', 0, 0),
+			action = function(value)
+				if params:get('loop_clock_div') == 3 then
+					-- free-running loops
+					engine.loopRate(v, value)
+				else
+					-- synced loops
+					engine.loopRate(v, value * clock.get_beat_sec() / voice.loop_beat_sec)
+				end
+			end,
+			formatter = function(param)
+				return string.format('%.2fx', param:get())
+			end
+		}
+
+		params:add {
+			name = 'loop position',
+			id = 'loop_position_' .. v,
+			type = 'control',
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+			action = function(value)
+				engine.loopPosition(v, value)
+			end,
+			formatter = function(param)
+				return string.format('%+.2fx', param:get())
+			end
+		}
+
 	end
 
 	for d = 1, #editor.dests do
