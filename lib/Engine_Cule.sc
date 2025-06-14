@@ -319,7 +319,7 @@ Engine_Cule : CroneEngine {
 
 			var modulators,
 				bufferRate, bufferLength, bufferPhase, buffer,
-				loopStart, loopPhase,
+				loopPhase,
 				modulation = Dictionary.new,
 				lag = 0.01,
 				fxA, fxB,
@@ -348,14 +348,23 @@ Engine_Cule : CroneEngine {
 			bufferPhase = Phasor.kr(rate: bufferRateScale * (1 - freeze), end: bufferLength);
 			buffer = LocalBuf.new(bufferLength, nRecordedModulators);
 			loopLength = (loopLength * bufferRate).min(bufferLength);
-			loopStart = bufferPhase - loopLength;
-			loopPhase = Phasor.kr(Trig.kr(freeze) + t_loopReset, bufferRateScale * loopRate, loopStart, bufferPhase, loopStart);
-			loopPhase = loopPhase + (loopLength * loopPosition);
+			loopPhase = Phasor.kr(
+				Trig.kr(freeze) + t_loopReset,
+				bufferRateScale * loopRate,
+				0, loopLength, 0
+			);
+			// offset by loopPosition, but constrain to loop bounds
+			loopPhase = (loopPhase + (loopLength * loopPosition)).wrap(0, loopLength);
 			trig = Trig.kr(\trig.tr, 0.01);
 			hand = tip - palm;
 			BufWr.kr([pitch, tip, hand, gate, trig], buffer, bufferPhase);
 			// read values from recorded loop (if any)
-			# recPitch, recTip, recHand, recGate, recTrig = BufRd.kr(nRecordedModulators, buffer, loopPhase, interpolation: 1);
+			# recPitch, recTip, recHand, recGate, recTrig = BufRd.kr(
+				nRecordedModulators,
+				buffer,
+				bufferPhase - loopLength + loopPhase,
+				interpolation: 1
+			);
 			// new pitch values can "punch through" frozen ones when gate is high
 			freezeWithoutGate = freeze.min(1 - gate);
 			pitch = Select.kr(freezeWithoutGate, [ pitch, recPitch + \shift.kr ]);

@@ -342,6 +342,8 @@ function clear_voice_loop(v)
 		return
 	end
 	engine.clearLoop(v)
+	params:lookup_param('loop_rate_' .. v):set_default()
+	params:lookup_param('loop_position_' .. v):set_default()
 	voice.looping = false
 	if voice.loop_clock then
 		clock.cancel(voice.loop_clock)
@@ -361,6 +363,9 @@ function record_voice_loop(v)
 	end
 end
 
+-- TODO: these function names have gotten silly, refactor
+-- set_ should be play_, play_ should be something like stop_recording_,
+-- and some logic from loop_clock callback should be moved into the new play_
 function set_voice_loop(v, length)
 	engine.setLoop(v, length)
 	params:lookup_param('loop_rate_' .. v):set_default()
@@ -593,8 +598,8 @@ function reset_loop_clock()
 							end
 						end)
 					elseif voice.looping then
-						-- adjust rate to match tempo as needed
-						engine.loopRate(v, params:get('loop_rate_' .. v) * clock.get_beat_sec() / voice.loop_beat_sec)
+						-- update rate so it will be adjusted to match tempo as needed
+						params:lookup_param('loop_rate_' .. v):bang()
 					end
 				end
 			end
@@ -1095,14 +1100,14 @@ function init()
 			name = 'loop rate',
 			id = 'loop_rate_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(0.25, 4, 'exp', 0, 0),
+			controlspec = controlspec.new(0.25, 4, 'exp', 0, 1),
 			action = function(value)
 				if params:get('loop_clock_div') == 3 then
-					-- free-running loops
+					-- free-running loops: just set rate
 					engine.loopRate(v, value)
 				else
-					-- synced loops
-					engine.loopRate(v, value * clock.get_beat_sec() / voice.loop_beat_sec)
+					-- synced loops: scale relative to current + initial tempo
+					engine.loopRate(v, value * voice.loop_beat_sec / clock.get_beat_sec())
 				end
 			end,
 			formatter = function(param)
@@ -1114,7 +1119,7 @@ function init()
 			name = 'loop position',
 			id = 'loop_position_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
+			controlspec = controlspec.new(-4, 4, 'lin', 0, 0),
 			action = function(value)
 				engine.loopPosition(v, value)
 			end,
