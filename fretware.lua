@@ -1131,7 +1131,7 @@ function init()
 			name = 'loop position',
 			id = 'loopPosition_' .. v,
 			type = 'control',
-			controlspec = controlspec.new(-4, 4, 'lin', 0, 0),
+			controlspec = controlspec.new(-1, 1, 'lin', 0, 0),
 			action = function(value)
 				engine.loopPosition(v, value)
 			end,
