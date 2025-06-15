@@ -320,25 +320,10 @@ arp_lattice:new_sprocket {
 	end
 }
 
-arp_lattice_reset = {
-	key_held = false,
-	interval = false,
-	clocks = {}
+arp_lattice_nudge_keys = {
+	down = false,
+	up = false
 }
-for c = 1, 3 do
-	local rate = math.pow(2, -c)
-	arp_lattice_reset.clocks[c] = clock.run(function()
-		while true do
-			clock.sync(rate)
-			if arp_lattice_reset.interval == c and not arp_lattice_reset.key_held then
-				arp_lattice:start()
-				arp_lattice_reset.interval = false
-				-- send transport start signal to any devices connected to UC4
-				uc4:start()
-			end
-		end
-	end)
-end
 
 clock.transport.start = function()
 	arp_lattice:hard_restart()
@@ -416,48 +401,37 @@ function g.key(x, y, z)
 			arp_direction_menu.open = false
 		end
 	elseif arp_menu.open and x > 2 and y < 8 then
-		if x >= 11 and x <= 13 and y == 3 then
+		if x >= 12 and x <= 13 and y == 3 then
+			if x == 12 then
+				arp_lattice_nudge_keys.down = z == 1
+			elseif x == 13 then
+				arp_lattice_nudge_keys.up = z == 1
+			end
 			if z == 1 then
-				arp_lattice_reset.interval = x - 10
-				arp_lattice_reset.key_held = true
-			else
-				arp_lattice:reset()
-				arp_lattice_reset.key_held = false
+				if arp_lattice_nudge_keys.down and arp_lattice_nudge_keys.up then
+					-- TODO: invert phase of the current clock division
+				elseif arp_lattice_nudge_keys.down then
+					-- nudge down: pause for a dotted 1/256th note
+					clock.run(function()
+						arp_lattice:stop()
+						clock.sleep(clock.get_beat_sec() / 48)
+						arp_lattice:start()
+					end)
+				elseif arp_lattice_nudge_keys.up then
+					-- nudge up: skip forward by a dotted 1/256th note, instantaneously
+					local extra_pulses = arp_lattice.ppqn / 48 -- probably 2, but just in case I adjust ppqn later
+					for n = 1, extra_pulses do
+						arp_lattice:pulse()
+					end
+				end
 			end
 		elseif (x == 15 or x == 16) and y == 3 then
 			if z == 1 then
-				-- TODO: only change tempo if shift key is held. if not, just nudge -- by uhhhh... lattice something something??
-				if false then
-					if x == 15 then
-						-- pause for 1/32nd note.
-						clock.run(function()
-							local pause_time = clock.get_beat_sec() / 32
-							arp_lattice:stop()
-							clock.sleep(pause_time)
-							arp_lattice:start()
-						end)
-					elseif x == 16 then
-						-- make the clock run at double speed for the length of 1/16th note.
-						-- this has the effect of skipping forward by 1/32nd note.
-						clock.run(function()
-							local ppqn = arp_lattice.ppqn
-							local short_pulses = ppqn / 4
-							local half_pulse_length = clock.get_beat_sec() / (ppqn * 2)
-							arp_lattice:stop()
-							for n = 1, short_pulses do
-								clock.sleep(half_pulse_length)
-								arp_lattice:pulse()
-							end
-							arp_lattice:start()
-						end)
-					end
-				else
-					-- clock tempo increase/decrease
-					if x == 15 then
-						params:set('clock_tempo', params:get('clock_tempo') / 1.04)
-					elseif x == 16 then
-						params:set('clock_tempo', params:get('clock_tempo') * 1.04)
-					end
+				-- clock tempo increase/decrease
+				if x == 15 then
+					params:set('clock_tempo', params:get('clock_tempo') / 1.04)
+				elseif x == 16 then
+					params:set('clock_tempo', params:get('clock_tempo') * 1.04)
 				end
 			end
 		elseif not arp_direction_menu:key(x, y, z) then
@@ -529,10 +503,9 @@ function grid_redraw()
 	arp_menu:draw()
 	arp_direction_menu:draw()
 	if arp_menu.open then
-		-- clock reset keys
-		for c = 1, 3 do
-			g:led(10 + c, 3, arp_lattice_reset.interval == c and 9 or 5)
-		end
+		-- lattice phase nudge keys
+		g:led(12, 3, arp_lattice_nudge_keys.down == c and 9 or 5)
+		g:led(13, 3, arp_lattice_nudge_keys.up == c and 9 or 5)
 		-- tempo nudge keys
 		g:led(15, 3, 4)
 		g:led(16, 3, 4)
