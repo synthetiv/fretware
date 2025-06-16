@@ -24,6 +24,8 @@ Engine_Cule : CroneEngine {
 	var sq80Resources;
 
 	var baseFreqBus;
+	var clockPhaseBus;
+	var clockSynth;
 	var voiceBuses;
 	var voiceOpStates;
 	var voiceSynths;
@@ -284,6 +286,17 @@ Engine_Cule : CroneEngine {
 
 		baseFreqBus = Bus.control(context.server);
 
+		clockPhaseBus = Bus.control(context.server);
+		SynthDef.new(\clockPhasor, {
+			var rate = \rate.kr;
+			var downbeat = \downbeat.tr;
+			// at each downbeat, hard-reset the phasor to 0, 1, 2, 3, 0...
+			// TODO: possible failure point here
+			var beat = Stepper.kr(downbeat, 0, 0, 3);
+			var phase = Phasor.kr(\beat.tr, \rate.kr, 0, 4, resetPos: beat);
+			Out.kr(clockPhaseBus, phase);
+		}).add;
+
 		voiceBuses = Array.fill(nVoices, {
 			Dictionary[
 				\amp -> Bus.audio(context.server),
@@ -315,7 +328,7 @@ Engine_Cule : CroneEngine {
 			patchBuses.put(name, Bus.control(context.server));
 		});
 
-		patchDef = SynthDef.new(\patchControls, {
+		SynthDef.new(\patchControls, {
 			// calculate modulation matrix amounts
 			// this smooths out all patch params that need smoothing ONCE, so each
 			// voice doesn't need to do that individually.
@@ -390,7 +403,7 @@ Engine_Cule : CroneEngine {
 							modulators[m];
 						});
 						modulator * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol);
-					}).lag(lag)); // no need to smooth all routing factors separately.
+					}));
 				}, {
 					// audio-rate destinations
 					modulation.put(destName, Mix.fill(modulationSourceNames.size, { |m|
@@ -548,9 +561,15 @@ Engine_Cule : CroneEngine {
 			SendReply.kr(Changed.kr(gate), '/lfoGate', [\voiceIndex.ir, \lfoIndex.ir, gate]);
 		}).add;
 
-		// Random step LFO
+		// Tempo-synced random step LFO
 		SynthDef.new(\lfoSH, {
-			var gate = LFPulse.kr(\freq.kr(1), 1.rand);
+			var freq = \freq.kr(1); // TODO: quantize...? this to some multiple of the tempo, somehow??
+			// failing that, actual freq is fine, 1 Hz will translate to 1/4 note at 120bpm
+			// TODO: quantize to more fun divisions than this, like 1/3, dotted notes, etc
+			// TODO: make changes in freq smoother... somehow... no idea
+			// TODO: figure out why these clocks seem to operate in reverse phase from the arp clock
+			var phase = (In.kr(clockPhaseBus) * 2.pow(freq.log2.trunc)).wrap(0, 1);
+			var gate = BinaryOpUGen('<', phase, 0.5);
 			Out.kr(\stateBus.ir, Lag.kr(TRand.kr(-1, 1, gate), 0.01));
 			SendReply.kr(Changed.kr(gate), '/lfoGate', [\voiceIndex.ir, \lfoIndex.ir, gate]);
 		}).add;
@@ -993,10 +1012,8 @@ Engine_Cule : CroneEngine {
 			});
 		});
 
-		patchSynth = Synth.new(\patchControls, [
-			// no args or mappings needed for this one (yet...)
-			// it just reads from namedControls and writes them to matching buses, with lag
-		], context.og, \addToTail);
+		clockSynth = Synth.new(\clockPhasor, [], context.og, \addToTail);
+		patchSynth = Synth.new(\patchControls, [], context.og, \addToTail);
 
 		voiceSynths = Array.fill(nVoices, {
 			arg i;
@@ -1245,6 +1262,14 @@ Engine_Cule : CroneEngine {
 				voiceSynths[msg[1] - 1][0].set(name, msg[2]);
 			});
 		});
+
+		this.addCommand(\tempo, "f", { |msg|
+			clockSynth.set(\rate, msg[1] / 60 / context.server.sampleRate * context.server.options.blockSize);
+		});
+
+		this.addCommand(\downbeat, "", { |msg|
+			clockSynth.set(\downbeat);
+		});
 	}
 
 	free {
@@ -1253,6 +1278,8 @@ Engine_Cule : CroneEngine {
 		replySynth.free;
 		voiceSynths.do({ |synths| synths.do({ |synth| synth.free }) });
 		patchSynth.free;
+		clockSynth.free;
+		clockPhaseBus.free;
 		patchBuses.do({ |bus| bus.free });
 		voiceBuses.do({ |dict| dict.do({ |bus| bus.free; }); });
 		baseFreqBus.free;

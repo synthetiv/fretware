@@ -317,8 +317,14 @@ arp_lattice:new_sprocket {
 	division = 1/4,
 	action = function()
 		link_peers = clock.link.get_number_of_peers()
+		engine.downbeat()
 	end
 }
+
+-- inform SC of tempo changes
+clock.tempo_change_handler = function(tempo)
+	engine.tempo(tempo)
+end
 
 arp_lattice_nudge_keys = {
 	down = false,
