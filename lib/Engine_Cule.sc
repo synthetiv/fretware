@@ -1214,13 +1214,6 @@ Engine_Cule : CroneEngine {
 			voiceSynths[selectedVoice][0].set(\gate, value, \trig, value);
 		});
 
-		// temporary command for determining the D50 samples' base frequency
-		this.addCommand(\tuneSample, "f", {
-			arg msg;
-			var value = msg[1];
-			voiceSynths[selectedVoice][1].set(\sampleBase, value);
-		});
-
 		[ \pitch, \tip, \palm ].do({
 			arg name;
 			this.addCommand(name, "f", { |msg|
