@@ -28,6 +28,7 @@ Engine_Cule : CroneEngine {
 	var voiceOpStates;
 	var voiceSynths;
 	var patchBuses;
+	var patchSynth;
 	var replySynth;
 	var polls;
 	var opFadeReplyFunc;
@@ -293,7 +294,6 @@ Engine_Cule : CroneEngine {
 				\pitch -> Bus.control(context.server),
 				\opPitch -> Bus.audio(context.server, 2),
 				\opRatio -> Bus.control(context.server, 2),
-				\opFadeSize -> Bus.control(context.server, 2),
 				\opIndex -> Bus.audio(context.server, 2),
 				\opMix -> Bus.control(context.server),
 				\opAudio -> Bus.audio(context.server, 2),
@@ -306,6 +306,24 @@ Engine_Cule : CroneEngine {
 				\outLevel -> Bus.control(context.server)
 			];
 		});
+
+		// TODO: support multiple patches!
+		patchBuses = Dictionary.new;
+		patchArgs.do({
+			arg name;
+			// TODO: we're no longer setting default values here. is that going to be OK?
+			patchBuses.put(name, Bus.control(context.server));
+		});
+
+		patchDef = SynthDef.new(\patchControls, {
+			// calculate modulation matrix amounts
+			// this smooths out all patch params that need smoothing ONCE, so each
+			// voice doesn't need to do that individually.
+			patchArgs.do({ |name|
+				var control = NamedControl.kr(name, 0.1, fixedLag: true);
+				Out.kr(patchBuses[name], control);
+			});
+		}).add;
 
 		controlDef = SynthDef.new(\voiceControls, {
 
@@ -325,12 +343,12 @@ Engine_Cule : CroneEngine {
 				bufferRate, bufferLength, bufferPhase, buffer,
 				loopPhase,
 				modulation = Dictionary.new,
-				lag = 0.01,
 				fxA, fxB,
 				recPitch, recTip, recHand, recGate, recTrig,
 				trig, ampMode, hand, freezeWithoutGate, eg, eg2, amp;
 
-			// send signals to sclang to handle op, fx, and lfo type changes
+			// watch type op/fx/lfo type parameters and send signals to sclang to
+			// handle op, fx, and lfo type changes
 			var voiceIndex = \voiceIndex.ir;
 			Dictionary[
 				\opFade -> [ \opFadeA, \opFadeB ],
@@ -342,11 +360,12 @@ Engine_Cule : CroneEngine {
 				controlNames.do({ |controlName, i|
 					var value = NamedControl.kr(controlName);
 					// TODO: use voiceIndex as replyID, NOT first value. same for the other SendReplys.
+					// TODO: would there really be any value in that?
 					SendReply.kr(Changed.kr(value), path, [ voiceIndex, i, value ]);
 				});
 			});
 
-			// calculate modulation matrix
+			// calculate modulation matrix values
 
 			// this feedback loop is needed in order for modulators to modulate one another
 			amp = InFeedback.ar(\ampBus.ir);
@@ -358,12 +377,8 @@ Engine_Cule : CroneEngine {
 				Latch.kr(WhiteNoise.kr, Trig.kr(gate) + Trig.kr(amp > 0.01))
 			].flatten;
 
-			// TODO: make a 'patch' synth that smooths out all patch params (that need smoothing) ONCE, so
-			// each voice doesn't need to do that individually.
-			// patch synth would also have args for lfo types, etc.
-			// then voices could SendReply when type args change, which would trigger swapLfo etc.
-
-			// build a dictionary of summed modulation signals to apply to parameters
+			// read amounts from mapped patch buses, and use them to build a
+			// dictionary of summed modulation signals to apply to parameters
 			modulationDestNames.do({ |destName|
 				if(controlRateDestNames.includes(destName), {
 					// control-rate destinations
@@ -394,11 +409,11 @@ Engine_Cule : CroneEngine {
 						// in both cases, amp is scaled so that maximum reduction is 2.
 						// except for HP cutoff, which works the opposite way: it is only ever raised.
 						if(\amp === sourceName && [\indexA, \indexB, \hpCutoff, \lpCutoff].includes(destName), {
-							var amount = NamedControl.kr(('amp_' ++ destName).asSymbol, lags: lag);
+							var amount = NamedControl.kr(('amp_' ++ destName).asSymbol);
 							var polaritySwitch = BinaryOpUGen(if(\hpCutoff === sourceName, '<', '>'), amount, 0);
 							(modulator - polaritySwitch) * 2 * amount;
 						}, {
-							modulator * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol, lags: lag);
+							modulator * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol);
 						});
 					}));
 				});
@@ -458,26 +473,26 @@ Engine_Cule : CroneEngine {
 			eg2 = Env.perc(0.001, \eg2Time.kr(1) + attack + release, curve: -8).ar(gate: trig);
 
 			Out.kr(\opRatioBus.ir, [
-				\ratioA.kr.lag(0.1) + modulation[\ratioA],
-				\ratioB.kr.lag(0.1) + modulation[\ratioB]
+				\ratioA.kr + modulation[\ratioA],
+				\ratioB.kr + modulation[\ratioB]
 			]);
 
 			Out.ar(\opIndexBus.ir, [
-				\indexA.ar.lag(0.1) + modulation[\indexA],
-				\indexB.ar.lag(0.1) + modulation[\indexB]
+				\indexA.ar + modulation[\indexA],
+				\indexB.ar + modulation[\indexB]
 			]);
 
-			Out.kr(\opMixBus.ir, \opMix.kr.lag(0.1) + modulation[\opMix]);
+			Out.kr(\opMixBus.ir, \opMix.kr + modulation[\opMix]);
 
-			fxA = \fxA.kr.lag(0.1) + modulation[\fxA];
-			fxB = \fxB.kr.lag(0.1) + modulation[\fxB];
+			fxA = \fxA.kr + modulation[\fxA];
+			fxB = \fxB.kr + modulation[\fxB];
 			Out.kr(\fxBus.ir, [ fxA, fxB ]);
-			Pause.kr(fxA > -1, \fxASynth.kr);
+			Pause.kr(fxA > -1, \fxASynth.kr); // TODO: I don't think this is working (yet?)
 			Pause.kr(fxB > -1, \fxBSynth.kr);
 
 			Out.ar(\cutoffBus.ir, [
-				\hpCutoff.ar.lag(0.1) + modulation[\hpCutoff],
-				\lpCutoff.ar.lag(0.1) + modulation[\lpCutoff]
+				\hpCutoff.ar + modulation[\hpCutoff],
+				\lpCutoff.ar + modulation[\lpCutoff]
 			]);
 
 			Out.kr(\rqBus.ir, [
@@ -515,8 +530,8 @@ Engine_Cule : CroneEngine {
 			Out.kr(\pitchBus.ir, pitch);
 
 			Out.ar(\opPitchBus.ir, [
-				\detuneA.ar.cubed.lag(0.1) + modulation[\detuneA],
-				\detuneB.ar.cubed.lag(0.1) + modulation[\detuneB]
+				\detuneA.ar.cubed + modulation[\detuneA],
+				\detuneB.ar.cubed + modulation[\detuneB]
 			] * 1.17 + pitch);
 			// max detune of 1.17 octaves is slightly larger than a ratio of 9/4
 
@@ -969,16 +984,6 @@ Engine_Cule : CroneEngine {
 
 		baseFreqBus.setSynchronous(60.midicps);
 
-		patchBuses = Dictionary.new;
-		controlDef.allControlNames.do({
-			arg control;
-			if(patchArgs.includes(control.name), {
-				var bus = Bus.control(context.server);
-				bus.set(control.defaultValue);
-				patchBuses.put(control.name, bus);
-			});
-		});
-
 		voiceOpStates = Array.fill(nVoices, {
 			Array.fill(2, {
 				Dictionary[
@@ -987,6 +992,11 @@ Engine_Cule : CroneEngine {
 				];
 			});
 		});
+
+		patchSynth = Synth.new(\patchControls, [
+			// no args or mappings needed for this one (yet...)
+			// it just reads from namedControls and writes them to matching buses, with lag
+		], context.og, \addToTail);
 
 		voiceSynths = Array.fill(nVoices, {
 			arg i;
@@ -1001,6 +1011,7 @@ Engine_Cule : CroneEngine {
 
 			controlSynth = Synth.new(\voiceControls, [
 				\voiceIndex, i,
+				// reminder: these buses are OUTPUTS of the control synth
 				\ampBus, bus[\amp],
 				\egBus, bus[\eg],
 				\trigBus, bus[\trig],
@@ -1009,7 +1020,6 @@ Engine_Cule : CroneEngine {
 				\pitchBus, bus[\pitch],
 				\opPitchBus, bus[\opPitch],
 				\opRatioBus, bus[\opRatio],
-				\opFadeSizeBus, bus[\opFadeSize],
 				\opIndexBus, bus[\opIndex],
 				\fxBus, bus[\fx],
 				\opMixBus, bus[\opMix],
@@ -1019,6 +1029,7 @@ Engine_Cule : CroneEngine {
 				\lfoStateBus, bus[\lfoState],
 				\outLevelBus, bus[\outLevel]
 			], context.og, \addToTail); // "output" group
+			// and mapped buses are INPUTS from patch buses
 			patchArgs.do({ |name| controlSynth.map(name, patchBuses[name]) });
 
 			lfoA = Synth.new(\lfoTri, [
@@ -1204,7 +1215,7 @@ Engine_Cule : CroneEngine {
 		patchArgs.do({
 			arg name;
 			this.addCommand(name, "f", { |msg|
-				patchBuses[name].set(msg[1]);
+				patchSynth.set(name, msg[1]);
 			});
 		});
 
@@ -1241,6 +1252,7 @@ Engine_Cule : CroneEngine {
 		// d50Resources.do({ |rsrc| rsrc.free });
 		replySynth.free;
 		voiceSynths.do({ |synths| synths.do({ |synth| synth.free }) });
+		patchSynth.free;
 		patchBuses.do({ |bus| bus.free });
 		voiceBuses.do({ |dict| dict.do({ |bus| bus.free; }); });
 		baseFreqBus.free;
