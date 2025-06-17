@@ -912,11 +912,13 @@ Engine_Cule : CroneEngine {
 
 		SynthDef.new(\fxSquiz, {
 			var bus = \bus.ir;
+			Poll.kr(Impulse.kr, DC.kr, "fxSquiz");
 			ReplaceOut.ar(bus, Squiz.ar(In.ar(bus), \intensity.ar.lincurve(-1, 1, 1, 16, 4, 'min'), 2));
 		}).add;
 
 		SynthDef.new(\fxWaveLoss, {
 			var bus = \bus.ir;
+			Poll.kr(Impulse.kr, DC.kr, "fxWaveLoss");
 			ReplaceOut.ar(bus,
 				WaveLoss.ar(In.ar(bus), \intensity.ar.lincurve(-1, 1, 0, 127, 4, 'min'), 127, mode: 2)
 			);
@@ -924,17 +926,20 @@ Engine_Cule : CroneEngine {
 
 		SynthDef.new(\fxFold, {
 			var bus = \bus.ir;
+			Poll.kr(Impulse.kr, DC.kr, "fxFold");
 			ReplaceOut.ar(bus, (In.ar(bus) * \intensity.ar.linexp(-1, 1, 1, 27, 'min')).fold2);
 		}).add;
 
 		SynthDef.new(\fxTanh, {
 			var bus = \bus.ir;
+			Poll.kr(Impulse.kr, DC.kr, "fxTanh");
 			ReplaceOut.ar(bus, (In.ar(bus) * \intensity.ar.linexp(-1, 1, 1, 49, 'min')).tanh);
 		}).add;
 
 		SynthDef.new(\fxDecimator, {
 			var bus = \bus.ir;
 			var intensity = \intensity.ar;
+			Poll.kr(Impulse.kr, DC.kr, "fxDecimator");
 			ReplaceOut.ar(bus,
 				Decimator.ar(In.ar(bus), intensity.linexp(-1, 1, SampleRate.ir, 1500), intensity.linexp(-1, 1, 14, 1))
 			);
@@ -946,6 +951,7 @@ Engine_Cule : CroneEngine {
 			var sig = In.ar(bus);
 			var intensity = \intensity.ar;
 			var lfo = LFTri.kr(intensity.linexp(-1, 1, 0.03, 2, nil)).lag(0.1) * [-1, 1];
+			Poll.kr(Impulse.kr, DC.kr, "fxChorus");
 			sig = Mix([
 				sig,
 				DelayL.ar(sig, 0.05, lfo * intensity.linexp(-1, 1, 0.0019, 0.005, nil) + [\d1.kr(0.01), \d2.kr(0.007)])
