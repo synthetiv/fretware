@@ -1382,7 +1382,6 @@ function redraw()
 	screen.level(3)
 	screen.move(0, 5)
 	if arp_menu.open then
-		-- TODO: icon instead? does this text fit?
 		screen.text('CLOCK: ')
 		local clock_source = params:get('clock_source')
 		if clock_source == 1 then
