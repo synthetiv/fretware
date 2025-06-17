@@ -58,6 +58,14 @@ Engine_Cule : CroneEngine {
 		);
 	}
 
+	applyFx {
+		arg dry, wet;
+		var blendAmount = \intensity.ar.linlin(-1, -0.9, -1, 1);
+		var blendAmountSmooth = blendAmount.lag(0.1);
+		var blended = LinXFade2.ar(dry, wet, blendAmountSmooth);
+		^ReplaceOut.ar(\bus.ir, blended);
+	}
+
 	buildRomplerDefs {
 		arg prefix, baseFreq, path, waveParamsArray, waveMapsLoopArray, waveMapsOneShotArray;
 
@@ -151,7 +159,7 @@ Engine_Cule : CroneEngine {
 			\bus, bus
 		]);
 		newFx.map(\intensity, Bus.newFrom(buses[\fx], slot));
-		synths[0].set([ \fxASynth, \fxBSynth ].at(slot), newFx); // TODO: maybe use newFx.nodeID
+		synths[0].set([ \fxASynth, \fxBSynth ].at(slot), newFx);
 		synths.put(slot + 4, newFx);
 	}
 
@@ -501,15 +509,9 @@ Engine_Cule : CroneEngine {
 			fxA = \fxA.kr + modulation[\fxA];
 			fxB = \fxB.kr + modulation[\fxB];
 			Out.kr(\fxBus.ir, [ fxA, fxB ]);
-			// TODO: I don't think this is working (yet?)
-			// check poll outputs -- if they aren't pausing, possible explanations:
-			// - Pause may not support having its second arg modulated after creation
-			// - fxA and fxB may never truly reach 0 because they're 1pole smoothed! try setting a threshold of like -0.999999
-			// - you may not really be able to pass synths in as arguments like this! do you need to send node ID explicitly?
-			// if none of the above help, have fx synths free themselves when intensity hits/nears 0,
-			// and add new ones when it exceeds 0
-			Pause.kr(fxA > -1, \fxASynth.kr);
-			Pause.kr(fxB > -1, \fxBSynth.kr);
+			// when FX amounts go to (almost) 0, wait 0.1s for fade (see applyFx), then pause them
+			Pause.kr(LagUD.kr(fxA > -0.999, 0, 0.1), \fxASynth.kr);
+			Pause.kr(LagUD.kr(fxB > -0.999, 0, 0.1), \fxBSynth.kr);
 
 			Out.ar(\cutoffBus.ir, [
 				\hpCutoff.ar + modulation[\hpCutoff],
@@ -917,52 +919,59 @@ Engine_Cule : CroneEngine {
 		SynthDef.new(\nothing, {}).add;
 
 		SynthDef.new(\fxSquiz, {
-			var bus = \bus.ir;
-			Poll.kr(Impulse.kr, DC.kr, "fxSquiz");
-			ReplaceOut.ar(bus, Squiz.ar(In.ar(bus), \intensity.ar.lincurve(-1, 1, 1, 16, 4, 'min'), 2));
+			var dry = In.ar(\bus.ir);
+			var wet = Squiz.ar(
+				dry,
+				\intensity.ar.lincurve(-1, 1, 1, 16, 4, 'min'),
+				2
+			);
+			this.applyFx(dry, wet);
 		}).add;
 
 		SynthDef.new(\fxWaveLoss, {
-			var bus = \bus.ir;
-			Poll.kr(Impulse.kr, DC.kr, "fxWaveLoss");
-			ReplaceOut.ar(bus,
-				WaveLoss.ar(In.ar(bus), \intensity.ar.lincurve(-1, 1, 0, 127, 4, 'min'), 127, mode: 2)
+			var dry = In.ar(\bus.ir);
+			var wet = WaveLoss.ar(
+				dry,
+				\intensity.ar.lincurve(-1, 1, 0, 127, 4, 'min'),
+				127,
+				mode: 2
 			);
+			this.applyFx(dry, wet);
 		}).add;
 
 		SynthDef.new(\fxFold, {
-			var bus = \bus.ir;
-			Poll.kr(Impulse.kr, DC.kr, "fxFold");
-			ReplaceOut.ar(bus, (In.ar(bus) * \intensity.ar.linexp(-1, 1, 1, 27, 'min')).fold2);
+			var dry = In.ar(\bus.ir);
+			var wet = (dry * \intensity.ar.linexp(-1, 1, 1, 27, 'min')).fold2;
+			this.applyFx(dry, wet);
 		}).add;
 
 		SynthDef.new(\fxTanh, {
-			var bus = \bus.ir;
-			Poll.kr(Impulse.kr, DC.kr, "fxTanh");
-			ReplaceOut.ar(bus, (In.ar(bus) * \intensity.ar.linexp(-1, 1, 1, 49, 'min')).tanh);
+			var dry = In.ar(\bus.ir);
+			var wet = (dry * \intensity.ar.linexp(-1, 1, 1, 49, 'min')).tanh;
+			this.applyFx(dry, wet);
 		}).add;
 
 		SynthDef.new(\fxDecimator, {
-			var bus = \bus.ir;
+			var dry = In.ar(\bus.ir);
 			var intensity = \intensity.ar;
-			Poll.kr(Impulse.kr, DC.kr, "fxDecimator");
-			ReplaceOut.ar(bus,
-				Decimator.ar(In.ar(bus), intensity.linexp(-1, 1, SampleRate.ir, 1500), intensity.linexp(-1, 1, 14, 1))
+			var wet = Decimator.ar(
+				dry,
+				intensity.linexp(-1, 1, SampleRate.ir, 1500),
+				intensity.linexp(-1, 1, 14, 1)
 			);
+			this.applyFx(dry, wet);
 		}).add;
 
 		// Dimension C-style chorus
 		SynthDef.new(\fxChorus, {
-			var bus = \bus.ir;
-			var sig = In.ar(bus);
+			var dry = In.ar(\bus.ir);
 			var intensity = \intensity.ar;
 			var lfo = LFTri.kr(intensity.linexp(-1, 1, 0.03, 2, nil)).lag(0.1) * [-1, 1];
-			Poll.kr(Impulse.kr, DC.kr, "fxChorus");
-			sig = Mix([
-				sig,
-				DelayL.ar(sig, 0.05, lfo * intensity.linexp(-1, 1, 0.0019, 0.005, nil) + [\d1.kr(0.01), \d2.kr(0.007)])
+			var wet = Mix([
+				dry,
+				DelayL.ar(dry, 0.05, lfo * intensity.linexp(-1, 1, 0.0019, 0.005, nil) + [\d1.kr(0.01), \d2.kr(0.007)])
 			].flatten);
-			ReplaceOut.ar(bus, sig * -6.dbamp);
+			this.applyFx(dry, wet);
 		}).add;
 
 		// TODO: separate, swappable filter synths
@@ -1123,13 +1132,13 @@ Engine_Cule : CroneEngine {
 				\bus, mixBus
 			], context.og, \addToTail);
 			fxA.map(\intensity, Bus.newFrom(bus[\fx], 0));
-			controlSynth.set(\fxASynth, fxA); // TODO: try fxA.nodeID here
+			controlSynth.set(\fxASynth, fxA);
 
 			fxB = Synth.new(\fxWaveLoss, [
 				\bus, mixBus
 			], context.og, \addToTail);
 			fxB.map(\intensity, Bus.newFrom(bus[\fx], 1));
-			controlSynth.set(\fxBSynth, fxB); // TODO: try fxB.nodeID here
+			controlSynth.set(\fxBSynth, fxB);
 
 			out = Synth.new(\voiceOutputStage, [
 				\bus, mixBus
