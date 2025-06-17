@@ -5,8 +5,6 @@ Engine_Cule : CroneEngine {
 	classvar bufferRateScale = 0.5;
 	classvar maxLoopTime = 60;
 
-	var controlDef;
-
 	var opTypeDefNames;
 	var modulationDestNames;
 	var controlRateDestNames;
@@ -327,11 +325,9 @@ Engine_Cule : CroneEngine {
 			];
 		});
 
-		// TODO: support multiple patches!
 		patchBuses = Dictionary.new;
 		patchArgs.do({
 			arg name;
-			// TODO: we're no longer setting default values here. is that going to be OK?
 			patchBuses.put(name, Bus.control(context.server));
 		});
 
@@ -345,7 +341,7 @@ Engine_Cule : CroneEngine {
 			});
 		}).add;
 
-		controlDef = SynthDef.new(\voiceControls, {
+		SynthDef.new(\voiceControls, {
 
 			arg pitch = 0,
 				gate = 0,
@@ -379,8 +375,6 @@ Engine_Cule : CroneEngine {
 				var path = '/' ++ typeName;
 				controlNames.do({ |controlName, i|
 					var value = NamedControl.kr(controlName);
-					// TODO: use voiceIndex as replyID, NOT first value. same for the other SendReplys.
-					// TODO: would there really be any value in that?
 					SendReply.kr(Changed.kr(value), path, [ voiceIndex, i, value ]);
 				});
 			});
@@ -508,6 +502,7 @@ Engine_Cule : CroneEngine {
 			fxB = \fxB.kr + modulation[\fxB];
 			Out.kr(\fxBus.ir, [ fxA, fxB ]);
 			Pause.kr(fxA > -1, \fxASynth.kr); // TODO: I don't think this is working (yet?)
+			// test by polling something in the fx synths, poll should stop when paused
 			Pause.kr(fxB > -1, \fxBSynth.kr);
 
 			Out.ar(\cutoffBus.ir, [
@@ -544,8 +539,6 @@ Engine_Cule : CroneEngine {
 
 			Out.kr(\panBus.ir, \pan.kr.lag(0.1) + modulation[\pan]);
 
-			// TODO: why can't I use MovingAverage.kr here to get a linear slew?!
-			// if I try that, SC seems to just hang forever, no error message
 			pitch = Lag.kr(pitch, \pitchSlew.kr);
 			Out.kr(\pitchBus.ir, pitch);
 
@@ -955,7 +948,6 @@ Engine_Cule : CroneEngine {
 			var lfo = LFTri.kr(intensity.linexp(-1, 1, 0.03, 2, nil)).lag(0.1) * [-1, 1];
 			sig = Mix([
 				sig,
-				// TODO: maybe do DelayC instead
 				DelayL.ar(sig, 0.05, lfo * intensity.linexp(-1, 1, 0.0019, 0.005, nil) + [\d1.kr(0.01), \d2.kr(0.007)])
 			].flatten);
 			ReplaceOut.ar(bus, sig * -6.dbamp);
@@ -1013,8 +1005,6 @@ Engine_Cule : CroneEngine {
 			});
 		}).add;
 
-		// TODO: master bus FX like saturation, decimation...?
-
 		context.server.sync;
 
 		baseFreqBus.setSynchronous(60.midicps);
@@ -1063,6 +1053,8 @@ Engine_Cule : CroneEngine {
 				\outLevelBus, bus[\outLevel]
 			], context.og, \addToTail); // "output" group
 			// and mapped buses are INPUTS from patch buses
+			// TODO: allow 'freezing' a voice's patch parameters, by uncoupling its controlSynth from the patchSynth!
+			// that would allow multitimbrality, without the UI problem of needing to edit multiple patches with one set of faders
 			patchArgs.do({ |name| controlSynth.map(name, patchBuses[name]) });
 
 			lfoA = Synth.new(\lfoTri, [
