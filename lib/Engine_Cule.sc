@@ -1067,6 +1067,8 @@ Engine_Cule : CroneEngine {
 			// and mapped buses are INPUTS from patch buses
 			// TODO: allow 'freezing' a voice's patch parameters, by uncoupling its controlSynth from the patchSynth!
 			// that would allow multitimbrality, without the UI problem of needing to edit multiple patches with one set of faders
+			// to unmap, try synth.map(name, -1); that may or may not retain the current value
+			// if it doesn't, read from each bus and use synth.set(name, value) -- explicit set() also unmaps
 			patchArgs.do({ |name| controlSynth.map(name, patchBuses[name]) });
 
 			lfoA = Synth.new(\lfoTri, [
@@ -1135,7 +1137,7 @@ Engine_Cule : CroneEngine {
 			out.map(\amp,      bus[\amp]);
 			out.map(\pan,      bus[\pan]);
 			out.map(\hpCutoff, Bus.newFrom(bus[\cutoff], 0));
-			out.map(\hpRQ,     Bus.newFrom(bus[\rq], 0));
+			out.map(\hpRQ,     Bus.newFrom(bus[\rq], 0)); // TODO: make absolutely sure this is coming from the controlSynth and will be held if patch is frozen
 			out.map(\lpCutoff, Bus.newFrom(bus[\cutoff], 1));
 			out.map(\lpRQ,     Bus.newFrom(bus[\rq], 1));
 			out.map(\outLevel, bus[\outLevel]);
