@@ -291,10 +291,17 @@ Engine_Cule : CroneEngine {
 			var rate = \rate.kr;
 			var downbeat = \downbeat.tr;
 			// at each downbeat, hard-reset the phasor to 0, 1, 2, 3, 0...
-			// TODO: possible failure point here
 			var beat = Stepper.kr(downbeat, 0, 0, 3);
-			var phase = Phasor.kr(\beat.tr, \rate.kr, 0, 4, resetPos: beat);
-			Out.kr(clockPhaseBus, phase);
+			var phase = Phasor.kr(downbeat, rate, 0, 4, resetPos: beat);
+			// now shift the whole thing up to compensate for:
+			// 1. message latency -- downbeat triggers will be sent using s.makeBundle for precise timing
+			var latencyOffset = 0.1 * ControlRate.ir * rate;
+			// 2. 1-block delay, because this phase will feed clocked LFOs that will also be fed by the
+			// mod matrix, and then they'll only be fed BACK into the mod matrix 1 block later
+			var blockOffset = rate;
+			// 3. 0.01-second smoothing lag that gets applied to LFO outputs to avoid bad audible pops
+			var lagOffset = 0.01 * ControlRate.ir * rate;
+			Out.kr(clockPhaseBus, phase + latencyOffset + blockOffset + lagOffset);
 		}).add;
 
 		voiceBuses = Array.fill(nVoices, {
@@ -563,15 +570,24 @@ Engine_Cule : CroneEngine {
 
 		// Tempo-synced random step LFO
 		SynthDef.new(\lfoSH, {
-			var freq = \freq.kr(1); // TODO: quantize...? this to some multiple of the tempo, somehow??
-			// failing that, actual freq is fine, 1 Hz will translate to 1/4 note at 120bpm
-			// TODO: quantize to more fun divisions than this, like 1/3, dotted notes, etc
-			// TODO: make changes in freq smoother... somehow... no idea
-			// TODO: figure out why these clocks seem to operate in reverse phase from the arp clock
-			var phase = (In.kr(clockPhaseBus) * 2.pow(freq.log2.trunc)).wrap(0, 1);
+			var inPhase = In.kr(clockPhaseBus);
+			var freq = \freq.kr(1);
+			var rawMult = 2.pow(freq.log2.round); // frequency quantized to nearest power of 2
+			// TODO: quantize to more fun divisions than this, like tuplets, dotted notes, etc
+			var rawPhase = (inPhase * rawMult).wrap(0, 1);
+			var rawGate = BinaryOpUGen('<', rawPhase, 0.5);
+			// the 'raw' clock above is fine until you start modulating the frequency. then you get very
+			// awkward jumps as mult changes.
+			// in order to only change mult at note onsets, we derive ANOTHER clock whose frequency
+			// is Latched by the raw clock.
+			var mult = Latch.kr(rawMult, rawGate);
+			var phase = (inPhase * mult).wrap(0, 1);
 			var gate = BinaryOpUGen('<', phase, 0.5);
+			// since S+H output will be lagged by 0.01, the clock we're being fed is 0.01s early.
+			// that's good for triggering the S+H, but bad for clocking seq
+			var delayedGate = DelayN.kr(gate, 0.01, 0.01);
 			Out.kr(\stateBus.ir, Lag.kr(TRand.kr(-1, 1, gate), 0.01));
-			SendReply.kr(Changed.kr(gate), '/lfoGate', [\voiceIndex.ir, \lfoIndex.ir, gate]);
+			SendReply.kr(Changed.kr(delayedGate), '/lfoGate', [\voiceIndex.ir, \lfoIndex.ir, delayedGate]);
 		}).add;
 
 		// Random Dust step LFO
@@ -1268,7 +1284,9 @@ Engine_Cule : CroneEngine {
 		});
 
 		this.addCommand(\downbeat, "", { |msg|
-			clockSynth.set(\downbeat);
+			context.server.makeBundle(0.1, {
+				clockSynth.set(\downbeat, 1);
+			});
 		});
 	}
 
