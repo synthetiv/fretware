@@ -151,7 +151,7 @@ Engine_Cule : CroneEngine {
 			\bus, bus
 		]);
 		newFx.map(\intensity, Bus.newFrom(buses[\fx], slot));
-		synths[0].set([ \fxASynth, \fxBSynth ].at(slot), newFx);
+		synths[0].set([ \fxASynth, \fxBSynth ].at(slot), newFx); // TODO: maybe use newFx.nodeID
 		synths.put(slot + 4, newFx);
 	}
 
@@ -501,8 +501,14 @@ Engine_Cule : CroneEngine {
 			fxA = \fxA.kr + modulation[\fxA];
 			fxB = \fxB.kr + modulation[\fxB];
 			Out.kr(\fxBus.ir, [ fxA, fxB ]);
-			Pause.kr(fxA > -1, \fxASynth.kr); // TODO: I don't think this is working (yet?)
-			// test by polling something in the fx synths, poll should stop when paused
+			// TODO: I don't think this is working (yet?)
+			// check poll outputs -- if they aren't pausing, possible explanations:
+			// - Pause may not support having its second arg modulated after creation
+			// - fxA and fxB may never truly reach 0 because they're 1pole smoothed! try setting a threshold of like -0.999999
+			// - you may not really be able to pass synths in as arguments like this! do you need to send node ID explicitly?
+			// if none of the above help, have fx synths free themselves when intensity hits/nears 0,
+			// and add new ones when it exceeds 0
+			Pause.kr(fxA > -1, \fxASynth.kr);
 			Pause.kr(fxB > -1, \fxBSynth.kr);
 
 			Out.ar(\cutoffBus.ir, [
@@ -1115,13 +1121,13 @@ Engine_Cule : CroneEngine {
 				\bus, mixBus
 			], context.og, \addToTail);
 			fxA.map(\intensity, Bus.newFrom(bus[\fx], 0));
-			controlSynth.set(\fxASynth, fxA);
+			controlSynth.set(\fxASynth, fxA); // TODO: try fxA.nodeID here
 
 			fxB = Synth.new(\fxWaveLoss, [
 				\bus, mixBus
 			], context.og, \addToTail);
 			fxB.map(\intensity, Bus.newFrom(bus[\fx], 1));
-			controlSynth.set(\fxBSynth, fxB);
+			controlSynth.set(\fxBSynth, fxB); // TODO: try fxB.nodeID here
 
 			out = Synth.new(\voiceOutputStage, [
 				\bus, mixBus
