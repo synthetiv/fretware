@@ -458,8 +458,6 @@ function g.key(x, y, z)
 						else
 							param:set_default()
 						end
-						-- TODO: what's this for again??
-						_menu.set_mode(false)
 					end
 				end
 			end
