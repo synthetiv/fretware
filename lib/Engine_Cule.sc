@@ -966,7 +966,7 @@ Engine_Cule : CroneEngine {
 		SynthDef.new(\fxChorus, {
 			var dry = In.ar(\bus.ir);
 			var intensity = \intensity.ar;
-			var lfo = LFTri.kr(intensity.linexp(-1, 1, 0.03, 2, nil)).lag(0.1) * [-1, 1];
+			var lfo = LFTri.kr(intensity.linexp(-1, 1, 0.015, 2, nil)).lag(0.1) * [-1, 1];
 			var wet = Mix([
 				dry,
 				DelayL.ar(dry, 0.05, lfo * intensity.linexp(-1, 1, 0.0019, 0.005, nil) + [\d1.kr(0.01), \d2.kr(0.007)])
