@@ -519,8 +519,8 @@ Engine_Cule : CroneEngine {
 			]);
 
 			Out.kr(\rqBus.ir, [
-				\hpRQ.kr(0.7),
-				\lpRQ.kr(0.7)
+				\hpRQ.kr(0.7, 0.1, true),
+				\lpRQ.kr(0.7, 0.1, true)
 			]);
 
 			Out.kr(\lfoFreqBus.ir, [
