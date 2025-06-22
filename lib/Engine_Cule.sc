@@ -971,7 +971,7 @@ Engine_Cule : CroneEngine {
 				dry,
 				DelayL.ar(dry, 0.05, lfo * intensity.linexp(-1, 1, 0.0019, 0.005, nil) + [\d1.kr(0.01), \d2.kr(0.007)])
 			].flatten);
-			this.applyFx(dry, wet);
+			this.applyFx(dry, wet * -6.dbamp);
 		}).add;
 
 		// TODO: separate, swappable filter synths
