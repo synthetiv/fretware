@@ -689,6 +689,7 @@ function init()
 			voice.polls[name]:start()
 		end
 
+		--[[
 		cpu_avg = poll.set('cpu_avg', function(value)
 			print('-- cpu avg: ', value)
 		end)
@@ -699,6 +700,7 @@ function init()
 		end)
 		cpu_peak.time = 0.5
 		cpu_peak:start()
+		--]]
 	end
 
 	params:add_group('tuning', 5)
