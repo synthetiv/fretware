@@ -10,6 +10,7 @@ Engine_Cule : CroneEngine {
 	var controlRateDestNames;
 	var modulationSourceNames;
 	var controlRateSourceNames;
+	var patchOptions;
 	var patchArgs;
 	var selectedVoiceArgs;
 
@@ -255,11 +256,8 @@ Engine_Cule : CroneEngine {
 			\sh
 		];
 
-		// modulatable AND non-modulatable parameters
-		patchArgs = [
-			\pitchSlew,
-			\hpRQ,
-			\lpRQ,
+		// non-slewed settings
+		patchOptions = [
 			\opFadeA,
 			\opTypeA,
 			\opFadeB,
@@ -271,7 +269,15 @@ Engine_Cule : CroneEngine {
 			\ampMode,
 			\lfoTypeA,
 			\lfoTypeB,
-			\lfoTypeC,
+			\lfoTypeC
+		];
+
+		// modulatable AND non-modulatable parameters
+		patchArgs = [
+			\pitchSlew,
+			\hpRQ,
+			\lpRQ,
+			patchOptions,
 			modulationDestNames.difference([ \amp, \pan, \loopPosition, \loopRate ]),
 			Array.fill(modulationSourceNames.size, { |s|
 				Array.fill(modulationDestNames.size, { |d|
@@ -340,11 +346,14 @@ Engine_Cule : CroneEngine {
 		});
 
 		SynthDef.new(\patchControls, {
-			// calculate modulation matrix amounts
-			// this smooths out all patch params that need smoothing ONCE, so each
-			// voice doesn't need to do that individually.
 			patchArgs.do({ |name|
-				var control = NamedControl.kr(name, 0.1, fixedLag: true);
+				var control = if(patchOptions.includes(name), {
+					NamedControl.kr(name);
+				}, {
+					// this smooths out all patch params that need smoothing ONCE, so each
+					// voice doesn't need to do that individually.
+					NamedControl.kr(name, lags: 0.1, fixedLag: true);
+				});
 				Out.kr(patchBuses[name], control);
 			});
 		}).add;
@@ -519,8 +528,8 @@ Engine_Cule : CroneEngine {
 			]);
 
 			Out.kr(\rqBus.ir, [
-				\hpRQ.kr(0.7, 0.1, true),
-				\lpRQ.kr(0.7, 0.1, true)
+				\hpRQ.kr,
+				\lpRQ.kr,
 			]);
 
 			Out.kr(\lfoFreqBus.ir, [
@@ -545,7 +554,7 @@ Engine_Cule : CroneEngine {
 			Out.ar(\egBus.ir, [ eg, eg2 ]);
 			Out.kr(\handBus.ir, hand);
 
-			Out.kr(\panBus.ir, \pan.kr.lag(0.1) + modulation[\pan]);
+			Out.kr(\panBus.ir, \pan.kr(lags: 0.1, fixedLag: true) + modulation[\pan]);
 
 			pitch = Lag.kr(pitch, \pitchSlew.kr);
 			Out.kr(\pitchBus.ir, pitch);
@@ -558,7 +567,7 @@ Engine_Cule : CroneEngine {
 
 			Out.kr(\trigBus.ir, trig);
 
-			Out.kr(\outLevelBus.ir, \outLevel.kr(0.2));
+			Out.kr(\outLevelBus.ir, \outLevel.kr(0.2, lags: 0.1, fixedLag: true));
 		}).add;
 
 		// Triangle LFO
@@ -984,7 +993,7 @@ Engine_Cule : CroneEngine {
 
 			// HPF
 			hpCutoff = \hpCutoff.ar(-1).linexp(-1, 1, 4, 24000);
-			hpRQ = \hpRQ.kr(0.7);
+			hpRQ = \hpRQ.kr(0.7).max(0.1);
 			hpRQ = hpCutoff.linexp(SampleRate.ir * 0.25 / hpRQ, SampleRate.ir * 0.5, hpRQ, 0.5);
 			voiceOutput = RHPF.ar(voiceOutput, hpCutoff, hpRQ);
 
@@ -993,7 +1002,7 @@ Engine_Cule : CroneEngine {
 				Env.xyc([ [-1, 4], [\lpBreakpointIn.kr(-0.5), \lpBreakpointOut.kr(400), \exp], [1, 24000] ]),
 				\lpCutoff.ar(1)
 			);
-			lpRQ = \lpRQ.kr(0.7);
+			lpRQ = \lpRQ.kr(0.7).max(0.1);
 			lpRQ = lpCutoff.linexp(SampleRate.ir * 0.25 / lpRQ, SampleRate.ir * 0.5, lpRQ, 0.5);
 			voiceOutput = RLPF.ar(voiceOutput, lpCutoff, lpRQ);
 
