@@ -223,34 +223,37 @@ function Keyboard:key(x, y, z)
 		end
 	elseif x <= self.x + 1 then
 		local v = self.y2 - y
-		if x == self.x then
-			if y == self.y then
-				if z == 1 then
-					-- loop delete key
-					for v = 1, n_voices do
-						if self.held_keys.voice_loops[v] then
-							clear_voice_loop(v)
-						end
-					end
-				end
-			elseif v <= n_voices then
-				-- voice loop keys
-				self.held_keys.voice_loops[v] = z == 1
-				local voice = voice_states[v]
-				-- cheating a little here by calling functions from fretware.lua. TODO: clean up?
-				if z == 1 and not voice.looping then
-					if voice.loop_armed then
-						play_voice_loop(v)
-					else
-						self:select_voice(v)
-						record_voice_loop(v)
+		if x == self.x and y == self.y then
+			if z == 1 then
+				-- loop delete key
+				for v = 1, n_voices do
+					if self.held_keys.voice_loops[v] then
+						clear_voice_loop(v)
 					end
 				end
 			end
-		else
-			-- voice select keys
-			if z == 1 then
-				self:select_voice(v)
+		elseif v <= n_voices then
+			if x == self.x then
+				if y == self.y then
+				elseif v <= n_voices then
+					-- voice loop keys
+					self.held_keys.voice_loops[v] = z == 1
+					local voice = voice_states[v]
+					-- cheating a little here by calling functions from fretware.lua. TODO: clean up?
+					if z == 1 and not voice.looping then
+						if voice.loop_armed then
+							play_voice_loop(v)
+						else
+							self:select_voice(v)
+							record_voice_loop(v)
+						end
+					end
+				end
+			else
+				-- voice select keys
+				if z == 1 then
+					self:select_voice(v)
+				end
 			end
 		end
 	else
