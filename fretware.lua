@@ -1011,17 +1011,6 @@ function init()
 					engine.ampMode(value - 1)
 				end
 			}
-		elseif source == 'eg2' then
-			params:add_group(source, 1 + #editor.dests)
-			params:add {
-				name = 'eg2 time offset',
-				id = 'eg2Time',
-				type = 'control',
-				controlspec = controlspec.new(0.001, 13, 'exp', 0, 1, 's'),
-				action = function(value)
-					engine.eg2Time(value)
-				end
-			}
 		elseif source == 'lfoA' or source == 'lfoB' or source == 'lfoC' then
 			-- LFOs have extra parameters too
 			params:add_group(source, 1 + #editor.dests)
