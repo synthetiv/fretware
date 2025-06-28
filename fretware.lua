@@ -198,16 +198,6 @@ editor = {
 			has_divider = true
 		},
 		{
-			name = 'pan',
-			label = 'pan',
-			voice_param = 'pan'
-		},
-		{
-			name = 'amp',
-			label = 'amp',
-			voice_param = 'outLevel'
-		},
-		{
 			name = 'loopRate',
 			label = 'loop rate',
 			voice_param = 'loopRate'
@@ -216,6 +206,16 @@ editor = {
 			name = 'loopPosition',
 			label = 'loop position',
 			voice_param = 'loopPosition'
+		},
+		{
+			name = 'pan',
+			label = 'pan',
+			voice_param = 'pan'
+		},
+		{
+			name = 'amp',
+			label = 'amp',
+			voice_param = 'outLevel'
 		}
 	},
 	selected_dest = 1,
@@ -1417,12 +1417,11 @@ function enc(n, d)
 	if n == 1 then
 		editor.selected_dest = util.wrap(editor.selected_dest + d, 1, #editor.dests)
 	else
-		-- adjust amp or pan
-		-- or, when K2 is held, adjust loop rate or position
-		if held_keys[2] then
+		-- TODO: handle 'delta' and auto-selection stuff in SliderMapping class
+		-- adjust amp, pan, loop rate, or loop pos
+		if not held_keys[2] then
 			n = n + 2
 		end
-		-- TODO: handle 'delta' and auto-selection stuff in SliderMapping class
 		local param_index = 15 + n
 		local changed_source = false
 		local d_scaled = d / 128
@@ -1434,13 +1433,13 @@ function enc(n, d)
 		end
 		if not changed_source then
 			if n == 2 then
-				voice_mappings.pan[k.selected_voice]:delta(d_scaled)
-			elseif n == 3 then
-				voice_mappings.outLevel[k.selected_voice]:delta(d_scaled)
-			elseif n == 4 then
 				voice_mappings.loopRate[k.selected_voice]:delta(d_scaled)
-			elseif n == 5 then
+			elseif n == 3 then
 				voice_mappings.loopPosition[k.selected_voice]:delta(d_scaled)
+			elseif n == 4 then
+				voice_mappings.pan[k.selected_voice]:delta(d_scaled)
+			elseif n == 5 then
+				voice_mappings.outLevel[k.selected_voice]:delta(d_scaled)
 			end
 		end
 		-- maybe auto-select amp or pan
@@ -1462,6 +1461,15 @@ end
 
 function key(n, z)
 	held_keys[n] = z == 1 and util.time() or false
+	if n == 2 then
+		if z == 1 then
+			editor.selected_dest = 17 -- loop rate
+			editor.autoselect_time = util.time()
+		else
+			editor.selected_dest = 19 -- pan
+			editor.autoselect_time = util.time()
+		end
+	end
 end
 
 function cleanup()
