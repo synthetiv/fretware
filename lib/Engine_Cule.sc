@@ -177,6 +177,23 @@ Engine_Cule : CroneEngine {
 		synths.put(slot + 6, newLfo);
 	}
 
+	timbreLock {
+		arg v, state;
+		var controlSynth = voiceSynths[v][0];
+		if(state, {
+			("locking v" ++ v).postln;
+			// explicitly set this voice's patch args, which unmaps them from buses
+			patchArgs.do({ |name|
+				patchBuses[name].get({ |value|
+					controlSynth.set(name, value);
+				});
+			});
+		}, {
+			("unlocking v" ++ v).postln;
+			patchArgs.do({ |name| controlSynth.map(name, patchBuses[name]) });
+		});
+	}
+
 	alloc {
 
 		opTypeDefNames = [
@@ -1310,6 +1327,10 @@ Engine_Cule : CroneEngine {
 			context.server.makeBundle(0.1, {
 				clockSynth.set(\downbeat, 1);
 			});
+		});
+
+		this.addCommand(\timbreLock, "ii", { |msg|
+			this.timbreLock(msg[1] - 1, msg[2] > 0);
 		});
 	}
 

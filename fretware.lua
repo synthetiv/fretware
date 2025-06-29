@@ -272,6 +272,7 @@ for v = 1, n_voices do
 		lfoA_gate = false,
 		lfoB_gate = false,
 		lfoC_gate = false,
+		timbre_lock = false,
 		polls = {},
 	}
 end
@@ -1057,7 +1058,7 @@ function init()
 		end
 	end
 
-	params:add_group('voice mix/etc', n_voices * 4)
+	params:add_group('voice mix/etc', n_voices * 5)
 
 	for v = 1, n_voices do
 
@@ -1116,6 +1117,17 @@ function init()
 			end,
 			formatter = function(param)
 				return string.format('%+.2fx', param:get())
+			end
+		}
+
+		params:add {
+			name = 'timbre lock',
+			id = 'timbreLock_' .. v,
+			type = 'option',
+			options = { 'off', 'on' },
+			action = function(value)
+				engine.timbreLock(v, value - 1)
+				voice_states[v].timbre_lock = value > 1
 			end
 		}
 
@@ -1398,7 +1410,11 @@ function redraw()
 		end
 	else
 		screen.text(editor.source_names[source_menu.value]:upper())
-		screen.text(' MOD')
+		if voice_states[k.selected_voice].timbre_lock then
+			screen.text('  !! VOX LOCK')
+		else
+			screen.text(' MOD')
+		end
 	end
 	screen.move_rel(1, 0)
 	screen.line_rel(64, 0)
@@ -1461,11 +1477,15 @@ end
 
 function key(n, z)
 	held_keys[n] = z == 1 and util.time() or false
-	if n == 2 then
-		if z == 1 then
+	if z == 1 then
+		if n == 1 then
+			local lock_param = 'timbreLock_' .. k.selected_voice
+			local is_locked = voice_states[k.selected_voice].timbre_lock
+			params:set(lock_param, is_locked and 1 or 2)
+		elseif n == 2 then
 			editor.selected_dest = 17 -- loop rate
 			editor.autoselect_time = util.time()
-		else
+		elseif n == 3 then
 			editor.selected_dest = 19 -- pan
 			editor.autoselect_time = util.time()
 		end
