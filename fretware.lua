@@ -949,7 +949,7 @@ function init()
 		end
 	}
 
-	params:add_group('voice params', #editor.dests - 7)
+	params:add_group('voice params', #editor.dests - 9)
 
 	for d = 1, #editor.dests do
 		local dest = editor.dests[d]
