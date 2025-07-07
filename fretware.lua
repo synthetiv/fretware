@@ -322,11 +322,6 @@ arp_lattice:new_sprocket {
 	end
 }
 
--- inform SC of tempo changes
-clock.tempo_change_handler = function(tempo)
-	engine.tempo(tempo)
-end
-
 arp_lattice_nudge_keys = {
 	down = false,
 	up = false
@@ -1333,6 +1328,11 @@ function init()
 	-- trigger sysex config dump from xvi -- supposedly this SHOULD also
 	-- cause it to send fader values, but it doesn't :(
 	-- xvi:send { 0xf0, 0x7d, 0, 0, 0x1f, 0xf7 }
+
+	-- inform SC of tempo changes
+	clock.tempo_change_handler = function(tempo)
+		engine.tempo(tempo)
+	end
 
 	grid_redraw()
 end
