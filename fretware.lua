@@ -14,9 +14,9 @@ k = Keyboard.new(1, 1, 16, 8)
 
 Menu = include 'lib/menu'
 
-arp_menu = Menu.new(5, 5, 9, 2, {
-	1, 2, 3,  4,  5,  6, 7, 8, 9,
-	_, _, _, 10, 11, 12
+arp_menu = Menu.new(4, 5, 10, 2, {
+	_,  1, 2, 3,  4,  5,  6, 7, 8, 9,
+	13, _, _, _, 10, 11, 12
 })
 arp_menu.toggle = true
 arp_menu.on_select = function(source)
@@ -51,11 +51,14 @@ arp_direction_menu.on_select = function(value)
 	end
 end
 arp_direction_menu:select_value(0)
+-- TODO: dim direction menu when a *clock* isn't selected as a source
+-- (i.e. no source, or plectrum)
 
-source_menu = Menu.new(7, 1, 9, 2, {
+source_menu = Menu.new(4, 1, 12, 2, {
 	-- map of source numbers (in editor.source_names) to keys
-	 2, _, 3, _, 5, 6,  7, _, 1,
-	 _, _, 4, _, _, 8
+	-- TODO: add trackball dx, dy, and overall velocity
+	 2, _, _, _, _, 3, _, 5, 6,  7, _, 1,
+	 _, _, _, _, _, 4, _, _, 8
 })
 source_menu.multi = true
 source_menu:select_value(1)
@@ -1328,6 +1331,29 @@ function init()
 	-- trigger sysex config dump from xvi -- supposedly this SHOULD also
 	-- cause it to send fader values, but it doesn't :(
 	-- xvi:send { 0xf0, 0x7d, 0, 0, 0x1f, 0xf7 }
+
+	trackball = hid.connect(1)
+	function trackball.event(type, code, value)
+		if type == 2 then
+			if code == 0 then
+				-- TODO
+				-- engine should:
+				-- - accumulate and smooth (by a lot) incoming X and Y deltas
+				-- - sample overall 'velocity' on gate on
+				-- and make those available as mod sources
+				-- engine.x(value / -32)
+				if arp_menu.value == 13 then
+					k:move_plectrum(value / -16, 0)
+				end
+			elseif code == 1 then
+				-- TODO
+				-- engine.y(value / -32)
+				if arp_menu.value == 13 then
+					k:move_plectrum(0, value / -16)
+				end
+			end
+		end
+	end
 
 	-- inform SC of tempo changes
 	clock.tempo_change_handler = function(tempo)

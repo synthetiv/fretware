@@ -7,6 +7,8 @@ for p = 1, 12 do
 	et12[p] = { p / 12, nil }
 end
 
+local plectrum_reset_delay = 4
+
 -- TODO: panic function, for when a note gets stuck due to momentary grid connection loss
 --       or whatever it is that causes that
 
@@ -93,6 +95,12 @@ function Keyboard.new(x, y, width, height)
 	-- start at 0 / middle C
 	keyboard:key(keyboard.x_center, keyboard.y_center, 1)
 	keyboard:key(keyboard.x_center, keyboard.y_center, 0)
+	-- start plectrum there too
+	keyboard.plectrum = {
+		x = keyboard.x_center,
+		y = keyboard.y_center,
+		t = 0
+	}
 	-- update glide values when needed
 	clock.run(function()
 		while true do
@@ -342,6 +350,11 @@ function Keyboard:shift_octave(od)
 		if not held_keys[self.active_key] then
 			self:set_active_key(self:get_key_id_neighbor(self.active_key, d))
 		end
+		-- move the plectrum too!
+		-- TODO: make this work with non-12-tone tunings!
+		-- this assumes an octave is spelled the way it is in 12TET.
+		self.plectrum.x = self.plectrum.x + (od * -2)
+		self.plectrum.y = self.plectrum.y + (od * 2)
 	end
 	-- recalculate active pitch with new octave
 	if not self.arping or self.n_sustained_keys == 0 then
@@ -513,8 +526,59 @@ function Keyboard:arp(gate)
 			self.arp_insert = self.arp_index
 			self:set_active_key(self.sustained_keys[self.arp_index])
 		end
-		self.on_gate(gate)
+		self.on_gate(new_gate)
 	end
+end
+
+function Keyboard:move_plectrum(dx, dy)
+	local now = util.time()
+	if now - self.plectrum.t > plectrum_reset_delay then
+		self.plectrum.x = self.x_center
+		self.plectrum.y = self.y_center
+	end
+	self.plectrum.t = now
+	local old_x, old_y = self.plectrum.x, self.plectrum.y
+	self.plectrum.x, self.plectrum.y = self.plectrum.x + dx, self.plectrum.y + dy
+	if self.n_sustained_keys > 1 then
+		local old_arp_index, old_proximity = self:find_coords_arp_index(old_x, old_y)
+		local old_gate = old_proximity <= 0.5
+		local new_arp_index, new_proximity = self:find_coords_arp_index(self.plectrum.x, self.plectrum.y)
+		local new_gate = new_proximity <= 0.5
+		if new_arp_index ~= old_arp_index then
+			self.arp_index = new_arp_index
+			self:set_active_key(self.sustained_keys[self.arp_index])
+		end
+		if new_gate ~= old_gate then
+			self.on_gate(new_gate)
+		end
+	end
+end
+
+function Keyboard:find_coords_arp_index(x, y, second_closest_to)
+	if self.n_sustained_keys < 1 then
+		return nil
+	end
+	local best_distance = math.huge
+	local closest_arp_index = nil
+	for n = 1, self.n_sustained_keys do
+		if n ~= second_closest_to then
+			local key_x, key_y = self:get_key_id_coords(self.sustained_keys[n])
+			local dx, dy = key_x - x, key_y - y
+			-- we're skipping sqrt in the distance calculation here, but that's fine
+			local distance = dx * dx + dy * dy
+			if distance < best_distance then
+				best_distance = distance
+				closest_arp_index = n
+			end
+		end
+	end
+	-- if we're already trying to find a 'second closest' option, return the distance
+	if second_closest_to ~= nil then
+		return closest_arp_index, best_distance
+	end
+	-- find second closest option so we can compare the two distances
+	local second_closest, second_best_distance = self:find_coords_arp_index(x, y, closest_arp_index)
+	return closest_arp_index, best_distance / second_best_distance
 end
 
 function Keyboard:bend(amount)
@@ -599,6 +663,9 @@ function Keyboard:draw()
 		g:led(2, 8 - v, self.selected_voice == v and 8 or 2)
 	end
 
+	-- highlight plectrum location, if it's been moved recently
+	local plectrum_level = math.min(1, plectrum_reset_delay - (util.time() - self.plectrum.t)) * 7
+
 	for x = self.x + 2, self.x2 do
 		for y = self.y, self.y2 - 1 do
 			local key_id = self:get_key_id(x, y)
@@ -633,6 +700,14 @@ function Keyboard:draw()
 						voice_level = voice.weight * voice_level
 					end
 					level = led_blend(level, voice_level)
+				end
+			end
+
+			if plectrum_level > 0 then
+				local dx = 1 - math.abs(x - self.plectrum.x)
+				local dy = 1 - math.abs(y - self.plectrum.y)
+				if dx > 0 and dy > 0 then
+					level = led_blend(level, plectrum_level * dx * dy)
 				end
 			end
 
