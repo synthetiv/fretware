@@ -526,7 +526,7 @@ function Keyboard:arp(gate)
 			self.arp_insert = self.arp_index
 			self:set_active_key(self.sustained_keys[self.arp_index])
 		end
-		self.on_gate(new_gate)
+		self.on_gate(gate)
 	end
 end
 
