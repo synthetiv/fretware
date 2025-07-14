@@ -570,7 +570,7 @@ Engine_Cule : CroneEngine {
 			Out.ar(\egBus.ir, [ eg, eg2 ]);
 			Out.kr(\handBus.ir, hand);
 
-			Out.kr(\panBus.ir, \pan.kr(lags: 0.1, fixedLag: true) + modulation[\pan]);
+			Out.kr(\panBus.ir, \pan.kr(lag: 0.1, fixedLag: true) + modulation[\pan]);
 
 			pitch = Lag.kr(pitch, \pitchSlew.kr);
 			Out.kr(\pitchBus.ir, pitch);
@@ -583,7 +583,7 @@ Engine_Cule : CroneEngine {
 
 			Out.kr(\trigBus.ir, trig);
 
-			Out.kr(\outLevelBus.ir, \outLevel.kr(0.2, lags: 0.1, fixedLag: true));
+			Out.kr(\outLevelBus.ir, \outLevel.kr(0.2, lag: 0.1, fixedLag: true));
 		}).add;
 
 		// Triangle LFO
