@@ -482,8 +482,8 @@ Engine_Cule : CroneEngine {
 			loopPhase = (loopPhase + (loopLength * (loopPosition + modulation[\loopPosition]))).wrap(0, loopLength);
 			trig = Trig.kr(\trig.tr, 0.01);
 			hand = tip - palm;
-                        x = \dx.kr;
-                        y = \dy.kr;
+			x = \dx.kr;
+			y = \dy.kr;
 			BufWr.kr([pitch, tip, hand, x, y, gate, trig], buffer, bufferPhase);
 			// read values from recorded loop (if any)
 			# recPitch, recTip, recHand, recX, recY, recGate, recTrig = BufRd.kr(
@@ -1137,17 +1137,17 @@ Engine_Cule : CroneEngine {
 				\inBus, opABus,
 				\outBus, opBBus
 			], context.og, \addToTail);
-			opB.map(\pitch,    Bus.newFrom(bus[\opPitch], 1));
-			opB.map(\ratio,    Bus.newFrom(bus[\opRatio], 1));
-			opB.map(\index,    Bus.newFrom(bus[\opIndex], 1));
+			opB.map(\pitch, Bus.newFrom(bus[\opPitch], 1));
+			opB.map(\ratio, Bus.newFrom(bus[\opRatio], 1));
+			opB.map(\index, Bus.newFrom(bus[\opIndex], 1));
 
 			opA = Synth.new(\operatorFM, [
 				\inBus, opBBus,
 				\outBus, opABus
 			], context.og, \addToTail);
-			opA.map(\pitch,    Bus.newFrom(bus[\opPitch], 0));
-			opA.map(\ratio,    Bus.newFrom(bus[\opRatio], 0));
-			opA.map(\index,    Bus.newFrom(bus[\opIndex], 0));
+			opA.map(\pitch, Bus.newFrom(bus[\opPitch], 0));
+			opA.map(\ratio, Bus.newFrom(bus[\opRatio], 0));
+			opA.map(\index, Bus.newFrom(bus[\opIndex], 0));
 
 			mixBus = bus[\mixAudio];
 			opMixer = Synth.new(\operatorMixer, [
@@ -1255,8 +1255,8 @@ Engine_Cule : CroneEngine {
 				\gate, 0,
 				\tip, 0,
 				\palm, 0,
-                                \dx, 0,
-                                \dy, 0
+				\dx, 0,
+				\dy, 0
 				// we intentionally do NOT reset pitch, so that note doesn't change if envelope is still decaying
 			);
 			// select new voice
