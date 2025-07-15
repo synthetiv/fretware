@@ -28,6 +28,8 @@ arp_menu.on_select = function(source)
 		k:arp(false)
 		k.arping = false
 	end
+	-- TODO: this key shouldn't even be available unless arp_direction == 3
+	k.arp_plectrum = (source == 13)
 end
 arp_menu.get_key_level = function(value, selected)
 	local level = 0
@@ -41,17 +43,13 @@ arp_menu.get_key_level = function(value, selected)
 	return level + (selected and 11 or 4)
 end
 
--- TODO: should plectrum be considered a "direction" instead of a clock source?
-arp_direction_menu = Menu.new(5, 3, 4, 1, {
-	100, 50, 15, 0
+arp_direction_menu = Menu.new(4, 3, 5, 1, {
+	3, _, 2, _, 1
 })
 arp_direction_menu.on_select = function(value)
-	-- param doesn't exist when this is initialized
-	if params.lookup['arp_randomness'] then
-		params:set('arp_randomness', value)
-	end
+	k.arp_direction = value
 end
-arp_direction_menu:select_value(0)
+arp_direction_menu:select_value(1)
 
 source_menu = Menu.new(4, 1, 12, 2, {
 	-- map of source numbers (in editor.source_names) to keys
@@ -913,7 +911,7 @@ function init()
 
 	echo:add_params()
 
-	params:add_group('clock/arp', 2)
+	params:add_group('clock/arp', 1)
 
 	params:add {
 		name = 'loop clock div',
@@ -934,16 +932,6 @@ function init()
 		end,
 		action = function(value)
 			reset_loop_clock()
-		end
-	}
-
-	params:add {
-		name = 'arp randomness',
-		id = 'arp_randomness',
-		type = 'control',
-		controlspec = controlspec.new(0, 100, 'lin', 1, 0, '%'),
-		action = function(value)
-			k.arp_randomness = value / 100
 		end
 	}
 
@@ -1358,14 +1346,10 @@ function init()
 		if type == 2 then
 			if code == 0 then
 				trackball_values.x = trackball_values.x - value
-				if arp_menu.value == 13 then
-					k:move_plectrum(value / -16, 0)
-				end
+				k:move_plectrum(value / -16, 0)
 			elseif code == 1 then
 				trackball_values.y = trackball_values.y - value
-				if arp_menu.value == 13 then
-					k:move_plectrum(0, value / -16)
-				end
+				k:move_plectrum(0, value / -16)
 			end
 		end
 	end

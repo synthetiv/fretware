@@ -56,7 +56,8 @@ function Keyboard.new(x, y, width, height)
 		editing_sustained_key_index = false,
 		arp_index = 0,
 		arp_insert = 0,
-		arp_randomness = 0,
+		arp_direction = 1, -- as-played, random, or plectrum
+		arp_plectrum = false, -- trigger by plectrum
 		arping = false,
 		octave = 0,
 		transposition = 0,
@@ -517,13 +518,19 @@ end
 function Keyboard:arp(gate)
 	if self.arping and self.n_sustained_keys > 0 then
 		if gate then
-			-- at randomness = 0, step size is always 1; at randomness = 1, step size varies from
-			-- (-n/2 + 1) to (n/2), but is never zero
-			local step_size = math.ceil((math.random() - 0.5) * self.arp_randomness * self.n_sustained_keys + 0.5)
-			if step_size < 1 then
-				step_size = step_size - 1
+			if self.arp_direction == 3 then
+				self.arp_index = self:find_coords_arp_index(self.plectrum.x, self.plectrum.y)
+			else
+				-- at randomness = 0, step size is always 1; at randomness = 1, step size varies from
+				-- (-n/2 + 1) to (n/2), but is never zero
+				local step_size = 1
+				if self.arp_direction == 2 then
+					-- 1-rand makes random range (0,1] instead of [0,1)
+					-- so we'll be jumping at least 1 step, up to n_keys-1
+					step_size = math.ceil((1 - math.random()) * (self.n_sustained_keys - 1))
+				end
+				self.arp_index = (self.arp_index + step_size - 1) % self.n_sustained_keys + 1
 			end
-			self.arp_index = (self.arp_index + step_size - 1) % self.n_sustained_keys + 1
 			self.arp_insert = self.arp_index
 			self:set_active_key(self.sustained_keys[self.arp_index])
 		end
@@ -540,16 +547,32 @@ function Keyboard:move_plectrum(dx, dy)
 	self.plectrum.t = now
 	local old_x, old_y = self.plectrum.x, self.plectrum.y
 	self.plectrum.x, self.plectrum.y = self.plectrum.x + dx, self.plectrum.y + dy
-	if self.n_sustained_keys > 1 then
+	-- change octaves and wrap when we go off an edge
+	if self.plectrum.x > self.x2 then
+		self.plectrum.x = self.plectrum.x - self.width + 1
+		self.octave = self.octave + 1
+	elseif self.plectrum.x < self.x then
+		self.plectrum.x = self.plectrum.x + self.width - 1
+		self.octave = self.octave - 1
+	end
+	if self.plectrum.y > self.y2 then
+		self.plectrum.y = self.plectrum.y - self.height + 1
+		self.octave = self.octave - 1
+	elseif self.plectrum.y < self.y then
+		self.plectrum.y = self.plectrum.y + self.height - 1
+		self.octave = self.octave + 1
+	end
+	if self.arp_plectrum and self.n_sustained_keys > 1 then
 		local old_arp_index, old_proximity = self:find_coords_arp_index(old_x, old_y)
 		local old_gate = old_proximity <= 0.5
 		local new_arp_index, new_proximity = self:find_coords_arp_index(self.plectrum.x, self.plectrum.y)
 		local new_gate = new_proximity <= 0.5
 		if new_arp_index ~= old_arp_index then
 			self.arp_index = new_arp_index
+			self.arp_insert = self.arp_index
 			self:set_active_key(self.sustained_keys[self.arp_index])
-		end
-		if new_gate ~= old_gate then
+			self.on_gate(new_gate)
+		elseif new_gate ~= old_gate then
 			self.on_gate(new_gate)
 		end
 	end
@@ -704,8 +727,10 @@ function Keyboard:draw()
 			end
 
 			if plectrum_level > 0 then
-				local dx = 1 - math.abs(x - self.plectrum.x)
-				local dy = 1 - math.abs(y - self.plectrum.y)
+				-- TODO: the % stuff is supposed to make wrapping look sensible,
+				-- but it's not doing the job yet...
+				local dx = 1 - (math.abs(x - self.plectrum.x) % (self.width - 2))
+				local dy = 1 - (math.abs(y - self.plectrum.y) % (self.height - 2))
 				if dx > 0 and dy > 0 then
 					level = led_blend(level, plectrum_level * dx * dy)
 				end
