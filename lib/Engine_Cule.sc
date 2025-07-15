@@ -1,7 +1,7 @@
 Engine_Cule : CroneEngine {
 
 	classvar nVoices = 3;
-	classvar nRecordedModulators = 6;
+	classvar nRecordedModulators = 8;
 	classvar bufferRateScale = 0.5;
 	classvar maxLoopTime = 60;
 
@@ -257,6 +257,7 @@ Engine_Cule : CroneEngine {
 		modulationSourceNames = [
 			\amp,
 			\hand,
+			\vel,
 			\eg,
 			\eg2,
 			\lfoA,
@@ -267,6 +268,7 @@ Engine_Cule : CroneEngine {
 
 		controlRateSourceNames = [
 			\hand,
+			\vel,
 			\lfoA,
 			\lfoB,
 			\lfoC,
@@ -335,9 +337,7 @@ Engine_Cule : CroneEngine {
 		voiceBuses = Array.fill(nVoices, {
 			Dictionary[
 				\amp -> Bus.audio(context.server),
-				\eg -> Bus.audio(context.server, 2),
 				\trig -> Bus.control(context.server),
-				\hand -> Bus.control(context.server),
 				\pan -> Bus.control(context.server),
 				\pitch -> Bus.control(context.server),
 				\opPitch -> Bus.audio(context.server, 2),
@@ -393,8 +393,9 @@ Engine_Cule : CroneEngine {
 				loopPhase,
 				modulation = Dictionary.new,
 				fxA, fxB,
-				recPitch, recTip, recHand, recGate, recTrig,
-				trig, ampMode, hand, freezeWithoutGate, eg, eg2, amp;
+				recPitch, recTip, recHand, recX, recY, recGate, recTrig,
+				trig, ampMode, freezeWithoutGate, eg, eg2, amp,
+				hand, x, y, vel;
 
 			// watch type op/fx/lfo type parameters and send signals to sclang to
 			// handle op, fx, and lfo type changes
@@ -418,8 +419,8 @@ Engine_Cule : CroneEngine {
 			amp = InFeedback.ar(\ampBus.ir);
 			modulators = [
 				amp,
-				In.kr(\handBus.ir),
-				InFeedback.ar(\egBus.ir, 2),
+				LocalIn.kr(2), // hand, vel
+				LocalIn.ar(2), // eg, eg2
 				In.kr(\lfoStateBus.ir, 3),
 				Latch.kr(WhiteNoise.kr, Trig.kr(gate) + Trig.kr(amp > 0.01))
 			].flatten;
@@ -481,9 +482,11 @@ Engine_Cule : CroneEngine {
 			loopPhase = (loopPhase + (loopLength * (loopPosition + modulation[\loopPosition]))).wrap(0, loopLength);
 			trig = Trig.kr(\trig.tr, 0.01);
 			hand = tip - palm;
-			BufWr.kr([pitch, tip, hand, gate, trig], buffer, bufferPhase);
+                        x = \dx.kr;
+                        y = \dy.kr;
+			BufWr.kr([pitch, tip, hand, x, y, gate, trig], buffer, bufferPhase);
 			// read values from recorded loop (if any)
-			# recPitch, recTip, recHand, recGate, recTrig = BufRd.kr(
+			# recPitch, recTip, recHand, recX, recY, recGate, recTrig = BufRd.kr(
 				nRecordedModulators,
 				buffer,
 				bufferPhase - loopLength + loopPhase,
@@ -494,8 +497,8 @@ Engine_Cule : CroneEngine {
 			pitch = Select.kr(freezeWithoutGate, [ pitch, recPitch + \shift.kr ]);
 			// punch tip through too, only when gate is high
 			tip = Select.kr(freezeWithoutGate, [ tip, recTip ]);
-			// mix incoming hand data with recorded hand (fade in when freeze is engaged)
-			hand = hand + (Linen.kr(freeze, 0.3, 1, 0) * recHand);
+			// mix incoming hand and x/y data with recorded data (fade in when freeze is engaged)
+			# hand, x, y = [ hand, x, y ] + (Linen.kr(freeze, 0.3, 1, 0) * [ recHand, recX, recY ]);
 			// combine incoming gates with recorded gates
 			gate = gate.max(freeze * recGate);
 			trig = trig.max(freeze * recTrig);
@@ -518,6 +521,9 @@ Engine_Cule : CroneEngine {
 				).ar(gate: trig)
 			]);
 			eg2 = Env.perc(0.001, (attack + release) * 2 + 0.1, 2, -8).ar(gate: trig);
+
+			// # x, y = Lag.kr([ x, y ], 0.2);
+			vel = Latch.kr(Mix([ x, y ].squared).sqrt, trig);
 
 			Out.kr(\opRatioBus.ir, [
 				\ratioA.kr + modulation[\ratioA],
@@ -567,8 +573,8 @@ Engine_Cule : CroneEngine {
 			amp = amp.clip(0, 1);
 
 			Out.ar(\ampBus.ir, amp);
-			Out.ar(\egBus.ir, [ eg, eg2 ]);
-			Out.kr(\handBus.ir, hand);
+			LocalOut.ar([ eg, eg2 ]);
+			LocalOut.kr([ hand, vel ]);
 
 			Out.kr(\panBus.ir, \pan.kr(lag: 0.1, fixedLag: true) + modulation[\pan]);
 
@@ -1082,9 +1088,7 @@ Engine_Cule : CroneEngine {
 				\voiceIndex, i,
 				// reminder: these buses are OUTPUTS of the control synth
 				\ampBus, bus[\amp],
-				\egBus, bus[\eg],
 				\trigBus, bus[\trig],
-				\handBus, bus[\hand],
 				\panBus, bus[\pan],
 				\pitchBus, bus[\pitch],
 				\opPitchBus, bus[\opPitch],
@@ -1250,7 +1254,9 @@ Engine_Cule : CroneEngine {
 			voiceSynths[selectedVoice][0].set(
 				\gate, 0,
 				\tip, 0,
-				\palm, 0
+				\palm, 0,
+                                \dx, 0,
+                                \dy, 0
 				// we intentionally do NOT reset pitch, so that note doesn't change if envelope is still decaying
 			);
 			// select new voice
@@ -1298,7 +1304,7 @@ Engine_Cule : CroneEngine {
 			voiceSynths[selectedVoice][0].set(\gate, value, \trig, value);
 		});
 
-		[ \pitch, \tip, \palm ].do({
+		[ \pitch, \tip, \palm, \dx, \dy ].do({
 			arg name;
 			this.addCommand(name, "f", { |msg|
 				voiceSynths[selectedVoice][0].set(name, msg[1]);

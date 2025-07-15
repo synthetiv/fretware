@@ -431,6 +431,7 @@ function Keyboard:note(x, y, z)
 	self.held_keys[key_id] = z == 1
 	if z == 1 then
 		-- key pressed
+		-- TODO: re-trigger 'move_plectrum' event when sustained_keys is modified
 		if self.held_keys.latch then
 			if self.editing_sustained_key_index then
 				self.sustained_keys[self.editing_sustained_key_index] = key_id
@@ -564,8 +565,7 @@ function Keyboard:find_coords_arp_index(x, y, second_closest_to)
 		if n ~= second_closest_to then
 			local key_x, key_y = self:get_key_id_coords(self.sustained_keys[n])
 			local dx, dy = key_x - x, key_y - y
-			-- we're skipping sqrt in the distance calculation here, but that's fine
-			local distance = dx * dx + dy * dy
+			local distance = math.sqrt(dx * dx + dy * dy)
 			if distance < best_distance then
 				best_distance = distance
 				closest_arp_index = n

@@ -41,6 +41,7 @@ arp_menu.get_key_level = function(value, selected)
 	return level + (selected and 11 or 4)
 end
 
+-- TODO: should plectrum be considered a "direction" instead of a clock source?
 arp_direction_menu = Menu.new(5, 3, 4, 1, {
 	100, 50, 15, 0
 })
@@ -51,14 +52,12 @@ arp_direction_menu.on_select = function(value)
 	end
 end
 arp_direction_menu:select_value(0)
--- TODO: dim direction menu when a *clock* isn't selected as a source
--- (i.e. no source, or plectrum)
 
 source_menu = Menu.new(4, 1, 12, 2, {
 	-- map of source numbers (in editor.source_names) to keys
 	-- TODO: add trackball dx, dy, and overall velocity
-	 2, _, _, _, _, 3, _, 5, 6,  7, _, 1,
-	 _, _, _, _, _, 4, _, _, 8
+	 2, _, _, _, _, 4, _, 6, 7, 8, _, 1,
+	 _, _, 3, _, _, 5, _, _, 9
 })
 source_menu.multi = true
 source_menu:select_value(1)
@@ -76,12 +75,26 @@ source_menu.get_key_level = function(value, selected, held)
 		end
 	elseif value == 3 then
 		-- TODO: indicate env state
+		-- maybe just use gate!
 	elseif value == 4 then
 		-- TODO: indicate env state
+		-- maybe use a fixed-length flash when gate goes high
 	elseif value >= 5 and value <= 7 then
 		if not voice_states[k.selected_voice][lfo_gate_names[value - 4]] then
 			level = -1
 		end
+	elseif value == 8 then
+		-- TODO: indicate S+H state?
+	elseif value == 9 then
+		if math.abs(trackball_values.x) < 0.5 then
+			level = -1
+		end
+	elseif value == 10 then
+		if math.abs(trackball_values.y) < 0.5 then
+			level = -1
+		end
+	elseif value == 11 then
+		-- TODO: indicate xy vel? or just flash with gate, like eg2
 	end
 	return (held and 11 or (selected and 6 or 3)) + level
 end
@@ -95,10 +108,18 @@ redraw_metro = nil
 
 g = grid.connect()
 
+trackball_values = {
+	x = 0,
+	y = 0,
+	last_x = 0,
+	last_y = 0,
+}
+
 editor = {
 	source_names = {
 		'amp',
 		'hand',
+		'vel',
 		'eg',
 		'eg2',
 		'lfoA',
@@ -1336,24 +1357,34 @@ function init()
 	function trackball.event(type, code, value)
 		if type == 2 then
 			if code == 0 then
-				-- TODO
-				-- engine should:
-				-- - accumulate and smooth (by a lot) incoming X and Y deltas
-				-- - sample overall 'velocity' on gate on
-				-- and make those available as mod sources
-				-- engine.x(value / -32)
+				trackball_values.x = trackball_values.x - value
 				if arp_menu.value == 13 then
 					k:move_plectrum(value / -16, 0)
 				end
 			elseif code == 1 then
-				-- TODO
-				-- engine.y(value / -32)
+				trackball_values.y = trackball_values.y - value
 				if arp_menu.value == 13 then
 					k:move_plectrum(0, value / -16)
 				end
 			end
 		end
 	end
+
+	clock.run(function()
+		while true do
+			clock.sleep(0.1) -- TODO: fine tune rate
+			if trackball_values.x ~= 0 or trackball_values.last_x ~= 0 then
+				engine.dx(trackball_values.x / 32)
+				trackball_values.last_x = trackball_values.x
+				trackball_values.x = 0
+			end
+			if trackball_values.y ~= 0 or trackball_values.last_y ~= 0 then
+				engine.dy(trackball_values.y / 32)
+				trackball_values.last_y = trackball_values.y
+				trackball_values.y = 0
+			end
+		end
+	end)
 
 	-- inform SC of tempo changes
 	clock.tempo_change_handler = function(tempo)
