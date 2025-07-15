@@ -258,6 +258,7 @@ Engine_Cule : CroneEngine {
 			\amp,
 			\hand,
 			\vel,
+			\svel,
 			\eg,
 			\eg2,
 			\lfoA,
@@ -269,6 +270,7 @@ Engine_Cule : CroneEngine {
 		controlRateSourceNames = [
 			\hand,
 			\vel,
+			\svel,
 			\lfoA,
 			\lfoB,
 			\lfoC,
@@ -395,7 +397,7 @@ Engine_Cule : CroneEngine {
 				fxA, fxB,
 				recPitch, recTip, recHand, recX, recY, recGate, recTrig,
 				trig, ampMode, freezeWithoutGate, eg, eg2, amp,
-				hand, x, y, vel;
+				hand, x, y, vel, svel;
 
 			// watch type op/fx/lfo type parameters and send signals to sclang to
 			// handle op, fx, and lfo type changes
@@ -413,13 +415,17 @@ Engine_Cule : CroneEngine {
 				});
 			});
 
-			// calculate modulation matrix values
+			trig = Trig.kr(\trig.tr, 0.01);
 
+			// calculate modulation matrix values
 			// this feedback loop is needed in order for modulators to modulate one another
 			amp = InFeedback.ar(\ampBus.ir);
+			# hand, vel = LocalIn.kr(2);
 			modulators = [
 				amp,
-				LocalIn.kr(2), // hand, vel
+				hand,
+				vel,
+				Latch.kr(vel, trig),
 				LocalIn.ar(2), // eg, eg2
 				In.kr(\lfoStateBus.ir, 3),
 				Latch.kr(WhiteNoise.kr, Trig.kr(gate) + Trig.kr(amp > 0.01))
@@ -480,7 +486,6 @@ Engine_Cule : CroneEngine {
 			);
 			// offset by loopPosition, but constrain to loop bounds
 			loopPhase = (loopPhase + (loopLength * (loopPosition + modulation[\loopPosition]))).wrap(0, loopLength);
-			trig = Trig.kr(\trig.tr, 0.01);
 			hand = tip - palm;
 			x = \dx.kr;
 			y = \dy.kr;
@@ -523,7 +528,8 @@ Engine_Cule : CroneEngine {
 			eg2 = Env.perc(0.001, (attack + release) * 2 + 0.1, 2, -8).ar(gate: trig);
 
 			// # x, y = Lag.kr([ x, y ], 0.2);
-			vel = Latch.kr(Mix([ x, y ].squared).sqrt, trig);
+			vel = Mix([ x, y ].squared).sqrt;
+			svel = Latch.kr(vel, trig);
 
 			Out.kr(\opRatioBus.ir, [
 				\ratioA.kr + modulation[\ratioA],

@@ -51,11 +51,11 @@ arp_direction_menu.on_select = function(value)
 end
 arp_direction_menu:select_value(1)
 
-source_menu = Menu.new(4, 1, 12, 2, {
+source_menu = Menu.new(5, 1, 11, 2, {
 	-- map of source numbers (in editor.source_names) to keys
-	-- TODO: add trackball dx, dy, and overall velocity
-	 2, _, _, _, _, 4, _, 6, 7, 8, _, 1,
-	 _, _, 3, _, _, 5, _, _, 9
+	-- TODO: add trackball dx, dy?
+	 2, _, 3, _, 5, _, 7,  8, 9, _, 2,
+	 _, _, 4, _, 6, _, _, 10
 })
 source_menu.multi = true
 source_menu:select_value(1)
@@ -118,6 +118,7 @@ editor = {
 		'amp',
 		'hand',
 		'vel',
+		'svel',
 		'eg',
 		'eg2',
 		'lfoA',
