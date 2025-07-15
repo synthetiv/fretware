@@ -433,6 +433,9 @@ Engine_Cule : CroneEngine {
 
 			// read amounts from mapped patch buses, and use them to build a
 			// dictionary of summed modulation signals to apply to parameters
+			// TODO: what if... there was one synth per voice that collected all mod sources, then "wire" synths that routed those to diff destinations... or one synth per source that sent to all destinations...?
+			// there could be two 'source router' defs, one for control rate source and one for audio rate source...
+			// control-rate buses will automatically mix when written to from sep synths, just like audio buses, right?
 			modulationDestNames.do({ |destName|
 				if(controlRateDestNames.includes(destName), {
 					// control-rate destinations
