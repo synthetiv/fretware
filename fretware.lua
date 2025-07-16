@@ -28,7 +28,6 @@ arp_menu.on_select = function(source)
 		k:arp(false)
 		k.arping = false
 	end
-	-- TODO: this key shouldn't even be available unless arp_direction == 3
 	k.arp_plectrum = (source == 13)
 end
 arp_menu.get_key_level = function(value, selected)
