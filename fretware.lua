@@ -15,8 +15,8 @@ k = Keyboard.new(1, 1, 16, 8)
 Menu = include 'lib/menu'
 
 arp_menu = Menu.new(4, 5, 10, 2, {
-	_,  1, 2, 3,  4,  5,  6, 7, 8, 9,
-	13, _, _, _, 10, 11, 12
+	_, 1, 2, 3,  4,  5,  6, 7, 8, 9,
+	_, _, _, _, 10, 11, 12 -- value number 11 can be set to 13 when direction is set to 3
 })
 arp_menu.toggle = true
 arp_menu.on_select = function(source)
@@ -48,6 +48,16 @@ arp_direction_menu = Menu.new(4, 3, 5, 1, {
 })
 arp_direction_menu.on_select = function(value)
 	k.arp_direction = value
+	if value == 3 then -- plectrum selected
+		arp_menu.values[11] = 13
+	else
+		print('dir menu not 3')
+		if arp_menu.value == 13 then
+			print('deselecting arp')
+			arp_menu:select(false)
+		end
+		arp_menu.values[11] = nil
+	end
 end
 arp_direction_menu:select_value(1)
 
