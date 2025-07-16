@@ -376,6 +376,45 @@ Engine_Cule : CroneEngine {
 			});
 		}).add;
 
+		SynthDef.new(\modRouterAmp, {
+			var amp = In.ar(\inBus.kr);
+			Out.ar(\outBus.kr, modulationDestNames.map({ |name|
+				if(controlRateDestNames.includes(name), {
+					A2K.kr(NamedControl.kr(name) * amp);
+				}, {
+					if([ \indexA, \indexB, \hpCutoff, \lpCutoff ].includes(name), {
+						var amount = NamedControl.kr(name);
+						var polaritySwitch = BinaryOpUGen(if(\hpCutoff === name, '<', '>'), amount, 0);
+						(amp - polaritySwitch) * 2 * amount;
+					}, {
+						NamedControl.kr(name) * amp;
+					});
+				});
+			});
+		}).add;
+
+		SynthDef.new(\modRouterAR, {
+			var input = In.ar(\inBus.kr);
+			Out.ar(\outBus.kr, modulationDestNames.map({ |name|
+				if(controlRateDestNames.includes(name), {
+					A2K.kr(NamedControl.kr(name) * input);
+				}, {
+					NamedControl.kr(name) * input;
+				});
+			});
+		}).add;
+
+		SynthDef.new(\modRouterKR, {
+			var input = In.kr(\inBus.kr);
+			Out.ar(\outBus.kr, modulationDestNames.map({ |name|
+				if(controlRateDestNames.includes(name), {
+					NamedControl.kr(name) * input;
+				}, {
+					K2A.ar(NamedControl.kr(name) * input);
+				});
+			});
+		}).add;
+
 		SynthDef.new(\voiceControls, {
 
 			arg pitch = 0,
@@ -390,8 +429,7 @@ Engine_Cule : CroneEngine {
 				attack = 0.01,
 				release = 0.3;
 
-			var modulators,
-				bufferRate, bufferLength, bufferPhase, buffer,
+			var bufferRate, bufferLength, bufferPhase, buffer,
 				loopPhase,
 				modulation = Dictionary.new,
 				fxA, fxB,
@@ -1116,6 +1154,7 @@ Engine_Cule : CroneEngine {
 			// that would allow multitimbrality, without the UI problem of needing to edit multiple patches with one set of faders
 			// to unmap, try synth.map(name, -1); that may or may not retain the current value
 			// if it doesn't, read from each bus and use synth.set(name, value) -- explicit set() also unmaps
+			// TODO: modulation routing buses will need to be mapped to mod router synths instead of this
 			patchArgs.do({ |name| controlSynth.map(name, patchBuses[name]) });
 
 			lfoA = Synth.new(\lfoTri, [
