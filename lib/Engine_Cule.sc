@@ -6,10 +6,8 @@ Engine_Cule : CroneEngine {
 	classvar maxLoopTime = 60;
 
 	var opTypeDefNames;
-	var modulationDestNames;
-	var controlRateDestNames;
-	var modulationSourceNames;
-	var controlRateSourceNames;
+	var modulationDests;
+	var modulationSources;
 	var patchOptions;
 	var patchArgs;
 	var selectedVoiceArgs;
@@ -29,6 +27,7 @@ Engine_Cule : CroneEngine {
 	var voiceOpStates;
 	var voiceSynths;
 	var patchBuses;
+	var voiceModBuses;
 	var patchSynth;
 	var replySynth;
 	var polls;
@@ -213,28 +212,29 @@ Engine_Cule : CroneEngine {
 		// scope = voice (as opposed to patch)... and so on.
 
 		// modulatable parameters for audio synths
-		modulationDestNames = [
-			\amp,
-			\pan,
-			\loopPosition,
-			\loopRate,
-			\ratioA,
-			\detuneA, // TODO: maybe detune can be control rate... then op pitch buses can be control
+		modulationDests = [
+			\amp -> \ar,
+			\pan -> \kr,
+			\loopPosition -> \kr,
+			\loopRate -> \kr,
+			\ratioA -> \kr,
+			\detuneA -> \ar,
+			// TODO: maybe detune can be control rate... then op pitch buses can be control
 			// rate... and maybe that would save CPU
-			\indexA,
-			\ratioB,
-			\detuneB,
-			\indexB,
-			\opMix,
-			\fxA,
-			\fxB,
-			\hpCutoff,
-			\lpCutoff,
-			\attack,
-			\release,
-			\lfoAFreq,
-			\lfoBFreq,
-			\lfoCFreq,
+			\indexA -> \ar,
+			\ratioB -> \kr,
+			\detuneB -> \ar,
+			\indexB -> \ar,
+			\opMix -> \kr,
+			\fxA -> \kr,
+			\fxB -> \kr,
+			\hpCutoff -> \ar,
+			\lpCutoff -> \ar,
+			\attack -> \kr,
+			\release -> \kr,
+			\lfoAFreq -> \kr,
+			\lfoBFreq -> \kr,
+			\lfoCFreq -> \kr,
 		];
 
 		controlRateDestNames = [
@@ -254,27 +254,17 @@ Engine_Cule : CroneEngine {
 		];
 
 		// modulation sources
-		modulationSourceNames = [
-			\amp,
-			\hand,
-			\vel,
-			\svel,
-			\eg,
-			\eg2,
-			\lfoA,
-			\lfoB,
-			\lfoC,
-			\sh
-		];
-
-		controlRateSourceNames = [
-			\hand,
-			\vel,
-			\svel,
-			\lfoA,
-			\lfoB,
-			\lfoC,
-			\sh
+		modulationSources = Dictionary[
+			\amp -> \ar,
+			\hand -> \kr,
+			\vel -> \kr,
+			\svel -> \kr,
+			\eg -> \ar,
+			\eg2 -> \ar,
+			\lfoA -> \kr,
+			\lfoB -> \kr,
+			\lfoC -> \kr,
+			\sh -> \kr
 		];
 
 		// non-slewed settings
@@ -299,12 +289,14 @@ Engine_Cule : CroneEngine {
 			\lpRQ,
 			patchOptions,
 			modulationDestNames.difference([ \amp, \pan, \loopPosition, \loopRate ]),
-			Array.fill(modulationSourceNames.size, { |s|
-				Array.fill(modulationDestNames.size, { |d|
-					(modulationSourceNames[s] ++ '_' ++ modulationDestNames[d]).asSymbol;
-				});
-			}).flatten;
 		].flatten;
+
+		// TODO: make a synth that writes to buses for these, I guess?
+		patchRoutings = modulationSources.collect({ |rate, sourceName|
+			Array.fill(modulationDestNames.size, { |d|
+				(sourceName ++ '_' ++ modulationDestNames[d]).asSymbol;
+			});
+		}).flatten;
 
 		// frequency ratios used by the two FM operators of each voice
 		// declared as one array, but stored as two arrays, one with odd and one with even
@@ -363,6 +355,18 @@ Engine_Cule : CroneEngine {
 			patchBuses.put(name, Bus.control(context.server));
 		});
 
+		voiceModBuses = nVoices.collect({
+			var buses = Dictionary.new;
+			modulationDests.do({ |rate, destName|
+				var bus = if(rate === \kr, {
+					Bus.control;
+				}, {
+					Bus.audio;
+				});
+				buses.put(sourceName, bus);
+			});
+		});
+
 		SynthDef.new(\patchControls, {
 			patchArgs.do({ |name|
 				var control = if(patchOptions.includes(name), {
@@ -376,10 +380,32 @@ Engine_Cule : CroneEngine {
 			});
 		}).add;
 
-		SynthDef.new(\modRouterAmp, {
+		SynthDef.new(\modRouter_kr, {
+			var input = In.kr(\inBus.kr);
+			Out.ar(\outBus.kr, modulationDests.collect({ |rate, name|
+				if(rate === \kr, {
+					NamedControl.kr(name) * input;
+				}, {
+					K2A.ar(NamedControl.kr(name) * input);
+				});
+			});
+		}).add;
+
+		SynthDef.new(\modRouter_ar, {
+			var input = In.ar(\inBus.kr);
+			Out.ar(\outBus.kr, modulationDests.collect({ |rate, name|
+				if(rate === \kr, {
+					A2K.kr(NamedControl.kr(name) * input);
+				}, {
+					NamedControl.kr(name) * input;
+				});
+			});
+		}).add;
+
+		SynthDef.new(\modRouter_amp, {
 			var amp = In.ar(\inBus.kr);
-			Out.ar(\outBus.kr, modulationDestNames.map({ |name|
-				if(controlRateDestNames.includes(name), {
+			Out.ar(\outBus.kr, modulationDests.collect({ |rate, name|
+				if(rate === \kr, {
 					A2K.kr(NamedControl.kr(name) * amp);
 				}, {
 					if([ \indexA, \indexB, \hpCutoff, \lpCutoff ].includes(name), {
@@ -389,28 +415,6 @@ Engine_Cule : CroneEngine {
 					}, {
 						NamedControl.kr(name) * amp;
 					});
-				});
-			});
-		}).add;
-
-		SynthDef.new(\modRouterAR, {
-			var input = In.ar(\inBus.kr);
-			Out.ar(\outBus.kr, modulationDestNames.map({ |name|
-				if(controlRateDestNames.includes(name), {
-					A2K.kr(NamedControl.kr(name) * input);
-				}, {
-					NamedControl.kr(name) * input;
-				});
-			});
-		}).add;
-
-		SynthDef.new(\modRouterKR, {
-			var input = In.kr(\inBus.kr);
-			Out.ar(\outBus.kr, modulationDestNames.map({ |name|
-				if(controlRateDestNames.includes(name), {
-					NamedControl.kr(name) * input;
-				}, {
-					K2A.ar(NamedControl.kr(name) * input);
 				});
 			});
 		}).add;
@@ -477,20 +481,18 @@ Engine_Cule : CroneEngine {
 			modulationDestNames.do({ |destName|
 				if(controlRateDestNames.includes(destName), {
 					// control-rate destinations
-					modulation.put(destName, Mix.fill(modulationSourceNames.size, { |m|
-						var sourceName = modulationSourceNames[m];
-						var modulator = if(controlRateSourceNames.includes(sourceName).not, {
+					modulation.put(destName, Mix.new(modulationSources.collect({ |rate, sourceName|
+						var modulator = if(rate === \kr, {
 							A2K.kr(modulators[m]);
 						}, {
 							modulators[m];
 						});
 						modulator * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol);
-					}));
+					})));
 				}, {
 					// audio-rate destinations
-					modulation.put(destName, Mix.fill(modulationSourceNames.size, { |m|
-						var sourceName = modulationSourceNames[m];
-						var modulator = if(controlRateSourceNames.includes(sourceName), {
+					modulation.put(destName, Mix.new(modulationSources.collect({ |rate, sourceName|
+						var modulator = if(rate === \kr, {
 							K2A.ar(modulators[m]);
 						}, {
 							modulators[m];
@@ -510,7 +512,7 @@ Engine_Cule : CroneEngine {
 						}, {
 							modulator * NamedControl.kr((sourceName ++ '_' ++ destName).asSymbol);
 						});
-					}));
+					})));
 				});
 			});
 
@@ -522,11 +524,11 @@ Engine_Cule : CroneEngine {
 			loopLength = (loopLength * bufferRate).min(bufferLength);
 			loopPhase = Phasor.kr(
 				Trig.kr(freeze) + t_loopReset,
-				bufferRateScale * loopRate * 8.pow(modulation[\loopRate]),
+				bufferRateScale * loopRate * 8.pow(\mod_loopRate.kr),
 				0, loopLength, 0
 			);
 			// offset by loopPosition, but constrain to loop bounds
-			loopPhase = (loopPhase + (loopLength * (loopPosition + modulation[\loopPosition]))).wrap(0, loopLength);
+			loopPhase = (loopPhase + (loopLength * (loopPosition + \mod_loopPosition.kr))).wrap(0, loopLength);
 			hand = tip - palm;
 			x = \dx.kr;
 			y = \dy.kr;
@@ -549,8 +551,8 @@ Engine_Cule : CroneEngine {
 			gate = gate.max(freeze * recGate);
 			trig = trig.max(freeze * recTrig);
 
-			attack = attack * 8.pow(modulation[\attack]);
-			release = release * 8.pow(modulation[\release]);
+			attack = attack * 8.pow(\mod_attack.kr);
+			release = release * 8.pow(\mod_release.kr);
 			eg = Select.ar(\egType.kr(1), [
 				// ASR, linear attack
 				Env.new(
@@ -573,27 +575,27 @@ Engine_Cule : CroneEngine {
 			svel = Latch.kr(vel, trig);
 
 			Out.kr(\opRatioBus.ir, [
-				\ratioA.kr + modulation[\ratioA],
-				\ratioB.kr + modulation[\ratioB]
+				\ratioA.kr + \mod_ratioA.kr,
+				\ratioB.kr + \mod_ratioB.kr
 			]);
 
 			Out.ar(\opIndexBus.ir, [
-				\indexA.ar + modulation[\indexA],
-				\indexB.ar + modulation[\indexB]
+				\indexA.ar + \mod_indexA.ar,
+				\indexB.ar + \mod_indexB.ar
 			]);
 
-			Out.kr(\opMixBus.ir, \opMix.kr + modulation[\opMix]);
+			Out.kr(\opMixBus.ir, \opMix.kr + \mod_opMix.kr);
 
-			fxA = \fxA.kr + modulation[\fxA];
-			fxB = \fxB.kr + modulation[\fxB];
+			fxA = \fxA.kr + \mod_fxA.kr;
+			fxB = \fxB.kr + \mod_fxB.kr;
 			Out.kr(\fxBus.ir, [ fxA, fxB ]);
 			// when FX amounts go to (almost) 0, wait 0.1s for fade (see applyFx), then pause them
 			Pause.kr(LagUD.kr(fxA > -0.999, 0, 0.1), \fxASynth.kr);
 			Pause.kr(LagUD.kr(fxB > -0.999, 0, 0.1), \fxBSynth.kr);
 
 			Out.ar(\cutoffBus.ir, [
-				\hpCutoff.ar + modulation[\hpCutoff],
-				\lpCutoff.ar + modulation[\lpCutoff]
+				\hpCutoff.ar + \mod_hpCutoff.ar,
+				\lpCutoff.ar + \mod_lpCutoff.ar
 			]);
 
 			Out.kr(\rqBus.ir, [
@@ -602,9 +604,9 @@ Engine_Cule : CroneEngine {
 			]);
 
 			Out.kr(\lfoFreqBus.ir, [
-				\lfoAFreq.kr(1) * 8.pow(modulation[\lfoAFreq]),
-				\lfoBFreq.kr(1) * 8.pow(modulation[\lfoBFreq]),
-				\lfoCFreq.kr(1) * 8.pow(modulation[\lfoCFreq])
+				\lfoAFreq.kr(1) * 8.pow(\mod_lfoAFreq.kr),
+				\lfoBFreq.kr(1) * 8.pow(\mod_lfoBFreq.kr),
+				\lfoCFreq.kr(1) * 8.pow(\mod_lfoCFreq.kr)
 			]);
 
 			// slew tip for direct control of amplitude -- otherwise there will be audible steppiness
@@ -616,21 +618,21 @@ Engine_Cule : CroneEngine {
 				tip * eg,
 				eg * -6.dbamp
 			]);
-			amp = amp * (1 + modulation[\amp]);
+			amp = amp * (1 + \mod_amp.ar);
 			amp = amp.clip(0, 1);
 
 			Out.ar(\ampBus.ir, amp);
 			LocalOut.ar([ eg, eg2 ]);
 			LocalOut.kr([ hand, vel ]);
 
-			Out.kr(\panBus.ir, \pan.kr(lag: 0.1, fixedLag: true) + modulation[\pan]);
+			Out.kr(\panBus.ir, \pan.kr(lag: 0.1, fixedLag: true) + \mod_pan.kr);
 
 			pitch = Lag.kr(pitch, \pitchSlew.kr);
 			Out.kr(\pitchBus.ir, pitch);
 
 			Out.ar(\opPitchBus.ir, [
-				\detuneA.ar.cubed + modulation[\detuneA],
-				\detuneB.ar.cubed + modulation[\detuneB]
+				\detuneA.ar.cubed + \mod_detuneA.ar,
+				\detuneB.ar.cubed + \mod_detuneB.ar
 			] * 1.17 + pitch);
 			// max detune of 1.17 octaves is slightly larger than a ratio of 9/4
 
@@ -1149,13 +1151,17 @@ Engine_Cule : CroneEngine {
 				\lfoStateBus, bus[\lfoState],
 				\outLevelBus, bus[\outLevel]
 			], context.og, \addToTail); // "output" group
-			// and mapped buses are INPUTS from patch buses
 			// TODO: allow 'freezing' a voice's patch parameters, by uncoupling its controlSynth from the patchSynth!
 			// that would allow multitimbrality, without the UI problem of needing to edit multiple patches with one set of faders
 			// to unmap, try synth.map(name, -1); that may or may not retain the current value
 			// if it doesn't, read from each bus and use synth.set(name, value) -- explicit set() also unmaps
 			// TODO: modulation routing buses will need to be mapped to mod router synths instead of this
 			patchArgs.do({ |name| controlSynth.map(name, patchBuses[name]) });
+			modulationDests.do({ |rate, name|
+				controlSynth.map('mod_' ++ name, modBuses[i][name]);
+			});
+			// TODO: map control synth mod_* inputs to mod buses
+			// and mapped buses are INPUTS from patch buses
 
 			lfoA = Synth.new(\lfoTri, [
 				\stateBus, Bus.newFrom(bus[\lfoState], 0),
