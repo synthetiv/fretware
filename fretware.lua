@@ -63,7 +63,7 @@ arp_direction_menu:select_value(1)
 source_menu = Menu.new(5, 1, 11, 2, {
 	-- map of source numbers (in editor.source_names) to keys
 	-- TODO: add trackball dx, dy?
-	 2, _, 3, _, 5, _, 7,  8, 9, _, 2,
+	 2, _, 3, _, 5, _, 7,  8, 9, _, 1,
 	 _, _, 4, _, 6, _, _, 10
 })
 source_menu.multi = true
@@ -986,6 +986,7 @@ function init()
 				type = 'control',
 				controlspec = controlspec.new(-1, 1, 'lin', 0, dest.default),
 				action = function(value)
+					print('engine_command', dest.name)
 					engine_command(value)
 				end
 			}
@@ -1060,6 +1061,7 @@ function init()
 			local action = function(value)
 				-- create a dead zone near 0.0
 				value = (value > 0 and 1 or -1) * (1 - math.min(1, (1 - math.abs(value)) * 1.1))
+				print('engine_command', source .. '_' .. dest.name)
 				engine_command(value)
 			end
 			if dest.name == 'detuneA' or dest.name == 'detuneB' then
@@ -1069,6 +1071,7 @@ function init()
 					local sign = (value > 0 and 1 or -1)
 					value = 1 - math.min(1, (1 - math.abs(value)) * 1.1)
 					value = sign * value * value
+					print('engine_command', source .. '_' .. dest.name)
 					engine_command(value)
 				end
 			end
