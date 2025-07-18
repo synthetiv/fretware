@@ -345,7 +345,7 @@ for d = 1, #arp_divs do
 		end
 	}
 end
--- update peer count every quarter note
+-- update peer count and sync SC clock every quarter note
 arp_lattice:new_sprocket {
 	division = 1/4,
 	action = function()

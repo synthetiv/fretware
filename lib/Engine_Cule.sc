@@ -1191,7 +1191,7 @@ Engine_Cule : CroneEngine {
 		polls = Array.fill(nVoices, { |i|
 			i = i + 1;
 			Dictionary[
-				// TODO: poll env value too, to show on grid??
+				// TODO: poll env, vel, SH values too
 				\instantPitch -> this.addPoll(("instant_pitch_" ++ i).asSymbol, periodic: false),
 				\pitch -> this.addPoll(("pitch_" ++ i).asSymbol, periodic: false),
 				\amp -> this.addPoll(("amp_" ++ i).asSymbol, periodic: false),
