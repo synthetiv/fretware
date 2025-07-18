@@ -323,27 +323,17 @@ arp_divs = { 1/2, 3/8, 1/4, 3/16, 1/8, 3/32, 1/16, 1/24, 1/32 }
 arp_gates = {}
 arp_lattice = Lattice.new()
 for d = 1, #arp_divs do
-	local rate = arp_divs[d]
+	local rate = arp_divs[d] / 2
 	arp_gates[d] = false
-	arp_lattice:new_sprocket {
+	local sprocket = arp_lattice:new_sprocket {
 		division = rate,
-		action = function()
-			arp_gates[d] = true
-			if arp_menu.value == d then
-				k:arp(true)
-			end
-		end
 	}
-	arp_lattice:new_sprocket {
-		division = rate,
-		delay = 0.5,
-		action = function()
-			arp_gates[d] = false
-			if arp_menu.value == d then
-				k:arp(false)
-			end
+	sprocket.action = function()
+		arp_gates[d] = sprocket.downbeat
+		if arp_menu.value == d then
+			k:arp(sprocket.downbeat)
 		end
-	}
+	end
 end
 -- update peer count and sync SC clock every quarter note
 arp_lattice:new_sprocket {
