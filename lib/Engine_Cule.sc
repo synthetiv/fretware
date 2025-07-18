@@ -418,7 +418,7 @@ Engine_Cule : CroneEngine {
 		}).add;
 
 		SynthDef.new(\modRouter_ar, {
-			var input = In.ar(\inBus.kr);
+			var input = InFeedback.ar(\inBus.kr);
 			modulationDests.do({ |rate, name|
 				var outBus = NamedControl.kr(name ++ 'Mod');
 				var amount = NamedControl.kr(name, 0.1);
@@ -431,7 +431,7 @@ Engine_Cule : CroneEngine {
 		}).add;
 
 		SynthDef.new(\modRouter_amp, {
-			var amp = In.ar(\inBus.kr);
+			var amp = InFeedback.ar(\inBus.kr);
 			modulationDests.do({ |rate, name|
 				var outBus = NamedControl.kr(name ++ 'Mod');
 				var amount = NamedControl.kr(name, 0.1);
