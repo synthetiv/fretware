@@ -237,7 +237,7 @@ Engine_Cule : CroneEngine {
 			\loopRate -> \kr,
 			\ratioA -> \kr,
 			\detuneA -> \ar,
-			// TODO: maybe detune can be control rate... then op pitch buses can be control
+			// TODO NEXT: maybe detune can be control rate... then op pitch buses can be control
 			// rate... and maybe that would save CPU
 			\indexA -> \ar,
 			\ratioB -> \kr,
@@ -463,6 +463,7 @@ Engine_Cule : CroneEngine {
 			// watch type op/fx/lfo type parameters and send signals to sclang to
 			// handle op, fx, and lfo type changes
 			// TODO: is this really the best place to do this?? why not just create engine commands??
+			// oh right -- this way all voices can read from the patch bus, and not pick up changes if they're locked
 			var voiceIndex = \voiceIndex.ir;
 			Dictionary[
 				\opFade -> [ \opFadeA, \opFadeB ],
@@ -1145,7 +1146,7 @@ Engine_Cule : CroneEngine {
 				synth.map(\ratio, Bus.newFrom(paramBuses[\opRatio], op));
 				synth.map(\index, Bus.newFrom(paramBuses[\opIndex], op));
 				synth.map(\trig, outputBuses[\trig]);
-			}).reverse; // TODO: this should make opA first in the array but after opB in the node order. double check!
+			}).reverse; // TODO NEXT: this should make opA first in the array but after opB in the node order. double check!
 
 			mixBus = outputBuses[\mixAudio];
 			opMixer = Synth.new(\operatorMixer, [
@@ -1160,7 +1161,7 @@ Engine_Cule : CroneEngine {
 					\bus, mixBus
 				], context.og, \addToTail);
 				synth.map(\intensity, Bus.newFrom(paramBuses[\fx], slot));
-				controlSynth.set([ \fxASynth, \fxBSynth ].at(slot), synth); // TODO: this should allow controlSynth to pause fx; does it work? is there a better way?
+				controlSynth.set([ \fxASynth, \fxBSynth ].at(slot), synth); // TODO NEXT: this should allow controlSynth to pause fx; does it work? is there a better way?
 			});
 
 			out = Synth.new(\voiceOutputStage, [
@@ -1335,6 +1336,7 @@ Engine_Cule : CroneEngine {
 		sq80Resources.do({ |rsrc| rsrc.free });
 		// d50Resources.do({ |rsrc| rsrc.free });
 		replySynth.free;
+		// TODO NEXT: doubt we can "flatten" a Dictionary like this, may need to test whether synth is a Synth or an Array
 		voiceSynths.do({ |synths| synths.flatten.do({ |synth| synth.free }) });
 		clockSynth.free;
 		clockPhaseBus.free;
