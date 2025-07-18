@@ -1085,8 +1085,7 @@ Engine_Cule : CroneEngine {
 
 		clockSynth = Synth.new(\clockPhasor, [], context.og, \addToTail);
 
-		voiceSynths = Array.fill(nVoices, {
-			arg i;
+		voiceSynths = Array.fill(nVoices, { |i|
 
 			var controlSynth, routerSynths, lfos, ops, mixBus, mixer, fx, out;
 
@@ -1188,8 +1187,7 @@ Engine_Cule : CroneEngine {
 
 		replySynth = Synth.new(\reply, [], context.og, \addToTail);
 
-		polls = Array.fill(nVoices, {
-			arg i;
+		polls = Array.fill(nVoices, { |i|
 			i = i + 1;
 			Dictionary[
 				// TODO: poll env value too, to show on grid??
@@ -1204,38 +1202,32 @@ Engine_Cule : CroneEngine {
 			];
 		});
 
-		opFadeReplyFunc = OSCFunc({
-			arg msg;
+		opFadeReplyFunc = OSCFunc({ |msg|
 			voiceOpStates[msg[3]][msg[4]][\fade] = msg[5];
 			this.swapOp(msg[3], msg[4]);
 		}, path: '/opFade', srcID: context.server.addr);
 
-		opTypeReplyFunc = OSCFunc({
-			arg msg;
+		opTypeReplyFunc = OSCFunc({ |msg|
 			voiceOpStates[msg[3]][msg[4]][\type] = msg[5];
 			this.swapOp(msg[3], msg[4]);
 		}, path: '/opType', srcID: context.server.addr);
 
-		fxTypeReplyFunc = OSCFunc({
-			arg msg;
+		fxTypeReplyFunc = OSCFunc({ |msg|
 			var def = [\fxSquiz, \fxTanh, \fxFold, \fxWaveLoss, \fxDecimator, \fxChorus, \nothing].at(msg[5]);
 			this.swapFx(msg[3], msg[4], def);
 		}, path: '/fxType', srcID: context.server.addr);
 
-		lfoTypeReplyFunc = OSCFunc({
-			arg msg;
+		lfoTypeReplyFunc = OSCFunc({ |msg|
 			var def = [\lfoTri, \lfoSH, \lfoDust, \lfoDrift, \lfoRamp, \nothing].at(msg[5]);
 			this.swapLfo(msg[3], msg[4], def);
 		}, path: '/lfoType', srcID: context.server.addr);
 
-		voiceAmpReplyFunc = OSCFunc({
-			arg msg;
+		voiceAmpReplyFunc = OSCFunc({ |msg|
 			// msg looks like [ '/voiceAmp', ??, -1, voiceIndex, amp ]
 			polls[msg[3]][\amp].update(msg[4]);
 		}, path: '/voiceAmp', srcID: context.server.addr);
 
-		voicePitchReplyFunc = OSCFunc({
-			arg msg;
+		voicePitchReplyFunc = OSCFunc({ |msg|
 			// msg looks like [ '/voicePitch', ??, -1, voiceIndex, pitch, triggeredChange ]
 			if(msg[5] == 1, {
 				polls[msg[3]][\instantPitch].update(msg[4]);
@@ -1244,14 +1236,12 @@ Engine_Cule : CroneEngine {
 			});
 		}, path: '/voicePitch', srcID: context.server.addr);
 
-		lfoGateReplyFunc = OSCFunc({
-			arg msg;
+		lfoGateReplyFunc = OSCFunc({ |msg|
 			// msg looks like [ '/lfoGate', ??, -1, voiceIndex, lfoIndex, state ]
 			polls[msg[3]][\lfos][msg[4]].update(msg[5]);
 		}, path: '/lfoGate', srcID: context.server.addr);
 
-		this.addCommand(\select_voice, "i", {
-			arg msg;
+		this.addCommand(\select_voice, "i", { |msg|
 			// reset currently selected voice
 			voiceSynths[selectedVoice][\control].set(
 				\gate, 0,
@@ -1265,36 +1255,30 @@ Engine_Cule : CroneEngine {
 			selectedVoice = msg[1] - 1;
 		});
 
-		this.addCommand(\poll_rate, "f", {
-			arg msg;
+		this.addCommand(\poll_rate, "f", { |msg|
 			replySynth.set(\replyRate, msg[1]);
 		});
 
-		this.addCommand(\baseFreq, "f", {
-			arg msg;
+		this.addCommand(\baseFreq, "f", { |msg|
 			baseFreqBus.setSynchronous(msg[1]);
 		});
 
-		this.addCommand(\setLoop, "if", {
-			arg msg;
+		this.addCommand(\setLoop, "if", { |msg|
 			voiceSynths[msg[1] - 1][\control].set(
 				\loopLength, msg[2],
 				\freeze, 1
 			);
 		});
 
-		this.addCommand(\resetLoopPhase, "i", {
-			arg msg;
+		this.addCommand(\resetLoopPhase, "i", { |msg|
 			voiceSynths[msg[1] - 1][\control].set(\loopReset, 1);
 		});
 
-		this.addCommand(\clearLoop, "i", {
-			arg msg;
+		this.addCommand(\clearLoop, "i", { |msg|
 			voiceSynths[msg[1] - 1][\control].set(\freeze, 0);
 		});
 
-		patchArgs.do({
-			arg name;
+		patchArgs.do({ |name|
 			this.addCommand(name, "f", { |msg|
 				patchBuses[name].set(msg[1]);
 			});
@@ -1302,21 +1286,18 @@ Engine_Cule : CroneEngine {
 
 		modulationSources.do({ |sourceRate, sourceName|
 			modulationDests.do({ |destRate, destName|
-				this.addCommand(sourceName ++ '_' ++ destName, "f", {
-					arg msg;
+				this.addCommand(sourceName ++ '_' ++ destName, "f", { |msg|
 					voiceSynths[selectedVoice][\mod][sourceName].set(destName, msg[1]);
 				});
 			});
 		});
 
-		this.addCommand(\gate, "i", {
-			arg msg;
+		this.addCommand(\gate, "i", { |msg|
 			var value = msg[1];
 			voiceSynths[selectedVoice][\control].set(\gate, value, \trig, value);
 		});
 
-		[ \pitch, \tip, \palm, \dx, \dy ].do({
-			arg name;
+		[ \pitch, \tip, \palm, \dx, \dy ].do({ |name|
 			this.addCommand(name, "f", { |msg|
 				voiceSynths[selectedVoice][\control].set(name, msg[1]);
 			});
@@ -1329,8 +1310,7 @@ Engine_Cule : CroneEngine {
 			\shift,
 			\pan,
 			\outLevel,
-		].do({
-			arg name;
+		].do({ |name|
 			this.addCommand(name, "if", { |msg|
 				voiceSynths[msg[1] - 1][\control].set(name, msg[2]);
 			});
