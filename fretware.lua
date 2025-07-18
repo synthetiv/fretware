@@ -433,7 +433,27 @@ function g.key(x, y, z)
 			end
 			if z == 1 then
 				if arp_lattice_nudge_keys.down and arp_lattice_nudge_keys.up then
-					-- TODO: invert phase of the current clock division
+					-- invert phase of the current clock division
+					-- TODO NEXT: does this work?
+					-- find the currently synced division, resetting all gates as we go
+					local division = nil
+					for d = 1, #arp_divs do
+						arp_gates[d] = false
+						if arp_menu.value == d then
+							division = arp_divs[d] / 2
+							k:arp(false)
+						end
+					end
+					if division then
+						-- if we're synced to the clock, then offset all sprockets' phase by 1/2 this sprocket's
+						-- cycle length in ppc (ppqn*4)
+						-- this may leave some sprockets' phase < 0, but I think that might be OK? some may just
+						-- take a bit to "wake up"... or they may be left out of phase forever...
+						local relative_phase_offset = arp_lattice.ppqn * 2 * division
+						for id, sprocket in pairs(arp_lattice.sprockets) do
+							sprocket.phase = sprocket.phase - relative_phase_offset
+						end
+					end
 				elseif arp_lattice_nudge_keys.down then
 					-- nudge down: pause for one pulse worth of time
 					clock.run(function()
