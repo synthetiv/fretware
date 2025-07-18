@@ -408,7 +408,7 @@ Engine_Cule : CroneEngine {
 			var input = In.kr(\inBus.kr);
 			modulationDests.do({ |rate, name|
 				var outBus = NamedControl.kr(name ++ 'Mod');
-				var amount = NamedControl.kr(name);
+				var amount = NamedControl.kr(name, 0.1);
 				if(rate === \kr, {
 					Out.kr(outBus, amount * input);
 				}, {
@@ -421,7 +421,7 @@ Engine_Cule : CroneEngine {
 			var input = In.ar(\inBus.kr);
 			modulationDests.do({ |rate, name|
 				var outBus = NamedControl.kr(name ++ 'Mod');
-				var amount = NamedControl.kr(name);
+				var amount = NamedControl.kr(name, 0.1);
 				if(rate === \kr, {
 					Out.kr(outBus, A2K.kr(amount * input));
 				}, {
@@ -433,8 +433,8 @@ Engine_Cule : CroneEngine {
 		SynthDef.new(\modRouter_amp, {
 			var amp = In.ar(\inBus.kr);
 			modulationDests.do({ |rate, name|
-				var outBus = NamedContro.kr(name ++ 'Mod');
-				var amount = NamedControl.kr(name);
+				var outBus = NamedControl.kr(name ++ 'Mod');
+				var amount = NamedControl.kr(name, 0.1);
 				if(rate === \kr, {
 					Out.kr(outBus, A2K.kr(amount * amp));
 				}, {
@@ -450,31 +450,19 @@ Engine_Cule : CroneEngine {
 
 		SynthDef.new(\voiceControls, {
 
-			// TODO NOW: restore lags everywhere
-			// TODO NOW: make sure all these Dictionary.do's and Dictionary.collect's do what I've been expecting
+			// TODO NOW: make sure all these Dictionary.do's and Dictionary.collect's do what I've been expecting!
 
-			arg pitch = 0,
-				gate = 0,
-				tip = 0,
-				palm = 0,
-				freeze = 0,
-				t_loopReset = 0,
-				loopLength = 0.3,
-				loopPosition = 0,
-				loopRate = 1,
-				attack = 0.01,
-				release = 0.3;
-
-			var bufferRate, bufferLength, bufferPhase, buffer,
-				loopPhase,
-				fxA, fxB,
-				amp, hand, x, y, vel, svel, eg, eg2, sh,
-				recPitch, recTip, recHand, recX, recY, recGate, recTrig,
-				trig, ampMode, freezeWithoutGate;
+			var bufferRate, bufferLength, buffer,
+				freeze, loopLength, loopPhase, loopRate, bufferPhase,
+				freezeWithoutGate,
+				pitch, gate, trig, tip, palm, hand, x, y,
+				recPitch, recGate, recTrig, recTip, recHand, recX, recY,
+				vel, svel, attack, release, eg, eg2,
+				amp, fxA, fxB;
 
 			// watch type op/fx/lfo type parameters and send signals to sclang to
 			// handle op, fx, and lfo type changes
-			// TODO NOW: is this really the best place to do this?? why not just create engine commands??
+			// TODO: is this really the best place to do this?? why not just create engine commands??
 			var voiceIndex = \voiceIndex.ir;
 			Dictionary[
 				\opFade -> [ \opFadeA, \opFadeB ],
@@ -494,19 +482,20 @@ Engine_Cule : CroneEngine {
 			// create buffer for looping control data
 			bufferRate = ControlRate.ir * bufferRateScale;
 			bufferLength = context.server.sampleRate / context.server.options.blockSize * maxLoopTime * bufferRateScale;
-			bufferPhase = Phasor.kr(rate: bufferRateScale * (1 - freeze), end: bufferLength);
 			buffer = LocalBuf.new(bufferLength, nRecordedModulators);
+			freeze = \freeze.kr;
 			loopLength = (loopLength * bufferRate).min(bufferLength);
 			loopPhase = Phasor.kr(
-				Trig.kr(freeze) + t_loopReset,
+				Trig.kr(freeze) + \loopReset.tr,
 				bufferRateScale * loopRate * 8.pow(\loopRateMod.kr),
 				0, loopLength, 0
 			);
 			// offset by loopPosition, but constrain to loop bounds
-			loopPhase = (loopPhase + (loopLength * (loopPosition + \loopPositionMod.kr))).wrap(0, loopLength);
+			loopPhase = (loopPhase + (loopLength * (\loopPosition.kr + \loopPositionMod.kr))).wrap(0, loopLength);
 			hand = tip - palm;
 			x = \dx.kr;
 			y = \dy.kr;
+			bufferPhase = Phasor.kr(rate: bufferRateScale * (1 - freeze), end: bufferLength);
 			BufWr.kr([pitch, tip, hand, x, y, gate, trig], buffer, bufferPhase);
 			// read values from recorded loop (if any)
 			# recPitch, recTip, recHand, recX, recY, recGate, recTrig = BufRd.kr(
@@ -554,32 +543,32 @@ Engine_Cule : CroneEngine {
 			Out.kr(\velBus.ir, [ vel, Latch.kr(vel, trig) ]);
 
 			Out.kr(\opRatioBus.ir, [
-				\ratioA.kr + \ratioAMod.kr,
-				\ratioB.kr + \ratioBMod.kr
+				\ratioA.kr(lag: 0.1, fixedLag: true) + \ratioAMod.kr,
+				\ratioB.kr(lag: 0.1, fixedLag: true) + \ratioBMod.kr
 			]);
 
 			Out.ar(\opIndexBus.ir, [
-				\indexA.ar + \indexAMod.ar,
-				\indexB.ar + \indexBMod.ar
+				\indexA.ar(lag: 0.1) + \indexAMod.ar,
+				\indexB.ar(lag: 0.1) + \indexBMod.ar
 			]);
 
-			Out.kr(\opMixBus.ir, \opMix.kr + \opMixMod.kr);
+			Out.kr(\opMixBus.ir, \opMix.kr(lag: 0.1, fixedLag: true) + \opMixMod.kr);
 
-			fxA = \fxA.kr + \fxAMod.kr;
-			fxB = \fxB.kr + \fxBMod.kr;
+			fxA = \fxA.kr(lag: 0.1, fixedLag: true) + \fxAMod.kr;
+			fxB = \fxB.kr(lag: 0.1, fixedLag: true) + \fxBMod.kr;
 			Out.kr(\fxBus.ir, [ fxA, fxB ]);
 			// when FX amounts go to (almost) 0, wait 0.1s for fade (see applyFx), then pause them
 			Pause.kr(LagUD.kr(fxA > -0.999, 0, 0.1), \fxASynth.kr);
 			Pause.kr(LagUD.kr(fxB > -0.999, 0, 0.1), \fxBSynth.kr);
 
 			Out.ar(\cutoffBus.ir, [
-				\hpCutoff.ar + \hpCutoffMod.ar,
-				\lpCutoff.ar + \lpCutoffMod.ar
+				\hpCutoff.ar(lag: 0.1) + \hpCutoffMod.ar,
+				\lpCutoff.ar(lag: 0.1) + \lpCutoffMod.ar
 			]);
 
 			Out.kr(\rqBus.ir, [
-				\hpRQ.kr,
-				\lpRQ.kr,
+				\hpRQ.kr(lag: 0.1, fixedLag: true),
+				\lpRQ.kr(lag: 0.1, fixedLag: true),
 			]);
 
 			Out.kr(\lfoFreqBus.ir, [
@@ -591,8 +580,7 @@ Engine_Cule : CroneEngine {
 			// slew tip for direct control of amplitude -- otherwise there will be audible steppiness
 			tip = Lag.ar(K2A.ar(tip), 0.05);
 			// amp mode shouldn't change while frozen
-			ampMode = Gate.kr(\ampMode.kr, 1 - freeze);
-			amp = Select.ar(K2A.ar(ampMode), [
+			amp = Select.ar(K2A.ar(Gate.kr(\ampMode.kr, 1 - freeze)), [
 				tip,
 				tip * eg,
 				eg * -6.dbamp
@@ -609,8 +597,8 @@ Engine_Cule : CroneEngine {
 			Out.kr(\pitchBus.ir, pitch);
 
 			Out.ar(\opPitchBus.ir, [
-				\detuneA.ar.cubed + \detuneAMod.ar,
-				\detuneB.ar.cubed + \detuneBMod.ar
+				\detuneA.ar(lag: 0.1).cubed + \detuneAMod.ar,
+				\detuneB.ar(lag: 0.1).cubed + \detuneBMod.ar
 			] * 1.17 + pitch);
 			// max detune of 1.17 octaves is slightly larger than a ratio of 9/4
 
@@ -1297,7 +1285,7 @@ Engine_Cule : CroneEngine {
 
 		this.addCommand(\resetLoopPhase, "i", {
 			arg msg;
-			voiceSynths[msg[1] - 1][\control].set(\t_loopReset, 1);
+			voiceSynths[msg[1] - 1][\control].set(\loopReset, 1);
 		});
 
 		this.addCommand(\clearLoop, "i", {
