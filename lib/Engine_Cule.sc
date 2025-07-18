@@ -230,7 +230,7 @@ Engine_Cule : CroneEngine {
 		];
 
 		// modulatable parameters for audio synths
-		modulationDests = [
+		modulationDests = Dictionary[
 			\amp -> \ar,
 			\pan -> \kr,
 			\loopPosition -> \kr,
@@ -1297,6 +1297,15 @@ Engine_Cule : CroneEngine {
 			arg name;
 			this.addCommand(name, "f", { |msg|
 				patchBuses[name].set(msg[1]);
+			});
+		});
+
+		modulationSources.do({ |sourceRate, sourceName|
+			modulationDests.do({ |destRate, destName|
+				this.addCommand(sourceName ++ '_' ++ destName, "f", {
+					arg msg;
+					voiceSynths[selectedVoice][\mod][sourceName].set(destName, msg[1]);
+				});
 			});
 		});
 
