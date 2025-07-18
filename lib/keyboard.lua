@@ -432,7 +432,7 @@ function Keyboard:note(x, y, z)
 	self.held_keys[key_id] = z == 1
 	if z == 1 then
 		-- key pressed
-		-- TODO: re-trigger 'move_plectrum' event when sustained_keys is modified
+		-- TODO NEXT: re-trigger 'move_plectrum' event when sustained_keys is modified
 		if self.held_keys.latch then
 			if self.editing_sustained_key_index then
 				self.sustained_keys[self.editing_sustained_key_index] = key_id
