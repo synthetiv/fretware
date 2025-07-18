@@ -435,18 +435,15 @@ function g.key(x, y, z)
 				if arp_lattice_nudge_keys.down and arp_lattice_nudge_keys.up then
 					-- TODO: invert phase of the current clock division
 				elseif arp_lattice_nudge_keys.down then
-					-- nudge down: pause for a dotted 1/256th note
+					-- nudge down: pause for one pulse worth of time
 					clock.run(function()
 						arp_lattice:stop()
-						clock.sleep(clock.get_beat_sec() / 48)
+						clock.sleep(clock.get_beat_sec() / arp_lattice.ppqn)
 						arp_lattice:start()
 					end)
 				elseif arp_lattice_nudge_keys.up then
-					-- nudge up: skip forward by a dotted 1/256th note, instantaneously
-					local extra_pulses = arp_lattice.ppqn / 48 -- probably 2, but just in case I adjust ppqn later
-					for n = 1, extra_pulses do
-						arp_lattice:pulse()
-					end
+					-- nudge up: skip forward by one pulse, instantaneously
+					arp_lattice:pulse()
 				end
 			end
 		elseif (x == 15 or x == 16) and y == 3 then
