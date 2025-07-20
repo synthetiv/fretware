@@ -61,9 +61,9 @@ Engine_Cule : CroneEngine {
 
 	applyFx {
 		arg dry, wet;
-		var blendAmount = \intensity.ar.linlin(-1, -0.9, -1, 1);
-		var blendAmountSmooth = blendAmount.lag(0.1);
-		var blended = LinXFade2.ar(dry, wet, blendAmountSmooth);
+		// below -0.99 intensity, wet signal will be fully mixed out, so synth can be paused
+		var blendAmount = \intensity.ar.linlin(-0.99, -0.9, -1, 1).lag(0.1);
+		var blended = LinXFade2.ar(dry, wet, blendAmount);
 		^ReplaceOut.ar(\bus.ir, blended);
 	}
 
@@ -559,9 +559,14 @@ Engine_Cule : CroneEngine {
 			fxB = \fxB.kr(lag: 0.1, fixedLag: true) + \fxBMod.kr;
 			Out.kr(\fxBus.ir, [ fxA, fxB ]);
 			// when FX amounts go to (almost) 0, wait 0.1s for fade (see applyFx), then pause them
-			// TODO NEXT: I don't think this is working *reliably* -- why?
-			Pause.kr(LagUD.kr(fxA > -0.999, 0, 0.1), \fxASynth.kr);
-			Pause.kr(LagUD.kr(fxB > -0.999, 0, 0.1), \fxBSynth.kr);
+			Pause.kr(
+				Env.new(
+					times: [ 0, 0.1 ],
+					releaseNode: 1,
+					curve: \hold
+				).kr(gate: [ fxA, fxB ] > -0.99),
+				[ \fxASynth.kr, \fxBSynth.kr ]
+			);
 
 			Out.ar(\cutoffBus.ir, [
 				\hpCutoff.ar(lag: 0.1) + \hpCutoffMod.ar,
