@@ -7,8 +7,6 @@ for p = 1, 12 do
 	et12[p] = { p / 12, nil }
 end
 
-local plectrum_reset_delay = 4
-
 -- TODO: panic function, for when a note gets stuck due to momentary grid connection loss
 --       or whatever it is that causes that
 
@@ -577,11 +575,6 @@ end
 
 function Keyboard:move_plectrum(dx, dy, skip_octave_shift)
 	local now = util.time()
-	-- TODO NEXT: maybe we don't need to reset ever, now that we wrap
-	if now - self.plectrum.last_moved > plectrum_reset_delay then
-		self.plectrum.x = self.x_center
-		self.plectrum.y = self.y_center
-	end
 	if dx ~= 0 or dy ~= 0 then
 		self.plectrum.last_moved = now
 	end
@@ -730,7 +723,7 @@ function Keyboard:draw()
 	end
 
 	-- highlight plectrum location, if it's been moved recently
-	local plectrum_level = math.min(1, plectrum_reset_delay - (util.time() - self.plectrum.last_moved)) * 7
+	local plectrum_level = math.min(1, 2 - (util.time() - self.plectrum.last_moved)) * 7
 
 	for x = self.x + 2, self.x2 do
 		for y = self.y, self.y2 - 1 do
