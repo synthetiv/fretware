@@ -94,16 +94,6 @@ source_menu.get_key_level = function(value, selected, held)
 		end
 	elseif value == 10 then
 		-- TODO: indicate S+H state?
-	elseif value == 11 then
-		if math.abs(trackball_values.x) < 0.5 then
-			level = -1
-		end
-	elseif value == 12 then
-		if math.abs(trackball_values.y) < 0.5 then
-			level = -1
-		end
-	elseif value == 13 then
-		-- TODO: indicate xy vel? or just flash with gate, like eg2
 	end
 	return (held and 11 or (selected and 6 or 3)) + level
 end
@@ -1374,7 +1364,7 @@ function init()
 
 	clock.run(function()
 		while true do
-			clock.sleep(0.1) -- TODO: fine tune rate
+			clock.sleep(0.1) -- TODO NEXT: fine tune rate
 			if trackball_values.x ~= 0 or trackball_values.last_x ~= 0 then
 				engine.dx(trackball_values.x / 32)
 				trackball_values.last_x = trackball_values.x
