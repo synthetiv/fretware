@@ -545,7 +545,8 @@ Engine_Cule : CroneEngine {
 
 			// # x, y = Lag.kr([ x, y ], 0.2);
 			vel = Mix([ x, y ].squared).sqrt;
-			Out.kr(\velBus.ir, [ vel.lag(0.2), Latch.kr(vel, trig) ]);
+			// TODO NEXT: update x/y more frequently and you can reduce the lag here
+			Out.kr(\velBus.ir, [ LagUD.kr(vel, 0.1, 0.3), Latch.kr(vel, trig) ]);
 
 			Out.kr(\opRatioBus.ir, [
 				\ratioA.kr(lag: 0.1, fixedLag: true) + \ratioAMod.kr,
