@@ -559,6 +559,7 @@ Engine_Cule : CroneEngine {
 			fxB = \fxB.kr(lag: 0.1, fixedLag: true) + \fxBMod.kr;
 			Out.kr(\fxBus.ir, [ fxA, fxB ]);
 			// when FX amounts go to (almost) 0, wait 0.1s for fade (see applyFx), then pause them
+			// TODO NEXT: I don't think this is working *reliably* -- why?
 			Pause.kr(LagUD.kr(fxA > -0.999, 0, 0.1), \fxASynth.kr);
 			Pause.kr(LagUD.kr(fxB > -0.999, 0, 0.1), \fxBSynth.kr);
 
@@ -1149,7 +1150,7 @@ Engine_Cule : CroneEngine {
 				synth.map(\ratio, Bus.newFrom(paramBuses[\opRatio], op));
 				synth.map(\index, Bus.newFrom(paramBuses[\opIndex], op));
 				synth.map(\trig, outputBuses[\trig]);
-			}).reverse; // TODO NEXT: this should make opA first in the array but after opB in the node order. double check!
+			}).reverse;
 
 			mixBus = outputBuses[\mixAudio];
 			mixer = Synth.new(\operatorMixer, [
@@ -1163,7 +1164,7 @@ Engine_Cule : CroneEngine {
 					\bus, mixBus
 				], group, \addToTail);
 				synth.map(\intensity, Bus.newFrom(paramBuses[\fx], slot));
-				controlSynth.set([ \fxASynth, \fxBSynth ].at(slot), synth); // TODO NEXT: this should allow controlSynth to pause fx; does it work? is there a better way?
+				controlSynth.set([ \fxASynth, \fxBSynth ].at(slot), synth);
 				synth;
 			});
 

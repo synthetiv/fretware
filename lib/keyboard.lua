@@ -568,9 +568,16 @@ function Keyboard:move_plectrum(dx, dy)
 		local old_gate = old_proximity <= 0.5
 		local new_arp_index, new_proximity = self:find_coords_arp_index(self.plectrum.x, self.plectrum.y)
 		local new_gate = new_proximity <= 0.5
+		-- TODO NOW: no... hmm.
+		-- 1. don't change active note if gate is low
+		-- 2. do something different to get relative distance. actually, it should be relative AND absolute.
+		--    there should be a gap between adjacent keys, and plectrum should have to be 1.5? keys away for
+		--    note to change and gate to go high
+		-- if new_gate and (new_arp_index ~= old_arp_index) then
 		if new_arp_index ~= old_arp_index then
 			self.arp_index = new_arp_index
 			self.arp_insert = self.arp_index
+			-- maybe this is the part to change
 			self:set_active_key(self.sustained_keys[self.arp_index])
 			self.on_gate(new_gate)
 		elseif new_gate ~= old_gate then
