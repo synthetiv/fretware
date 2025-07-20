@@ -313,17 +313,23 @@ gate_in = false
 
 arp_divs = { 1/2, 3/8, 1/4, 3/16, 1/8, 3/32, 1/16, 1/24, 1/32 }
 arp_gates = {}
+arp_gates_inverted = {}
 arp_lattice = Lattice.new()
 for d = 1, #arp_divs do
 	local rate = arp_divs[d] / 2
 	arp_gates[d] = false
+	arp_gates_inverted[d] = false
 	local sprocket = arp_lattice:new_sprocket {
 		division = rate,
 	}
 	sprocket.action = function()
-		arp_gates[d] = not sprocket.downbeat
+		if arp_gates_inverted[d] then
+			arp_gates[d] = sprocket.downbeat
+		else
+			arp_gates[d] = not sprocket.downbeat
+		end
 		if arp_menu.value == d then
-			k:arp(not sprocket.downbeat)
+			k:arp(arp_gates[d])
 		end
 	end
 end
@@ -334,11 +340,6 @@ arp_lattice:new_sprocket {
 		link_peers = clock.link.get_number_of_peers()
 		engine.downbeat()
 	end
-}
-
-arp_lattice_nudge_keys = {
-	down = false,
-	up = false
 }
 
 clock.transport.start = function()
@@ -417,49 +418,26 @@ function g.key(x, y, z)
 			arp_direction_menu.open = false
 		end
 	elseif arp_menu.open and x > 2 and y < 8 then
-		if x >= 12 and x <= 13 and y == 3 then
-			if x == 12 then
-				arp_lattice_nudge_keys.down = z == 1
-			elseif x == 13 then
-				arp_lattice_nudge_keys.up = z == 1
-			end
-			if z == 1 then
-				if arp_lattice_nudge_keys.down and arp_lattice_nudge_keys.up then
-					-- invert phase of the current clock division
-					-- TODO NEXT: does this work?
-					-- find the currently synced division, resetting all gates as we go
-					local division = nil
-					for d = 1, #arp_divs do
-						arp_gates[d] = false
-						if arp_menu.value == d then
-							division = arp_divs[d] / 2
-							k:arp(false)
-						end
-					end
-					if division then
-						-- if we're synced to the clock, then offset all sprockets' phase by 1/2 this sprocket's
-						-- cycle length in ppc (ppqn*4)
-						-- this may leave some sprockets' phase < 0, but I think that might be OK? some may just
-						-- take a bit to "wake up"... or they may be left out of phase forever...
-						local relative_phase_offset = arp_lattice.ppqn * 2 * division
-						for id, sprocket in pairs(arp_lattice.sprockets) do
-							sprocket.phase = sprocket.phase - relative_phase_offset
-						end
-					end
-				elseif arp_lattice_nudge_keys.down then
+		if not arp_direction_menu:key(x, y, z) and not arp_menu:key(x, y, z) and z == 1 then
+			-- keydown, not caught by a menu
+			if x == 11 and y == 2 then
+				-- invert synced sprocket phase
+				if arp_menu.value and arp_menu.value >= 1 and arp_menu.value <= #arp_divs then
+					arp_gates_inverted[arp_menu.value] = not arp_gates_inverted[arp_menu.value]
+				end
+			elseif (x == 12 or x == 13) and y == 3 then
+				if x == 12 then
 					-- nudge down: pause for one pulse worth of time
 					clock.run(function()
 						arp_lattice:stop()
 						clock.sleep(clock.get_beat_sec() / arp_lattice.ppqn)
 						arp_lattice:start()
 					end)
-				elseif arp_lattice_nudge_keys.up then
+				elseif x == 13 then
 					-- nudge up: skip forward by one pulse, instantaneously
 					arp_lattice:pulse()
 				end
-			end
-		elseif (x == 15 or x == 16) and y == 3 then
-			if z == 1 then
+			elseif (x == 15 or x == 16) and y == 3 then
 				-- clock tempo increase/decrease
 				if x == 15 then
 					params:set('clock_tempo', params:get('clock_tempo') / 1.04)
@@ -467,8 +445,6 @@ function g.key(x, y, z)
 					params:set('clock_tempo', params:get('clock_tempo') * 1.04)
 				end
 			end
-		elseif not arp_direction_menu:key(x, y, z) then
-			arp_menu:key(x, y, z)
 		end
 	elseif source_menu.open and source_menu.n_held > 0 and x == 1 and y == 1 then
 		if z == 1 then
@@ -535,8 +511,10 @@ function grid_redraw()
 	arp_direction_menu:draw()
 	if arp_menu.open then
 		-- lattice phase nudge keys
-		g:led(12, 3, arp_lattice_nudge_keys.down == c and 9 or 5)
-		g:led(13, 3, arp_lattice_nudge_keys.up == c and 9 or 5)
+		g:led(12, 3, 5)
+		g:led(13, 3, 5)
+		-- phase invert key
+		g:led(11, 2, arp_gates_inverted[arp_menu.value] and 9 or 5)
 		-- tempo nudge keys
 		g:led(15, 3, 4)
 		g:led(16, 3, 4)
