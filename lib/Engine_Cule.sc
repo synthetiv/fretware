@@ -235,12 +235,10 @@ Engine_Cule : CroneEngine {
 			\loopPosition -> \kr,
 			\loopRate -> \kr,
 			\ratioA -> \kr,
-			\detuneA -> \ar,
-			// TODO NEXT: maybe detune can be control rate... then op pitch buses can be control
-			// rate... and maybe that would save CPU
+			\detuneA -> \kr,
 			\indexA -> \ar,
 			\ratioB -> \kr,
-			\detuneB -> \ar,
+			\detuneB -> \kr,
 			\indexB -> \ar,
 			\opMix -> \kr,
 			\fxA -> \kr,
@@ -343,7 +341,7 @@ Engine_Cule : CroneEngine {
 				\amp -> Bus.audio(context.server),
 				\pan -> Bus.control(context.server),
 				\pitch -> Bus.control(context.server),
-				\opPitch -> Bus.audio(context.server, 2),
+				\opPitch -> Bus.control(context.server, 2),
 				\opRatio -> Bus.control(context.server, 2),
 				\opIndex -> Bus.audio(context.server, 2),
 				\opMix -> Bus.control(context.server),
@@ -599,9 +597,9 @@ Engine_Cule : CroneEngine {
 			pitch = Lag.kr(pitch, \pitchSlew.kr);
 			Out.kr(\pitchBus.ir, pitch);
 
-			Out.ar(\opPitchBus.ir, [
-				\detuneA.ar(lag: 0.1).cubed + \detuneAMod.ar,
-				\detuneB.ar(lag: 0.1).cubed + \detuneBMod.ar
+			Out.kr(\opPitchBus.ir, [
+				\detuneA.kr(lag: 0.1).cubed + \detuneAMod.kr,
+				\detuneB.kr(lag: 0.1).cubed + \detuneBMod.kr
 			] * 1.17 + pitch);
 			// max detune of 1.17 octaves is slightly larger than a ratio of 9/4
 
