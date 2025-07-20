@@ -548,19 +548,18 @@ function Keyboard:move_plectrum(dx, dy)
 	local old_x, old_y = self.plectrum.x, self.plectrum.y
 	self.plectrum.x, self.plectrum.y = self.plectrum.x + dx, self.plectrum.y + dy
 	-- change octaves and wrap when we go off an edge
-	-- TODO NOW: this is acting... weird at edges
-	if self.plectrum.x > self.x2 then
-		self.plectrum.x = self.plectrum.x - self.width + 1
+	if self.plectrum.x >= self.x2 + 0.5 then
+		self.plectrum.x = self.plectrum.x - (self.width - 2)
 		self:shift_octave(1)
-	elseif self.plectrum.x < self.x then
-		self.plectrum.x = self.plectrum.x + self.width - 1
+	elseif self.plectrum.x < self.x + 1.5 then
+		self.plectrum.x = self.plectrum.x + (self.width - 2)
 		self:shift_octave(-1)
 	end
-	if self.plectrum.y > self.y2 then
-		self.plectrum.y = self.plectrum.y - self.height + 1
+	if self.plectrum.y > self.y2 - 0.5 then
+		self.plectrum.y = self.plectrum.y - (self.height - 1)
 		self:shift_octave(-1)
-	elseif self.plectrum.y < self.y then
-		self.plectrum.y = self.plectrum.y + self.height - 1
+	elseif self.plectrum.y <= self.y - 0.5 then
+		self.plectrum.y = self.plectrum.y + (self.height - 1)
 		self:shift_octave(1)
 	end
 	if self.arp_plectrum and self.n_sustained_keys > 1 then
@@ -735,12 +734,14 @@ function Keyboard:draw()
 			end
 
 			if plectrum_level > 0 then
-				-- TODO: the % stuff is supposed to make wrapping look sensible,
-				-- but it's not doing the job yet...
-				local dx = 1 - (math.abs(x - self.plectrum.x) % (self.width - 2))
-				local dy = 1 - (math.abs(y - self.plectrum.y) % (self.height - 2))
-				if dx > 0 and dy > 0 then
-					level = led_blend(level, plectrum_level * dx * dy)
+				-- distance
+				local dx = math.abs(x - self.plectrum.x)
+				local dy = math.abs(y - self.plectrum.y)
+				-- closeness, wrapped
+				local cx = math.max(1 - dx, dx - (self.width - 3))
+				local cy = math.max(1 - dy, dy - (self.height - 2))
+				if cx > 0 and cy > 0 then
+					level = led_blend(level, plectrum_level * cx * cy)
 				end
 			end
 
