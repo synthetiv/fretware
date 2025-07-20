@@ -20,6 +20,7 @@ Engine_Cule : CroneEngine {
 	// var d50Resources;
 	var sq80Resources;
 
+	var group;
 	var baseFreqBus;
 	var clockPhaseBus;
 	var clockSynth;
@@ -327,11 +328,11 @@ Engine_Cule : CroneEngine {
 			var buses = Dictionary.new;
 			modulationDests.keysValuesDo({ |destName, rate|
 				var bus = if(rate === \kr, {
-					Bus.control;
+					Bus.control(context.server);
 				}, {
-					Bus.audio;
+					Bus.audio(context.server);
 				});
-				buses.put(destName ++ 'Mod', bus);
+				buses.put(destName, bus);
 			});
 			buses;
 		});
@@ -447,8 +448,6 @@ Engine_Cule : CroneEngine {
 		}).add;
 
 		SynthDef.new(\voiceControls, {
-
-			// TODO NOW: make sure all these Dictionary.do's and Dictionary.collect's do what I've been expecting!
 
 			var bufferRate, bufferLength, buffer,
 				freeze, loopLength, loopPhase, bufferPhase,
@@ -953,7 +952,7 @@ Engine_Cule : CroneEngine {
 
 		SynthDef.new(\operatorMixer, {
 			// TODO: pause op synths when they're fully mixed out??
-                        var opA, opB, output;
+			var opA, opB, output;
 			# opA, opB = In.ar(\opsBus.ir, 2);
 			output = SelectX.ar(\mix.ar.linlin(-1, 1, 0, 4, nil).wrap(0, 3), [
 				opA,
@@ -1073,7 +1072,10 @@ Engine_Cule : CroneEngine {
 			});
 		}).add;
 
+		group = Group.new(context.og, \addBefore);
+
 		context.server.sync;
+		"defs sent".postln;
 
 		baseFreqBus.setSynchronous(60.midicps);
 
@@ -1086,7 +1088,7 @@ Engine_Cule : CroneEngine {
 			});
 		});
 
-		clockSynth = Synth.new(\clockPhasor, [], context.og, \addToTail);
+		clockSynth = Synth.new(\clockPhasor, [], group, \addToTail);
 
 		voiceSynths = Array.fill(nVoices, { |i|
 
@@ -1104,7 +1106,7 @@ Engine_Cule : CroneEngine {
 				\velBus, outputBuses[\vels],
 				\egBus, outputBuses[\egs],
 				\shBus, outputBuses[\sh]
-			], context.og, \addToTail); // "output" group
+			], group, \addToTail); // "output" group
 			// write to this voice's parameter buses
 			paramBuses.keysValuesDo({ |name, bus| controlSynth.set(name ++ 'Bus', bus) });
 			// read params from patch buses
@@ -1120,10 +1122,10 @@ Engine_Cule : CroneEngine {
 			modulationSources.keysValuesDo({ |sourceName, sourceRate|
 				var synth = Synth.new('modRouter_' ++ if(sourceName === \amp, \amp, sourceRate), [
 					\inBus, outputBuses[sourceName]
-				], context.og, \addToTail);
+				], group, \addToTail);
 				modulationDests.keysValuesDo({ |destName, destRate|
 					synth.map(destName, patchBuses[\mod][sourceName][destName]);
-					synth.set(destName ++ 'Mod', modBuses[destName ++ 'Mod']);
+					synth.set(destName ++ 'Mod', modBuses[destName]);
 				});
 				routerSynths.put(sourceName, synth);
 			});
@@ -1133,17 +1135,18 @@ Engine_Cule : CroneEngine {
 					\stateBus, Bus.newFrom(outputBuses[\lfos], slot),
 					\voiceIndex, i,
 					\lfoIndex, slot
-				], context.og, \addToTail);
+				], group, \addToTail);
 				synth.map(\freq, Bus.newFrom(paramBuses[\lfoFreq], slot));
 			});
 
-			ops = [ \operatorFB, \operatorFM ].collect({ |opType, op|
-				var thisBus = Bus.newFrom(outputBuses[\ops], 1 - op);
-				var thatBus = Bus.newFrom(outputBuses[\ops], op);
+			ops = [ \operatorFB, \operatorFM ].collect({ |opType, otherOp|
+				var op = 1 - otherOp;
+				var thisBus = Bus.newFrom(outputBuses[\ops], op);
+				var thatBus = Bus.newFrom(outputBuses[\ops], 1 - op);
 				var synth = Synth.new(opType, [
 					\inBus, thatBus,
 					\outBus, thisBus
-				], context.og, \addToTail);
+				], group, \addToTail);
 				synth.map(\pitch, Bus.newFrom(paramBuses[\opPitch], op));
 				synth.map(\ratio, Bus.newFrom(paramBuses[\opRatio], op));
 				synth.map(\index, Bus.newFrom(paramBuses[\opIndex], op));
@@ -1154,20 +1157,21 @@ Engine_Cule : CroneEngine {
 			mixer = Synth.new(\operatorMixer, [
 				\opsBus, outputBuses[\ops],
 				\bus, mixBus
-			], context.og, \addToTail);
+			], group, \addToTail);
 			mixer.map(\mix, paramBuses[\opMix]);
 
 			fx = [ \fxSquiz, \fxWaveLoss ].collect({ |fxType, slot|
 				var synth = Synth.new(fxType, [
 					\bus, mixBus
-				], context.og, \addToTail);
+				], group, \addToTail);
 				synth.map(\intensity, Bus.newFrom(paramBuses[\fx], slot));
 				controlSynth.set([ \fxASynth, \fxBSynth ].at(slot), synth); // TODO NEXT: this should allow controlSynth to pause fx; does it work? is there a better way?
+				synth;
 			});
 
 			out = Synth.new(\voiceOutputStage, [
 				\bus, mixBus
-			], context.og, \addToTail);
+			], group, \addToTail);
 			out.map(\amp,      paramBuses[\amp]);
 			out.map(\pan,      paramBuses[\pan]);
 			out.map(\hpCutoff, Bus.newFrom(paramBuses[\cutoff], 0));
@@ -1187,7 +1191,10 @@ Engine_Cule : CroneEngine {
 			];
 		});
 
-		replySynth = Synth.new(\reply, [], context.og, \addToTail);
+		replySynth = Synth.new(\reply, [], group, \addToTail);
+
+		context.server.sync;
+		"synths created".postln;
 
 		polls = Array.fill(nVoices, { |i|
 			i = i + 1;
@@ -1243,6 +1250,9 @@ Engine_Cule : CroneEngine {
 			polls[msg[3]][\lfos][msg[4]].update(msg[5]);
 		}, path: '/lfoGate', srcID: context.server.addr);
 
+		context.server.sync;
+		"polls and oscfuncs created".postln;
+
 		this.addCommand(\select_voice, "i", { |msg|
 			// reset currently selected voice
 			voiceSynths[selectedVoice][\control].set(
@@ -1289,7 +1299,7 @@ Engine_Cule : CroneEngine {
 		modulationSources.keys.do({ |sourceName|
 			modulationDests.keys.do({ |destName|
 				this.addCommand(sourceName ++ '_' ++ destName, "f", { |msg|
-					voiceSynths[selectedVoice][\mod][sourceName].set(destName, msg[1]);
+					patchBuses[\mod][sourceName][destName].set(msg[1]);
 				});
 			});
 		});
@@ -1338,17 +1348,7 @@ Engine_Cule : CroneEngine {
 	free {
 		sq80Resources.do({ |rsrc| rsrc.free });
 		// d50Resources.do({ |rsrc| rsrc.free });
-		replySynth.free;
-		voiceSynths.do({ |synths|
-			synths.do({ |synthOrGroup|
-				if(synthOrGroup.class === Synth, {
-					synthOrGroup.free;
-				}, {
-					synthOrGroup.do({ |synth| synth.free });
-				});
-			});
-		});
-		clockSynth.free;
+		group.free;
 		clockPhaseBus.free;
 		patchBuses.do({ |bus| bus.free });
 		voiceParamBuses.do({ |dict| dict.do({ |bus| bus.free }) });
