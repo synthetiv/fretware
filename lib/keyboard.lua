@@ -360,10 +360,12 @@ function Keyboard:shift_octave(od)
 		-- move the plectrum too!
 		-- TODO: make this work with non-12-tone tunings!
 		-- this assumes an octave is spelled the way it is in 12TET.
-		-- TODO NEXT: adjust plectrum.key_id too... or something. pitch should jump as if the plectrum moved
-		-- same if octave scroll is off, too... maybe.
-		self.plectrum.x = self.plectrum.x + (od * -2)
-		self.plectrum.y = self.plectrum.y + (od * 2)
+		self:move_plectrum(od * -2, od * 2, true)
+	else
+		-- TODO NEXT: this still isn't making the instantaneous change
+		-- I would want, I think because key IDs remain the same...
+		-- update_plectrum_arp_index() should probably save the NOTE too for comparison in move_plectrum()
+		self:move_plectrum(0, 0, true)
 	end
 	-- recalculate active pitch with new octave
 	if not self.arping or self.n_sustained_keys == 0 then
@@ -535,7 +537,6 @@ function Keyboard:arp(gate)
 				local new_arp_index = self:update_plectrum_arp_index()
 				if new_arp_index then
 					self.arp_index = new_arp_index
-					-- TODO NOW: is this enough? anything else to do here?
 				end
 			else
 				-- at randomness = 0, step size is always 1; at randomness = 1, step size varies from
@@ -555,29 +556,40 @@ function Keyboard:arp(gate)
 	end
 end
 
-function Keyboard:move_plectrum(dx, dy)
+function Keyboard:wrap_coords(x, y)
+	local octave_shift = 0
+	if x >= self.x2 + 0.5 then
+		x = x - (self.width - 2)
+		octave_shift = octave_shift + 1
+	elseif x < self.x + 1.5 then
+		x = x + (self.width - 2)
+		octave_shift = octave_shift - 1
+	end
+	if y > self.y2 - 0.5 then
+		y = y - (self.height - 1)
+		octave_shift = octave_shift - 1
+	elseif y <= self.y - 0.5 then
+		y = y + (self.height - 1)
+		octave_shift = octave_shift + 1
+	end
+	return x, y, octave_shift
+end
+
+function Keyboard:move_plectrum(dx, dy, skip_octave_shift)
 	local now = util.time()
+	-- TODO NEXT: maybe we don't need to reset ever, now that we wrap
 	if now - self.plectrum.last_moved > plectrum_reset_delay then
 		self.plectrum.x = self.x_center
 		self.plectrum.y = self.y_center
 	end
-	self.plectrum.last_moved = now
-	local old_x, old_y = self.plectrum.x, self.plectrum.y
-	self.plectrum.x, self.plectrum.y = self.plectrum.x + dx, self.plectrum.y + dy
-	-- change octaves and wrap when we go off an edge
-	if self.plectrum.x >= self.x2 + 0.5 then
-		self.plectrum.x = self.plectrum.x - (self.width - 2)
-		self:shift_octave(1)
-	elseif self.plectrum.x < self.x + 1.5 then
-		self.plectrum.x = self.plectrum.x + (self.width - 2)
-		self:shift_octave(-1)
+	if dx ~= 0 or dy ~= 0 then
+		self.plectrum.last_moved = now
 	end
-	if self.plectrum.y > self.y2 - 0.5 then
-		self.plectrum.y = self.plectrum.y - (self.height - 1)
-		self:shift_octave(-1)
-	elseif self.plectrum.y <= self.y - 0.5 then
-		self.plectrum.y = self.plectrum.y + (self.height - 1)
-		self:shift_octave(1)
+	-- change octaves and wrap when we go off an edge
+	local new_x, new_y, octave_shift = self:wrap_coords(self.plectrum.x + dx, self.plectrum.y + dy)
+	self.plectrum.x, self.plectrum.y = new_x, new_y
+	if not skip_octave_shift and octave_shift ~= 0 then
+		self:shift_octave(octave_shift)
 	end
 	if self.arp_plectrum and self.n_sustained_keys > 1 then
 		local old_arp_index, old_key_id, old_distance = self.plectrum.arp_index, self.plectrum.key_id, self.plectrum.key_distance
@@ -629,15 +641,6 @@ function Keyboard:update_plectrum_arp_index(second_closest_to)
 			end
 		end
 	end
-	-- TODO NOW: second_closest_to allows us to have a gap between notes
-	-- that are < 2 keys apart... but like... is that even needed?
-	-- -- if we're already trying to find a 'second closest' option, return the distance
-	-- if second_closest_to ~= nil then
-	-- 	return closest_arp_index, best_distance
-	-- end
-	-- -- find second closest option so we can compare the two distances
-	-- local second_closest, second_best_distance = self:find_plectrum_arp_index(closest_arp_index)
-	-- return closest_arp_index, best_distance / second_best_distance
 	self.plectrum.arp_index = closest_arp_index
 	self.plectrum.key_id = self.sustained_keys[closest_arp_index]
 	self.plectrum.key_distance = best_distance
