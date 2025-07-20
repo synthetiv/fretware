@@ -50,9 +50,7 @@ arp_direction_menu.on_select = function(value)
 	if value == 3 then -- plectrum selected
 		arp_menu.values[11] = 13
 	else
-		print('dir menu not 3')
 		if arp_menu.value == 13 then
-			print('deselecting arp')
 			arp_menu:select(false)
 		end
 		arp_menu.values[11] = nil
@@ -990,7 +988,6 @@ function init()
 				type = 'control',
 				controlspec = controlspec.new(-1, 1, 'lin', 0, dest.default),
 				action = function(value)
-					print('engine_command', dest.name)
 					engine_command(value)
 				end
 			}
@@ -1065,7 +1062,6 @@ function init()
 			local action = function(value)
 				-- create a dead zone near 0.0
 				value = (value > 0 and 1 or -1) * (1 - math.min(1, (1 - math.abs(value)) * 1.1))
-				print('engine_command', source .. '_' .. dest.name)
 				engine_command(value)
 			end
 			if dest.name == 'detuneA' or dest.name == 'detuneB' then
@@ -1075,7 +1071,6 @@ function init()
 					local sign = (value > 0 and 1 or -1)
 					value = 1 - math.min(1, (1 - math.abs(value)) * 1.1)
 					value = sign * value * value
-					print('engine_command', source .. '_' .. dest.name)
 					engine_command(value)
 				end
 			end
@@ -1177,7 +1172,6 @@ function init()
 			local voice_param = dest.voice_param
 			local mappings = {}
 			for v = 1, n_voices do
-				print(voice_param .. '_' .. v)
 				mappings[v] = SliderMapping.new(voice_param .. '_' .. v, slider_start_value, 'inner')
 			end
 			voice_mappings[voice_param] = mappings
