@@ -314,7 +314,7 @@ end
 function Keyboard:shift_octave(od)
 	-- change octave, clamping to +/-5
 	local o = self.octave
-	self.octave = util.clamp(self.octave + od, -5, 5)
+	self.octave = util.clamp(self.octave + od, -7, 7)
 	-- clamp od if octave was clamped above
 	od = self.octave - o
 	local held_keys = self.held_keys
@@ -548,19 +548,20 @@ function Keyboard:move_plectrum(dx, dy)
 	local old_x, old_y = self.plectrum.x, self.plectrum.y
 	self.plectrum.x, self.plectrum.y = self.plectrum.x + dx, self.plectrum.y + dy
 	-- change octaves and wrap when we go off an edge
+	-- TODO NOW: this is acting... weird at edges
 	if self.plectrum.x > self.x2 then
 		self.plectrum.x = self.plectrum.x - self.width + 1
-		self.octave = self.octave + 1
+		self:shift_octave(1)
 	elseif self.plectrum.x < self.x then
 		self.plectrum.x = self.plectrum.x + self.width - 1
-		self.octave = self.octave - 1
+		self:shift_octave(-1)
 	end
 	if self.plectrum.y > self.y2 then
 		self.plectrum.y = self.plectrum.y - self.height + 1
-		self.octave = self.octave - 1
+		self:shift_octave(-1)
 	elseif self.plectrum.y < self.y then
 		self.plectrum.y = self.plectrum.y + self.height - 1
-		self.octave = self.octave + 1
+		self:shift_octave(1)
 	end
 	if self.arp_plectrum and self.n_sustained_keys > 1 then
 		local old_arp_index, old_proximity = self:find_coords_arp_index(old_x, old_y)
