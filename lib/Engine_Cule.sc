@@ -215,6 +215,10 @@ Engine_Cule : CroneEngine {
 
 	alloc {
 
+		"alloc - syncing".postln;
+		context.server.sync;
+		"synced, starting alloc".postln;
+
 		opTypeDefNames = [
 			[ \operatorFM, \operatorFMFade ],
 			[ \operatorFB, \operatorFBFade ],
@@ -1350,21 +1354,23 @@ Engine_Cule : CroneEngine {
 	}
 
 	free {
-		sq80Resources.do({ |rsrc| rsrc.free });
-		// d50Resources.do({ |rsrc| rsrc.free });
-		group.free;
-		clockPhaseBus.free;
-		patchBuses.do({ |bus| bus.free });
-		voiceParamBuses.do({ |dict| dict.do({ |bus| bus.free }) });
-		voiceModBuses.do({ |dict| dict.do({ |bus| bus.free }) });
-		voiceOutputBuses.do({ |dict| dict.do({ |bus| bus.free }) });
-		baseFreqBus.free;
-		opFadeReplyFunc.free;
-		opTypeReplyFunc.free;
-		fxTypeReplyFunc.free;
-		lfoTypeReplyFunc.free;
-		voiceAmpReplyFunc.free;
-		voicePitchReplyFunc.free;
-		lfoGateReplyFunc.free;
+		fork {
+			sq80Resources.do({ |rsrc| rsrc.free });
+			// d50Resources.do({ |rsrc| rsrc.free });
+			group.free;
+			clockPhaseBus.free;
+			patchBuses.do({ |bus| bus.free });
+			voiceParamBuses.do({ |dict| dict.do({ |bus| bus.free }) });
+			voiceModBuses.do({ |dict| dict.do({ |bus| bus.free }) });
+			voiceOutputBuses.do({ |dict| dict.do({ |bus| bus.free }) });
+			baseFreqBus.free;
+			opFadeReplyFunc.free;
+			opTypeReplyFunc.free;
+			fxTypeReplyFunc.free;
+			lfoTypeReplyFunc.free;
+			voiceAmpReplyFunc.free;
+			voicePitchReplyFunc.free;
+			lfoGateReplyFunc.free;
+		}
 	}
 }
