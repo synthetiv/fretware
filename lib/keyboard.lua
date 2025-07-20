@@ -56,7 +56,7 @@ function Keyboard.new(x, y, width, height)
 		editing_sustained_key_index = false,
 		arp_index = 0,
 		arp_insert = 0,
-		arp_direction = 1, -- as-played, random, or plectrum
+		arp_direction = 1, -- select arp notes by (1) order played, (2) random, or (3) plectrum distance
 		arp_plectrum = false, -- trigger by plectrum
 		arping = false,
 		octave = 0,
@@ -100,7 +100,10 @@ function Keyboard.new(x, y, width, height)
 	keyboard.plectrum = {
 		x = keyboard.x_center,
 		y = keyboard.y_center,
-		t = 0
+		last_moved = 0,
+		arp_index = nil,
+		key_id = nil,
+		key_distance = math.huge
 	}
 	-- update glide values when needed
 	clock.run(function()
@@ -299,6 +302,9 @@ function Keyboard:maybe_release_sustained_keys()
 		-- even if no keys are held, bend targets may need to be reset
 		self:set_bend_targets()
 	end
+	if self.arp_plectrum then
+		self:move_plectrum(0, 0)
+	end
 end
 
 function Keyboard:find_sustained_key(key_id)
@@ -354,6 +360,8 @@ function Keyboard:shift_octave(od)
 		-- move the plectrum too!
 		-- TODO: make this work with non-12-tone tunings!
 		-- this assumes an octave is spelled the way it is in 12TET.
+		-- TODO NEXT: adjust plectrum.key_id too... or something. pitch should jump as if the plectrum moved
+		-- same if octave scroll is off, too... maybe.
 		self.plectrum.x = self.plectrum.x + (od * -2)
 		self.plectrum.y = self.plectrum.y + (od * 2)
 	end
@@ -432,12 +440,14 @@ function Keyboard:note(x, y, z)
 	self.held_keys[key_id] = z == 1
 	if z == 1 then
 		-- key pressed
-		-- TODO NEXT: re-trigger 'move_plectrum' event when sustained_keys is modified
 		if self.held_keys.latch then
 			if self.editing_sustained_key_index then
 				self.sustained_keys[self.editing_sustained_key_index] = key_id
 				self.editing_sustained_key_index = false
 				self:set_bend_targets()
+				if self.arp_plectrum then
+					self:move_plectrum(0, 0)
+				end
 				return
 			elseif not self.held_keys.shift and sustained_key_index then
 				self.editing_sustained_key_index = sustained_key_index
@@ -513,13 +523,20 @@ function Keyboard:note(x, y, z)
 			self.on_gate(false)
 		end
 	end
+	if self.arp_plectrum then
+		self:move_plectrum(0, 0)
+	end
 end
 
 function Keyboard:arp(gate)
 	if self.arping and self.n_sustained_keys > 0 then
 		if gate then
 			if self.arp_direction == 3 then
-				self.arp_index = self:find_coords_arp_index(self.plectrum.x, self.plectrum.y)
+				local new_arp_index = self:update_plectrum_arp_index()
+				if new_arp_index then
+					self.arp_index = new_arp_index
+					-- TODO NOW: is this enough? anything else to do here?
+				end
 			else
 				-- at randomness = 0, step size is always 1; at randomness = 1, step size varies from
 				-- (-n/2 + 1) to (n/2), but is never zero
@@ -540,11 +557,11 @@ end
 
 function Keyboard:move_plectrum(dx, dy)
 	local now = util.time()
-	if now - self.plectrum.t > plectrum_reset_delay then
+	if now - self.plectrum.last_moved > plectrum_reset_delay then
 		self.plectrum.x = self.x_center
 		self.plectrum.y = self.y_center
 	end
-	self.plectrum.t = now
+	self.plectrum.last_moved = now
 	local old_x, old_y = self.plectrum.x, self.plectrum.y
 	self.plectrum.x, self.plectrum.y = self.plectrum.x + dx, self.plectrum.y + dy
 	-- change octaves and wrap when we go off an edge
@@ -563,30 +580,38 @@ function Keyboard:move_plectrum(dx, dy)
 		self:shift_octave(1)
 	end
 	if self.arp_plectrum and self.n_sustained_keys > 1 then
-		local old_arp_index, old_proximity = self:find_coords_arp_index(old_x, old_y)
-		local old_gate = old_proximity <= 0.5
-		local new_arp_index, new_proximity = self:find_coords_arp_index(self.plectrum.x, self.plectrum.y)
-		local new_gate = new_proximity <= 0.5
-		-- TODO NOW: no... hmm.
-		-- 1. don't change active note if gate is low
-		-- 2. do something different to get relative distance. actually, it should be relative AND absolute.
-		--    there should be a gap between adjacent keys, and plectrum should have to be 1.5? keys away for
-		--    note to change and gate to go high
-		-- if new_gate and (new_arp_index ~= old_arp_index) then
-		if new_arp_index ~= old_arp_index then
-			self.arp_index = new_arp_index
-			self.arp_insert = self.arp_index
-			-- maybe this is the part to change
-			self:set_active_key(self.sustained_keys[self.arp_index])
-			self.on_gate(new_gate)
-		elseif new_gate ~= old_gate then
-			self.on_gate(new_gate)
+		local old_arp_index, old_key_id, old_distance = self.plectrum.arp_index, self.plectrum.key_id, self.plectrum.key_distance
+		local new_arp_index = self:update_plectrum_arp_index()
+		if not new_arp_index then
+			if old_key_id then
+				self.on_gate(false)
+			end
+		else
+			if old_key_id ~= self.sustained_keys[new_arp_index] then
+				self.arp_index = new_arp_index
+				self.arp_insert = self.arp_index
+				self:set_active_key(self.sustained_keys[self.arp_index])
+				self.on_gate(true)
+			end
 		end
 	end
 end
 
-function Keyboard:find_coords_arp_index(x, y, second_closest_to)
+function Keyboard:get_plectrum_distances(x, y)
+	-- overall distance
+	local dx = math.abs(x - self.plectrum.x)
+	local dy = math.abs(y - self.plectrum.y)
+	-- wrap around edges
+	dx = math.min(dx, math.abs(dx - (self.width - 2)))
+	dy = math.min(dy, math.abs(dy - (self.height - 1)))
+	return dx, dy
+end
+
+function Keyboard:update_plectrum_arp_index(second_closest_to)
 	if self.n_sustained_keys < 1 then
+		self.plectrum.arp_index = nil
+		self.plectrum.key_id = nil
+		self.plectrum.key_distance = math.huge
 		return nil
 	end
 	local best_distance = math.huge
@@ -594,21 +619,29 @@ function Keyboard:find_coords_arp_index(x, y, second_closest_to)
 	for n = 1, self.n_sustained_keys do
 		if n ~= second_closest_to then
 			local key_x, key_y = self:get_key_id_coords(self.sustained_keys[n])
-			local dx, dy = key_x - x, key_y - y
-			local distance = math.sqrt(dx * dx + dy * dy)
-			if distance < best_distance then
-				best_distance = distance
-				closest_arp_index = n
+			local dx, dy = self:get_plectrum_distances(key_x, key_y)
+			if dx < 1.5 and dy < 1.5 then
+				local distance = math.sqrt(dx * dx + dy * dy)
+				if distance < 1.5 and distance < best_distance then
+					best_distance = distance
+					closest_arp_index = n
+				end
 			end
 		end
 	end
-	-- if we're already trying to find a 'second closest' option, return the distance
-	if second_closest_to ~= nil then
-		return closest_arp_index, best_distance
-	end
-	-- find second closest option so we can compare the two distances
-	local second_closest, second_best_distance = self:find_coords_arp_index(x, y, closest_arp_index)
-	return closest_arp_index, best_distance / second_best_distance
+	-- TODO NOW: second_closest_to allows us to have a gap between notes
+	-- that are < 2 keys apart... but like... is that even needed?
+	-- -- if we're already trying to find a 'second closest' option, return the distance
+	-- if second_closest_to ~= nil then
+	-- 	return closest_arp_index, best_distance
+	-- end
+	-- -- find second closest option so we can compare the two distances
+	-- local second_closest, second_best_distance = self:find_plectrum_arp_index(closest_arp_index)
+	-- return closest_arp_index, best_distance / second_best_distance
+	self.plectrum.arp_index = closest_arp_index
+	self.plectrum.key_id = self.sustained_keys[closest_arp_index]
+	self.plectrum.key_distance = best_distance
+	return closest_arp_index
 end
 
 function Keyboard:bend(amount)
@@ -694,7 +727,7 @@ function Keyboard:draw()
 	end
 
 	-- highlight plectrum location, if it's been moved recently
-	local plectrum_level = math.min(1, plectrum_reset_delay - (util.time() - self.plectrum.t)) * 7
+	local plectrum_level = math.min(1, plectrum_reset_delay - (util.time() - self.plectrum.last_moved)) * 7
 
 	for x = self.x + 2, self.x2 do
 		for y = self.y, self.y2 - 1 do
@@ -734,14 +767,11 @@ function Keyboard:draw()
 			end
 
 			if plectrum_level > 0 then
-				-- distance
-				local dx = math.abs(x - self.plectrum.x)
-				local dy = math.abs(y - self.plectrum.y)
-				-- closeness, wrapped
-				local cx = math.max(1 - dx, dx - (self.width - 3))
-				local cy = math.max(1 - dy, dy - (self.height - 2))
-				if cx > 0 and cy > 0 then
-					level = led_blend(level, plectrum_level * cx * cy)
+				local dx, dy = self:get_plectrum_distances(x, y)
+				-- level is (1 - distance) or 0
+				if dx < 1 and dy < 1 then
+					local distance = math.sqrt(dx * dx + dy * dy)
+					level = led_blend(level, plectrum_level * math.max(0, 1 - distance))
 				end
 			end
 
