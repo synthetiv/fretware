@@ -321,9 +321,9 @@ for d = 1, #arp_divs do
 		division = rate,
 	}
 	sprocket.action = function()
-		arp_gates[d] = sprocket.downbeat
+		arp_gates[d] = not sprocket.downbeat
 		if arp_menu.value == d then
-			k:arp(sprocket.downbeat)
+			k:arp(not sprocket.downbeat)
 		end
 	end
 end
