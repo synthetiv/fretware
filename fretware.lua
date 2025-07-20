@@ -81,26 +81,30 @@ source_menu.get_key_level = function(value, selected, held)
 			level = -1
 		end
 	elseif value == 3 then
+		-- TODO: indicate velocity
+	elseif value == 4 then
+		-- TODO: indicate sampled velocity
+	elseif value == 5 then
 		-- TODO: indicate env state
 		-- maybe just use gate!
-	elseif value == 4 then
+	elseif value == 6 then
 		-- TODO: indicate env state
 		-- maybe use a fixed-length flash when gate goes high
-	elseif value >= 5 and value <= 7 then
-		if not voice_states[k.selected_voice][lfo_gate_names[value - 4]] then
-			level = -1
-		end
-	elseif value == 8 then
-		-- TODO: indicate S+H state?
-	elseif value == 9 then
-		if math.abs(trackball_values.x) < 0.5 then
+	elseif value >= 7 and value <= 9 then
+		if not voice_states[k.selected_voice][lfo_gate_names[value - 6]] then
 			level = -1
 		end
 	elseif value == 10 then
+		-- TODO: indicate S+H state?
+	elseif value == 11 then
+		if math.abs(trackball_values.x) < 0.5 then
+			level = -1
+		end
+	elseif value == 12 then
 		if math.abs(trackball_values.y) < 0.5 then
 			level = -1
 		end
-	elseif value == 11 then
+	elseif value == 13 then
 		-- TODO: indicate xy vel? or just flash with gate, like eg2
 	end
 	return (held and 11 or (selected and 6 or 3)) + level
