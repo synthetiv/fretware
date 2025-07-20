@@ -19,7 +19,33 @@ arp_menu = Menu.new(4, 5, 10, 2, {
 	_, _, _, _, 10, 11, 12 -- value number 11 can be set to 13 when direction is set to 3
 })
 arp_menu.toggle = true
-arp_menu.on_select = function(source)
+arp_menu.on_select = function(source, old_source)
+	if k.held_keys.shift then
+		source = source or old_source
+		if source >= 1 and source <= 9 then
+			-- jump arp forward by 1/2 length of the clock division whose button was pressed
+			local division = arp_divs[source] / 2
+			-- if we're synced to the clock, then offset all sprockets' phase
+			-- by synced sprocket's cycle length in ppc (ppqn*4)
+			-- that makes this sprocket's downbeats into upbeats, and keeps others in sync
+			local ppc = arp_lattice.ppqn * 4
+			local phase_jump = division * ppc
+			for id, sprocket in pairs(arp_lattice.sprockets) do
+				local div_ppc = sprocket.division * ppc
+				sprocket.phase = sprocket.phase + phase_jump
+				if sprocket.phase > div_ppc then
+					local skipped_cycles = math.floor(sprocket.phase / div_ppc)
+					sprocket.phase = sprocket.phase % div_ppc
+					-- only toggle downbeat status if we've skipped an odd number of cycles for this sprocket
+					if skipped_cycles % 2 == 1 then
+						sprocket.downbeat = not sprocket.downbeat
+					end
+				end
+			end
+		end
+		-- don't actually *select* this division
+		return false
+	end
 	-- enable arp when a source is selected, disable when toggled off
 	if source and not k.arping then
 		k.arping = true
@@ -420,12 +446,7 @@ function g.key(x, y, z)
 	elseif arp_menu.open and x > 2 and y < 8 then
 		if not arp_direction_menu:key(x, y, z) and not arp_menu:key(x, y, z) and z == 1 then
 			-- keydown, not caught by a menu
-			if x == 11 and y == 2 then
-				-- invert synced sprocket phase
-				if arp_menu.value and arp_menu.value >= 1 and arp_menu.value <= #arp_divs then
-					arp_gates_inverted[arp_menu.value] = not arp_gates_inverted[arp_menu.value]
-				end
-			elseif (x == 12 or x == 13) and y == 3 then
+			if (x == 12 or x == 13) and y == 3 then
 				if x == 12 then
 					-- nudge down: pause for one pulse worth of time
 					clock.run(function()
@@ -513,8 +534,6 @@ function grid_redraw()
 		-- lattice phase nudge keys
 		g:led(12, 3, 5)
 		g:led(13, 3, 5)
-		-- phase invert key
-		g:led(11, 2, arp_gates_inverted[arp_menu.value] and 9 or 5)
 		-- tempo nudge keys
 		g:led(15, 3, 4)
 		g:led(16, 3, 4)

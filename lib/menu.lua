@@ -94,8 +94,11 @@ end
 function Menu:select(k)
 	local value = self.values[k]
 	if value or k == false then
-		self.value = value
-		self.on_select(value)
+		local callback_return = self.on_select(value, self.value)
+		-- if callback returns false, we will NOT update the menu value
+		if callback_return ~= false then
+			self.value = value
+		end
 	end
 end
 
