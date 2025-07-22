@@ -7,6 +7,8 @@ for p = 1, 12 do
 	et12[p] = { p / 12, nil }
 end
 
+local min_plectrum_distance = 1.5 -- plectrum must be <= 1.5 keys away to play/select a note
+
 -- TODO: panic function, for when a note gets stuck due to momentary grid connection loss
 --       or whatever it is that causes that
 
@@ -360,10 +362,7 @@ function Keyboard:shift_octave(od)
 		-- this assumes an octave is spelled the way it is in 12TET.
 		self:move_plectrum(od * -2, od * 2, true)
 	else
-		-- TODO NEXT: this still isn't making the instantaneous change
-		-- I would want, I think because key IDs remain the same...
-		-- update_plectrum_arp_index() should probably save the NOTE too for comparison in move_plectrum()
-		self:move_plectrum(0, 0, true)
+		self:move_plectrum(0, 0)
 	end
 	-- recalculate active pitch with new octave
 	if not self.arping or self.n_sustained_keys == 0 then
@@ -573,26 +572,35 @@ function Keyboard:wrap_coords(x, y)
 	return x, y, octave_shift
 end
 
-function Keyboard:move_plectrum(dx, dy, skip_octave_shift)
+function Keyboard:move_plectrum(dx, dy, nowrap)
 	local now = util.time()
 	if dx ~= 0 or dy ~= 0 then
 		self.plectrum.last_moved = now
 	end
-	-- change octaves and wrap when we go off an edge
-	local new_x, new_y, octave_shift = self:wrap_coords(self.plectrum.x + dx, self.plectrum.y + dy)
+	local new_x, new_y = self.plectrum.x + dx, self.plectrum.y + dy
+	local octave_shift = 0
+	if nowrap then
+		-- if moving the plectrum would push it off an edge of the screen, don't move it
+		if new_x < self.x + 2 or new_x > self.x2 or new_y < self.y or new_y > self.y2 - 1 then
+			new_x, new_y = self.plectrum.x, self.plectrum.y
+		end
+	else
+		-- if moving the plectrum pushes it off an edge, change octaves and wrap
+		new_x, new_y, octave_shift = self:wrap_coords(new_x, new_y)
+	end
 	self.plectrum.x, self.plectrum.y = new_x, new_y
-	if not skip_octave_shift and octave_shift ~= 0 then
+	if octave_shift ~= 0 then
 		self:shift_octave(octave_shift)
 	end
 	if self.arp_plectrum and self.n_sustained_keys > 1 then
-		local old_arp_index, old_key_id, old_distance = self.plectrum.arp_index, self.plectrum.key_id, self.plectrum.key_distance
+		local old_key_id, old_pitch_id = self.plectrum.key_id, self.plectrum.pitch_id
 		local new_arp_index = self:update_plectrum_arp_index()
 		if not new_arp_index then
 			if old_key_id then
 				self.on_gate(false)
 			end
 		else
-			if old_key_id ~= self.sustained_keys[new_arp_index] then
+			if old_key_id ~= self.plectrum.key_id or old_pitch_id ~= self.plectrum.pitch_id then
 				self.arp_index = new_arp_index
 				self.arp_insert = self.arp_index
 				self:set_active_key(self.sustained_keys[self.arp_index])
@@ -615,8 +623,9 @@ end
 function Keyboard:update_plectrum_arp_index()
 	if self.n_sustained_keys < 1 then
 		self.plectrum.arp_index = nil
-		self.plectrum.key_id = nil
 		self.plectrum.key_distance = math.huge
+		self.plectrum.key_id = nil
+		self.plectrum.pitch_id = nil
 		return nil
 	end
 	local best_distance = math.huge
@@ -624,17 +633,18 @@ function Keyboard:update_plectrum_arp_index()
 	for n = 1, self.n_sustained_keys do
 		local key_x, key_y = self:get_key_id_coords(self.sustained_keys[n])
 		local dx, dy = self:get_plectrum_distances(key_x, key_y)
-		if dx < 1.5 and dy < 1.5 then
+		if dx < min_plectrum_distance and dy < min_plectrum_distance then
 			local distance = math.sqrt(dx * dx + dy * dy)
-			if distance < 1.5 and distance < best_distance then
+			if distance < min_plectrum_distance and distance < best_distance then
 				best_distance = distance
 				closest_arp_index = n
 			end
 		end
 	end
 	self.plectrum.arp_index = closest_arp_index
-	self.plectrum.key_id = self.sustained_keys[closest_arp_index]
 	self.plectrum.key_distance = best_distance
+	self.plectrum.key_id = self.sustained_keys[closest_arp_index]
+	self.plectrum.pitch_id = self:get_key_id_pitch_id(self.plectrum.key_id)
 	return closest_arp_index
 end
 
