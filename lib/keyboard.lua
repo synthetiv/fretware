@@ -612,7 +612,7 @@ function Keyboard:get_plectrum_distances(x, y)
 	return dx, dy
 end
 
-function Keyboard:update_plectrum_arp_index(second_closest_to)
+function Keyboard:update_plectrum_arp_index()
 	if self.n_sustained_keys < 1 then
 		self.plectrum.arp_index = nil
 		self.plectrum.key_id = nil
@@ -622,15 +622,13 @@ function Keyboard:update_plectrum_arp_index(second_closest_to)
 	local best_distance = math.huge
 	local closest_arp_index = nil
 	for n = 1, self.n_sustained_keys do
-		if n ~= second_closest_to then
-			local key_x, key_y = self:get_key_id_coords(self.sustained_keys[n])
-			local dx, dy = self:get_plectrum_distances(key_x, key_y)
-			if dx < 1.5 and dy < 1.5 then
-				local distance = math.sqrt(dx * dx + dy * dy)
-				if distance < 1.5 and distance < best_distance then
-					best_distance = distance
-					closest_arp_index = n
-				end
+		local key_x, key_y = self:get_key_id_coords(self.sustained_keys[n])
+		local dx, dy = self:get_plectrum_distances(key_x, key_y)
+		if dx < 1.5 and dy < 1.5 then
+			local distance = math.sqrt(dx * dx + dy * dy)
+			if distance < 1.5 and distance < best_distance then
+				best_distance = distance
+				closest_arp_index = n
 			end
 		end
 	end
