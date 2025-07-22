@@ -187,21 +187,6 @@ function Keyboard:key(x, y, z)
 					arp_menu:select(false)
 				end
 			end
-		elseif x >= self.x + 5 and x <= self.x + 10 then
-			-- arp select / toggle
-			-- TODO: move this outside the Keyboard class
-			-- local source = x - self.x - 4
-			-- if z == 1 then
-			-- 	if self.arp_clock_source == source then
-			-- 		self.arp_clock_source = false
-			-- 		self.on_gate(false)
-			-- 	else
-			-- 		self.arp_clock_source = source
-			-- 		self.gliding = false
-			-- 		self.bent_pitch = self.active_pitch
-			-- 		self:set_bend_targets()
-			-- 	end
-			-- end
 		elseif x == self.x2 - 3 then
 			self.held_keys.octave_scroll = z == 1
 		elseif x > self.x2 - 2 then
@@ -712,7 +697,6 @@ function Keyboard:draw()
 	g:led(self.x, self.y2, self.held_keys.shift and 15 or 6)
 	g:led(self.x + 2, self.y2, self.held_keys.latch and 7 or 2)
 	g:led(self.x + 3, self.y2, self.gliding and 7 or 2)
-	-- TODO: draw arp button and menu in main script
 	g:led(self.x2 - 3, self.y2, self.held_keys.octave_scroll and 7 or 2)
 	g:led(self.x2 - 1, self.y2, math.min(15, math.max(0, (self.held_keys.down and 7 or 2) - math.min(self.octave, 0))))
 	g:led(self.x2, self.y2, math.min(15, math.max(0, (self.held_keys.up and 7 or 2) + math.max(self.octave, 0))))

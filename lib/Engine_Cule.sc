@@ -136,7 +136,11 @@ Engine_Cule : CroneEngine {
 		arg v, op; // op A = 0, B = 1
 		var opState = voiceOpStates[v][op];
 		var defNames = opTypeDefNames[opState[\type]];
-		var defName = if(defNames.class === Array, { defNames[opState[\fade]] }, defNames); // TODO: jeez that's ugly and weird, do something about it
+		// some op types have separate versions for fade and non-fade, others don't
+		var defName = if(defNames.class === Array, {
+			// fade-specific op type
+			defNames[opState[\fade]]
+		}, defNames);
 		var paramBuses = voiceParamBuses[v];
 		var outputBuses = voiceOutputBuses[v];
 		var synths = voiceSynths[v];
