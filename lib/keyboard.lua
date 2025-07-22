@@ -238,9 +238,9 @@ function Keyboard:key(x, y, z)
 		if x == self.x and y == self.y then
 			if z == 1 then
 				-- loop delete key
-				for v = 1, n_voices do
-					if self.held_keys.voice_loops[v] then
-						clear_voice_loop(v)
+				for ov = 1, n_voices do
+					if self.held_keys.voice_loops[ov] then
+						clear_voice_loop(ov)
 					end
 				end
 			end

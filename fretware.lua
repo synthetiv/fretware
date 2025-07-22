@@ -93,7 +93,6 @@ source_menu = Menu.new(5, 1, 11, 2, {
 source_menu.multi = true
 source_menu:select_value(1)
 source_menu.get_key_level = function(value, selected, held)
-	local source_name = editor.source_names[value]
 	local level = 0
 	-- darken LFO + amp sources when low
 	if value == 1 then
@@ -647,7 +646,6 @@ function init()
 	end
 
 	k.on_pitch = function()
-		local pitch = k.active_pitch
 		send_pitch()
 		grid_redraw()
 	end
@@ -744,7 +742,7 @@ function init()
 		id = 'base_freq_reset',
 		type = 'binary',
 		behavior = 'trigger',
-		action = function(value)
+		action = function()
 			params:set('base_freq', musicutil.note_num_to_freq(60))
 		end
 	}
@@ -766,7 +764,7 @@ function init()
 		min = -7,
 		max = 24,
 		default = -2,
-		formatter = function(param)
+		formatter = function()
 			local value = k.bend_range * 12
 			if value < 1 then
 				return string.format('%.2f', value)
@@ -936,7 +934,7 @@ function init()
 				return string.format('1/%d', math.pow(2, -measures))
 			end
 		end,
-		action = function(value)
+		action = function()
 			reset_loop_clock()
 		end
 	}
@@ -1035,7 +1033,7 @@ function init()
 				id = freq_param,
 				type = 'control',
 				controlspec = controlspec.new(0.03, 21, 'exp', 0, 0.2, 'Hz'),
-				action = function(value, param)
+				action = function(value)
 					freq_command(value)
 				end
 			}

@@ -38,7 +38,7 @@ function Echo.new()
 		-- TODO: add control over playback pitch, relative to rec pitch
 		head_distance = 0.11,
 	}
-	Echo.last_used_voice = play_voice
+	Echo.last_used_voice = echo.play_voice
 	setmetatable(echo, Echo)
 	return echo
 end
@@ -236,7 +236,7 @@ function Echo:add_params()
 		max = 7,
 		default = -2,
 		formatter = Echo.div_formatter('%d'),
-		action = function(value)
+		action = function()
 			self.div_dirty = true
 		end
 	}

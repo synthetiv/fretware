@@ -67,7 +67,7 @@ function read_scala_file(path)
 	end
 	-- if the stated length doesn't match the number of pitches, then something went wrong
 	if length ~= expected_length then
-		error('length mismatch', length, expected_length)
+		error('length mismatch: read ' .. length .. 'pitch lines, expected ' .. expected_length)
 	end
 	-- enforce low -> high pitch order, or scale.lua's quantization won't work
 	table.sort(pitches, function(a, b)

@@ -50,7 +50,7 @@ function Scale:get_nearest_pitch_id(value, get_pair)
 			n_remaining = n_remaining - jump_size - 1
 		end
 	end
-	local upper_id = upper_id + span_offset
+	upper_id = upper_id + span_offset
 	local lower_id = upper_id - 1
 	local upper_value = self:get(upper_id)
 	local lower_value = self:get(lower_id)

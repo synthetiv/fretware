@@ -79,9 +79,9 @@ function Menu:key(x, y, z)
 			self.held[v] = false
 			self.n_held = self.n_held - 1
 			if self.n_held > 0 then
-				for k = self.n_values, 1, -1 do
-					if self.held[self.values[k]] then
-						self:select(k)
+				for nk = self.n_values, 1, -1 do
+					if self.held[self.values[nk]] then
+						self:select(nk)
 						return true
 					end
 				end
