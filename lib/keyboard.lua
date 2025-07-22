@@ -618,7 +618,9 @@ function Keyboard:update_plectrum_arp_index()
 	for n = 1, self.n_sustained_keys do
 		local key_x, key_y = self:get_key_id_coords(self.sustained_keys[n])
 		local dx, dy = self:get_plectrum_distances(key_x, key_y)
+		-- first, compare x and y directly so we can throw out any way-off candidates
 		if dx < min_plectrum_distance and dy < min_plectrum_distance then
+			-- now try a more precise distance calculation
 			local distance = math.sqrt(dx * dx + dy * dy)
 			if distance < min_plectrum_distance and distance < best_distance then
 				best_distance = distance
@@ -626,10 +628,13 @@ function Keyboard:update_plectrum_arp_index()
 			end
 		end
 	end
-	self.plectrum.arp_index = closest_arp_index
-	self.plectrum.key_distance = best_distance
-	self.plectrum.key_id = self.sustained_keys[closest_arp_index]
-	self.plectrum.pitch_id = self:get_key_id_pitch_id(self.plectrum.key_id)
+	-- if we found a nearby key, update plectrum properties
+	if closest_arp_index then
+		self.plectrum.arp_index = closest_arp_index
+		self.plectrum.key_distance = best_distance
+		self.plectrum.key_id = self.sustained_keys[closest_arp_index]
+		self.plectrum.pitch_id = self:get_key_id_pitch_id(self.plectrum.key_id)
+	end
 	return closest_arp_index
 end
 
