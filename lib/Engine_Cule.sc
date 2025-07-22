@@ -184,32 +184,34 @@ Engine_Cule : CroneEngine {
 		var synths = voiceSynths[v];
 		if(state, {
 			// explicitly set this voice's synths' args, which unmaps them from patch buses
-			patchBuses.keysValuesDo({ |name, bus|
+			patchBuses.keysValuesDo({ |name, patchBus|
 				if(name === \mod, {
-					bus.keysValuesDo({ |sourceName, dests|
-						dests[sourceName].keysValuesDo({ |destName, bus|
-							bus.get({ |value|
+					patchBus.keysValuesDo({ |sourceName, dests|
+						// TODO NOW: double check this...
+						// was dests[sourceName].keysValuesDo({ |destName, bus|
+						dests.keysValuesDo({ |destName, modBus|
+							modBus.get({ |value|
 								synths[\mod][sourceName].set(destName, value);
 							});
 						});
 					});
 				}, {
-					bus.get({ |value|
+					patchBus.get({ |value|
 						synths[\control].set(name, value);
 					});
 				});
 			});
 		}, {
 			// re-map all patch args to this voice's synths
-			patchBuses.keysValuesDo({ |name, bus|
+			patchBuses.keysValuesDo({ |name, patchBus|
 				if(name === \mod, {
-					bus.keysValuesDo({ |sourceName, dests|
-						dests.keysValuesDo({ |destName, bus|
-							synths[\mod][sourceName].map(destName, bus);
+					patchBus.keysValuesDo({ |sourceName, dests|
+						dests.keysValuesDo({ |destName, modBus|
+							synths[\mod][sourceName].map(destName, modBus);
 						});
 					});
 				}, {
-					synths[\control].map(name, bus);
+					synths[\control].map(name, patchBus);
 				});
 			});
 		});
