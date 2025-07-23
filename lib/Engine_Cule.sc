@@ -555,7 +555,7 @@ Engine_Cule : CroneEngine {
 			// sampled vel is unsmoothed
 			svel = Latch.kr(Mix([ x, y ].squared).sqrt, trig);
 			// .lincurve scales just slightly to make vels more sensitive to small movements
-			Out.kr(\velBus.ir, [ vel, svel ].lincurve(0, 2, 0, 2, -1, nil));
+			Out.kr(\velBus.ir, [ vel, svel ].lincurve(0, 1, 0, 1, -0.5, nil));
 
 			Out.kr(\opRatioBus.ir, [
 				\ratioA.kr(lag: 0.1, fixedLag: true) + \ratioAMod.kr,
