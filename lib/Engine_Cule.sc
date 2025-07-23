@@ -1072,6 +1072,8 @@ Engine_Cule : CroneEngine {
 			Out.ar(context.out_b, Pan2.ar(voiceOutput, \pan.ar.fold2));
 		}).add;
 
+		// TODO NEXT: add engine commands to enable/disable these replies,
+		// so we're not sending more messages than we need
 		SynthDef.new(\reply, {
 			arg replyRate = 15;
 			var replyTrig = Impulse.kr(replyRate);
@@ -1197,6 +1199,9 @@ Engine_Cule : CroneEngine {
 			out.map(\lpCutoff, Bus.newFrom(paramBuses[\cutoff], 1));
 			out.map(\lpRQ,     Bus.newFrom(paramBuses[\rq], 1));
 			out.map(\outLevel, paramBuses[\outLevel]);
+
+			context.server.sync;
+			"voice % initialized\n".postf(i);
 
 			Dictionary[
 				\control -> controlSynth,
