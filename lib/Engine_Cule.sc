@@ -1365,14 +1365,14 @@ Engine_Cule : CroneEngine {
 
 	free {
 		fork {
-			sq80Resources.do({ |rsrc| rsrc.free });
-			// d50Resources.do({ |rsrc| rsrc.free });
+			sq80Resources.do(_.free);
+			// d50Resources.do(_.free);
 			group.free;
 			clockPhaseBus.free;
-			patchBuses.do({ |bus| bus.free });
-			voiceParamBuses.do({ |dict| dict.do({ |bus| bus.free }) });
-			voiceModBuses.do({ |dict| dict.do({ |bus| bus.free }) });
-			voiceOutputBuses.do({ |dict| dict.do({ |bus| bus.free }) });
+			patchBuses.do(_.free);
+			voiceParamBuses.do({ |dict| dict.do(_.free) });
+			voiceModBuses.do({ |dict| dict.do(_.free) });
+			voiceOutputBuses.do({ |dict| dict.do(_.free) });
 			baseFreqBus.free;
 			opFadeReplyFunc.free;
 			opTypeReplyFunc.free;
