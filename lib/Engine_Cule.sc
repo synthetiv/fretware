@@ -1382,6 +1382,10 @@ Engine_Cule : CroneEngine {
 			voiceAmpReplyFunc.free;
 			voicePitchReplyFunc.free;
 			lfoGateReplyFunc.free;
+
+			context.server.sync;
+			"Engine_Cule freed. Remaining nodes:".postln;
+			context.server.queryAllNodes;
 		}
 	}
 }
