@@ -1370,7 +1370,7 @@ Engine_Cule : CroneEngine {
 			// d50Resources.do(_.free);
 			group.free;
 			clockPhaseBus.free;
-			patchBuses.do(_.free);
+			patchBuses.do({ |bus| if(bus.class === Dictionary, { bus.do(_.free) }, { bus.free }) });
 			voiceParamBuses.do({ |dict| dict.do(_.free) });
 			voiceModBuses.do({ |dict| dict.do(_.free) });
 			voiceOutputBuses.do({ |dict| dict.do(_.free) });
