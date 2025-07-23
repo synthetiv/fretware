@@ -14,6 +14,11 @@ k = Keyboard.new(1, 1, 16, 8)
 
 Menu = include 'lib/menu'
 
+-- TODO NOW:
+-- timbre lock doesn't work consistently
+-- voices fail to init (?) consistently
+-- sometimes there's a DC offset on the audio bus
+
 arp_menu = Menu.new(4, 5, 10, 2, {
 	_, 1, 2, 3,  4,  5,  6, 7, 8, 9,
 	_, _, _, _, 10, 11, 12 -- value number 11 can be set to 13 when direction is set to 3

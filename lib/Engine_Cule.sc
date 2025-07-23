@@ -42,8 +42,6 @@ Engine_Cule : CroneEngine {
 
 	var selectedVoice = 0;
 
-	// TODO NEXT: on Monday morning, a voice got "stuck" or something... voice 3 didn't respond. why?
-
 	*new { arg context, doneCallback;
 		^super.new(context, doneCallback);
 	}
@@ -551,10 +549,13 @@ Engine_Cule : CroneEngine {
 			eg2 = Env.perc(0.001, (attack + release) * 2 + 0.1, 2, -8).ar(gate: trig);
 			Out.ar(\egBus.ir, [ eg, eg2 ]);
 
-			// TODO NOW: lag now affects sampled vel too... is that OK?
+			// smooth vel is smoothed *before* distance calculation
+			// TODO: update x/y more frequently and you can reduce the lag here
 			vel = Mix(Lag.kr([ x, y ], \xylag.kr(0.1)).squared).sqrt;
-			// TODO NEXT: update x/y more frequently and you can reduce the lag here
-			Out.kr(\velBus.ir, [ vel, Latch.kr(vel, trig) ]);
+			// sampled vel is unsmoothed
+			svel = Latch.kr(Mix([ x, y ].squared).sqrt, trig);
+			// .lincurve scales just slightly to make vels more sensitive to small movements
+			Out.kr(\velBus.ir, [ vel, svel ].lincurve(0, 2, 0, 2, -1, nil));
 
 			Out.kr(\opRatioBus.ir, [
 				\ratioA.kr(lag: 0.1, fixedLag: true) + \ratioAMod.kr,
