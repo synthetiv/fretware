@@ -187,12 +187,10 @@ Engine_Cule : CroneEngine {
 		if(state, {
 			// explicitly set this voice's synths' args, which unmaps them from patch buses
 			patchBuses.keysValuesDo({ |name, patchBus|
-				if(name === \mod, {
+				if(patchBus.class === Dictionary, {
 					patchBus.keysValuesDo({ |sourceName, dests|
-						// TODO NOW: double check this...
-						// was dests[sourceName].keysValuesDo({ |destName, bus|
-						dests.keysValuesDo({ |destName, modBus|
-							synths[\mod][sourceName].set(destName, modBus.getSynchronous);
+						dests.keysValuesDo({ |destName, bus|
+							synths[name][sourceName].set(destName, bus.getSynchronous);
 						});
 					});
 				}, {
@@ -202,10 +200,10 @@ Engine_Cule : CroneEngine {
 		}, {
 			// re-map all patch args to this voice's synths
 			patchBuses.keysValuesDo({ |name, patchBus|
-				if(name === \mod, {
+				if(patchBus.class === Dictionary, {
 					patchBus.keysValuesDo({ |sourceName, dests|
-						dests.keysValuesDo({ |destName, modBus|
-							synths[\mod][sourceName].map(destName, modBus);
+						dests.keysValuesDo({ |destName, bus|
+							synths[name][sourceName].map(destName, bus);
 						});
 					});
 				}, {
@@ -1311,6 +1309,7 @@ Engine_Cule : CroneEngine {
 
 		patchArgs.do({ |name|
 			this.addCommand(name, "f", { |msg|
+				// TODO NOW: amp mode doesn't seem to get unmapped from this bus when timbre locked...?
 				patchBuses[name].setSynchronous(msg[1]);
 			});
 		});
