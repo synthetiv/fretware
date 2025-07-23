@@ -187,29 +187,23 @@ Engine_Cule : CroneEngine {
 		if(state, {
 			// explicitly set this voice's synths' args, which unmaps them from patch buses
 			patchBuses.keysValuesDo({ |name, patchBus|
-				if(name === \mod, {
+				if(patchBus.class === Dictionary, {
 					patchBus.keysValuesDo({ |sourceName, dests|
-						// TODO NOW: double check this...
-						// was dests[sourceName].keysValuesDo({ |destName, bus|
-						dests.keysValuesDo({ |destName, modBus|
-							modBus.get({ |value|
-								synths[\mod][sourceName].set(destName, value);
-							});
+						dests.keysValuesDo({ |destName, bus|
+							synths[name][sourceName].set(destName, bus.getSynchronous);
 						});
 					});
 				}, {
-					patchBus.get({ |value|
-						synths[\control].set(name, value);
-					});
+					synths[\control].set(name, patchBus.getSynchronous);
 				});
 			});
 		}, {
 			// re-map all patch args to this voice's synths
 			patchBuses.keysValuesDo({ |name, patchBus|
-				if(name === \mod, {
+				if(patchBus.class === Dictionary, {
 					patchBus.keysValuesDo({ |sourceName, dests|
-						dests.keysValuesDo({ |destName, modBus|
-							synths[\mod][sourceName].map(destName, modBus);
+						dests.keysValuesDo({ |destName, bus|
+							synths[name][sourceName].map(destName, bus);
 						});
 					});
 				}, {
@@ -1072,6 +1066,8 @@ Engine_Cule : CroneEngine {
 			Out.ar(context.out_b, Pan2.ar(voiceOutput, \pan.ar.fold2));
 		}).add;
 
+		// TODO NEXT: add engine commands to enable/disable these replies,
+		// so we're not sending more messages than we need
 		SynthDef.new(\reply, {
 			arg replyRate = 15;
 			var replyTrig = Impulse.kr(replyRate);
@@ -1198,6 +1194,9 @@ Engine_Cule : CroneEngine {
 			out.map(\lpRQ,     Bus.newFrom(paramBuses[\rq], 1));
 			out.map(\outLevel, paramBuses[\outLevel]);
 
+			context.server.sync;
+			"voice % initialized\n".postf(i);
+
 			Dictionary[
 				\control -> controlSynth,
 				\mod -> routerSynths,
@@ -1310,14 +1309,15 @@ Engine_Cule : CroneEngine {
 
 		patchArgs.do({ |name|
 			this.addCommand(name, "f", { |msg|
-				patchBuses[name].set(msg[1]);
+				// TODO NOW: amp mode doesn't seem to get unmapped from this bus when timbre locked...?
+				patchBuses[name].setSynchronous(msg[1]);
 			});
 		});
 
 		modulationSources.keys.do({ |sourceName|
 			modulationDests.keys.do({ |destName|
 				this.addCommand(sourceName ++ '_' ++ destName, "f", { |msg|
-					patchBuses[\mod][sourceName][destName].set(msg[1]);
+					patchBuses[\mod][sourceName][destName].setSynchronous(msg[1]);
 				});
 			});
 		});
@@ -1365,14 +1365,14 @@ Engine_Cule : CroneEngine {
 
 	free {
 		fork {
-			sq80Resources.do({ |rsrc| rsrc.free });
-			// d50Resources.do({ |rsrc| rsrc.free });
+			sq80Resources.do(_.free);
+			// d50Resources.do(_.free);
 			group.free;
 			clockPhaseBus.free;
-			patchBuses.do({ |bus| bus.free });
-			voiceParamBuses.do({ |dict| dict.do({ |bus| bus.free }) });
-			voiceModBuses.do({ |dict| dict.do({ |bus| bus.free }) });
-			voiceOutputBuses.do({ |dict| dict.do({ |bus| bus.free }) });
+			patchBuses.do({ |bus| if(bus.class === Dictionary, { bus.do(_.free) }, { bus.free }) });
+			voiceParamBuses.do({ |dict| dict.do(_.free) });
+			voiceModBuses.do({ |dict| dict.do(_.free) });
+			voiceOutputBuses.do({ |dict| dict.do(_.free) });
 			baseFreqBus.free;
 			opFadeReplyFunc.free;
 			opTypeReplyFunc.free;
@@ -1381,6 +1381,10 @@ Engine_Cule : CroneEngine {
 			voiceAmpReplyFunc.free;
 			voicePitchReplyFunc.free;
 			lfoGateReplyFunc.free;
+
+			context.server.sync;
+			"Engine_Cule freed. Remaining nodes:".postln;
+			context.server.queryAllNodes;
 		}
 	}
 }
