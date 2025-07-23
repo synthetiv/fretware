@@ -192,15 +192,11 @@ Engine_Cule : CroneEngine {
 						// TODO NOW: double check this...
 						// was dests[sourceName].keysValuesDo({ |destName, bus|
 						dests.keysValuesDo({ |destName, modBus|
-							modBus.get({ |value|
-								synths[\mod][sourceName].set(destName, value);
-							});
+							synths[\mod][sourceName].set(destName, modBus.getSynchronous);
 						});
 					});
 				}, {
-					patchBus.get({ |value|
-						synths[\control].set(name, value);
-					});
+					synths[\control].set(name, patchBus.getSynchronous);
 				});
 			});
 		}, {
@@ -1315,14 +1311,14 @@ Engine_Cule : CroneEngine {
 
 		patchArgs.do({ |name|
 			this.addCommand(name, "f", { |msg|
-				patchBuses[name].set(msg[1]);
+				patchBuses[name].setSynchronous(msg[1]);
 			});
 		});
 
 		modulationSources.keys.do({ |sourceName|
 			modulationDests.keys.do({ |destName|
 				this.addCommand(sourceName ++ '_' ++ destName, "f", { |msg|
-					patchBuses[\mod][sourceName][destName].set(msg[1]);
+					patchBuses[\mod][sourceName][destName].setSynchronous(msg[1]);
 				});
 			});
 		});
