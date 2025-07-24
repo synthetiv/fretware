@@ -49,6 +49,7 @@ function Keyboard.new(x, y, width, height)
 		row_offset = 5, -- each row's pitch is a fourth higher than the last
 		gliding = false,
 		held_keys = { -- map of key names/ids to boolean states
+			voices = {},
 			voice_loops = {}
 		},
 		sustained_keys = {}, -- stack of sustained key IDs
@@ -248,6 +249,7 @@ function Keyboard:key(x, y, z)
 				end
 			else
 				-- voice select keys
+				self.held_keys.voices[v] = z == 1
 				if z == 1 then
 					self:select_voice(v)
 				end
@@ -716,7 +718,7 @@ function Keyboard:draw()
 		self.voice_data[v].amp = voice_states[v].amp
 		self.voice_data[v].mix_level = voice_states[v].mix_level
 		has_voice_key_held = has_voice_key_held or self.held_keys.voice_loops[v]
-		g:led(2, 8 - v, self.selected_voice == v and 8 or 2)
+		g:led(2, 8 - v, self.selected_voice == v and 8 or self.held_keys.voices[v] and 5 or 2)
 	end
 
 	-- highlight plectrum location, if it's been moved recently

@@ -14,9 +14,6 @@ k = Keyboard.new(1, 1, 16, 8)
 
 Menu = include 'lib/menu'
 
--- TODO NEXT:
--- K1 to reset mod going to selected dest
-
 arp_menu = Menu.new(4, 5, 10, 2, {
 	_, 1, 2, 3,  4,  5,  6, 7, 8, 9,
 	_, _, _, _, 10, 11, 12 -- value number 11 can be set to 13 when direction is set to 3
@@ -469,15 +466,34 @@ function g.key(x, y, z)
 				end
 			end
 		end
-	elseif source_menu.open and source_menu.n_held > 0 and x == 1 and y == 1 then
+	elseif x == 1 and y == 1 then
+		-- mod reset key
 		if z == 1 then
-			-- if there are any held sources, reset ALL routes involving them
-			for source = 1, #editor.source_names do
-				if source_menu.held[source] then
-					local source_name = editor.source_names[source]
-					for dest = 1, #editor.dests do
-						local dest_name = editor.dests[dest].name
-						local defaults = editor.dests[dest].source_defaults
+			if source_menu.open and source_menu.n_held > 0 then
+				-- if there are any held sources, reset all routes involving them
+				for source = 1, #editor.source_names do
+					if source_menu.held[source] then
+						local source_name = editor.source_names[source]
+						for dest = 1, #editor.dests do
+							local dest_name = editor.dests[dest].name
+							local defaults = editor.dests[dest].source_defaults
+							local param = params:lookup_param(source_name .. '_' .. dest_name)
+							if defaults and defaults[source_name] then
+								param:set(defaults[source_name])
+							else
+								param:set_default()
+							end
+						end
+					end
+				end
+			end
+			if held_keys[1] then
+				-- if K1 is held, reset all routes involving the selected dest
+				for source = 1, #editor.source_names do
+					local dest_name = editor.dests[editor.selected_dest].name
+					local defaults = editor.dests[editor.selected_dest].source_defaults
+					if source_menu.held[source] then
+						local source_name = editor.source_names[source]
 						local param = params:lookup_param(source_name .. '_' .. dest_name)
 						if defaults and defaults[source_name] then
 							param:set(defaults[source_name])
@@ -485,7 +501,6 @@ function g.key(x, y, z)
 							param:set_default()
 						end
 					end
-				end
 			end
 		end
 	elseif source_menu.open and x > 2 and y < 8 then
@@ -1072,7 +1087,7 @@ function init()
 		end
 	end
 
-	params:add_group('voice mix/etc', n_voices * 5)
+	params:add_group('voice mix/etc', n_voices * 4)
 
 	for v = 1, n_voices do
 
@@ -1131,17 +1146,6 @@ function init()
 			end,
 			formatter = function(param)
 				return string.format('%+.2fx', param:get())
-			end
-		}
-
-		params:add {
-			name = 'timbre lock',
-			id = 'timbreLock_' .. v,
-			type = 'option',
-			options = { 'off', 'on' },
-			action = function(value)
-				engine.timbreLock(v, value - 1)
-				voice_states[v].timbre_lock = value > 1
 			end
 		}
 
@@ -1526,9 +1530,17 @@ function key(n, z)
 	held_keys[n] = z == 1 and util.time() or false
 	if z == 1 then
 		if n == 1 then
-			local lock_param = 'timbreLock_' .. k.selected_voice
-			local is_locked = voice_states[k.selected_voice].timbre_lock
-			params:set(lock_param, is_locked and 1 or 2)
+			-- if any voice keys are held, toggle lock state.
+			-- note that this may mean locking one and unlocking another
+			-- TODO NOW: test, does that Feel Right?
+			for v = 1, n_voices do
+				if k.held_keys.voices[v] then
+					local voice_state = voice_states[v]
+					local lock = not voice_state.timbre_lock
+					engine.timbreLock(v, lock and 1 or 0)
+					voice_state.timbre_lock.timbre_lock = lock
+				end
+			end
 		elseif n == 2 then
 			editor.selected_dest = 17 -- loop rate
 			editor.autoselect_time = util.time()
