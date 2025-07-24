@@ -466,34 +466,16 @@ function g.key(x, y, z)
 				end
 			end
 		end
-	elseif x == 1 and y == 1 then
+	elseif x == 1 and y == 1 and z == 1 and source_menu.open and (source_menu.n_held > 0 or held_keys[1]) then
 		-- mod reset key
-		if z == 1 then
-			if source_menu.open and source_menu.n_held > 0 then
-				-- if there are any held sources, reset all routes involving them
-				for source = 1, #editor.source_names do
-					if source_menu.held[source] then
-						local source_name = editor.source_names[source]
-						for dest = 1, #editor.dests do
-							local dest_name = editor.dests[dest].name
-							local defaults = editor.dests[dest].source_defaults
-							local param = params:lookup_param(source_name .. '_' .. dest_name)
-							if defaults and defaults[source_name] then
-								param:set(defaults[source_name])
-							else
-								param:set_default()
-							end
-						end
-					end
-				end
-			end
-			if held_keys[1] then
-				-- if K1 is held, reset all routes involving the selected dest
-				for source = 1, #editor.source_names do
-					local dest_name = editor.dests[editor.selected_dest].name
-					local defaults = editor.dests[editor.selected_dest].source_defaults
-					if source_menu.held[source] then
-						local source_name = editor.source_names[source]
+		if source_menu.n_held > 0 then
+			-- if there are any held sources, reset all routes involving them
+			for source = 1, #editor.source_names do
+				if source_menu.held[source] then
+					local source_name = editor.source_names[source]
+					for dest = 1, #editor.dests do
+						local dest_name = editor.dests[dest].name
+						local defaults = editor.dests[dest].source_defaults
 						local param = params:lookup_param(source_name .. '_' .. dest_name)
 						if defaults and defaults[source_name] then
 							param:set(defaults[source_name])
@@ -501,6 +483,21 @@ function g.key(x, y, z)
 							param:set_default()
 						end
 					end
+				end
+			end
+		end
+		if held_keys[1] then
+			-- if K1 is held, reset all routes involving the selected dest
+			local dest_name = editor.dests[editor.selected_dest].name
+			local defaults = editor.dests[editor.selected_dest].source_defaults
+			for source = 1, #editor.source_names do
+				local source_name = editor.source_names[source]
+				local param = params:lookup_param(source_name .. '_' .. dest_name)
+				if defaults and defaults[source_name] then
+					param:set(defaults[source_name])
+				else
+					param:set_default()
+				end
 			end
 		end
 	elseif source_menu.open and x > 2 and y < 8 then
@@ -557,7 +554,7 @@ function grid_redraw()
 	end
 	g:led(9, 8, source_menu.open and 7 or 2)
 	source_menu:draw()
-	if source_menu.open and source_menu.n_held > 0 then
+	if source_menu.open and (source_menu.n_held > 0 or held_keys[1]) then
 		g:led(1, 1, 7)
 	end
 	local blink = arp_gates[5] -- 1/8 notes
@@ -1540,7 +1537,7 @@ function key(n, z)
 					local voice_state = voice_states[v]
 					local lock = not voice_state.timbre_lock
 					engine.timbreLock(v, lock and 1 or 0)
-					voice_state.timbre_lock.timbre_lock = lock
+					voice_state.timbre_lock = lock
 				end
 			end
 		elseif n == 2 then

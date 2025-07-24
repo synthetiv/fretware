@@ -1088,7 +1088,7 @@ Engine_Cule : CroneEngine {
 				SendReply.kr(Peak.kr(Changed.kr(pitch), pitchTrig) * pitchTrig, '/voicePitch', [v, pitch, trig]);
 
 				lfoGates.do({ |gate, slot|
-					SendReply.kr(Changed.kr(gate) * (selectedVoice == v), '/lfoGate', [v, slot, gate]);
+					SendReply.kr(Changed.kr(gate) * BinaryOpUGen('==', selectedVoice, v), '/lfoGate', [v, slot, gate]);
 				});
 			});
 		}).add;
@@ -1161,7 +1161,7 @@ Engine_Cule : CroneEngine {
 				synth.map(\freq, Bus.newFrom(paramBuses[\lfoFreq], slot));
 			});
 
-			ops = [ \operatorFB, \operatorFM ].collect({ |opType, otherOp|
+			ops = [ \operatorFBFade, \operatorFMFade ].collect({ |opType, otherOp|
 				var op = 1 - otherOp;
 				var thisBus = Bus.newFrom(outputBuses[\ops], op);
 				var thatBus = Bus.newFrom(outputBuses[\ops], 1 - op);
@@ -1370,28 +1370,36 @@ Engine_Cule : CroneEngine {
 		});
 
 		this.addCommand(\trace, "i", { |msg|
-			"Engine group trace -------------".postln;
-			group.trace;
-			"Clock synth -------------".postln;
-			clockSynth.trace;
-			voiceSynths.do { |voice, v|
-				// optional argument will trace only one voice's synths
-				if ((msg[1] == 0) || (msg[1] == v)) {
-					"Voice % synths -------------\n".postf(v);
-					voice.keysValuesDo { |type, synths|
-						if ([ Array, Dictionary ].includes(synths.type)) {
-							"% (% synths) -------------\n".postf(v, synths.size);
-							synths.do(_trace);
-						} {
-							// assume that if synths isn't an array, it's one synth
-							"% -------------\n".postf(v);
-							synths.trace;
+			fork {
+				"Engine group trace -------------".postln;
+				group.trace;
+				context.server.sync;
+				"Clock synth -------------".postln;
+				clockSynth.trace;
+				context.server.sync;
+				voiceSynths.do { |voice, v|
+					// optional argument will trace only one voice's synths
+					if ([ 0, v - 1 ].includes(msg[1])) {
+						"Voice % synths -------------\n".postf(v);
+						voice.keysValuesDo { |type, synths|
+							if ([ Array, Dictionary ].includes(synths.class)) {
+								"% (% synths) -------------\n".postf(type, synths.size);
+								synths.do { |synth|
+									synth.trace;
+									context.server.sync;
+								};
+							} {
+								// assume that if synths isn't an array, it's one synth
+								"% -------------\n".postf(type);
+								synths.trace;
+								context.server.sync;
+							};
 						};
 					};
 				};
-			};
-			"Reply synth -------------".postln;
-			replySynth.trace;
+				"Reply synth -------------".postln;
+				replySynth.trace;
+			}
 		});
 
 		context.server.sync;
