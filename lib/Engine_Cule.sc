@@ -173,7 +173,8 @@ Engine_Cule : CroneEngine {
 		var paramBuses = voiceParamBuses[v];
 		var synths = voiceSynths[v];
 		var newLfo = Synth.replace(synths[\lfos][slot], defName, [
-			\stateBus, Bus.newFrom(voiceOutputBuses[v][\lfos], slot),
+			\stateBus, Bus.newFrom(voiceOutputBuses[v][\lfoStates], slot),
+			\gateBus, Bus.newFrom(voiceOutputBuses[v][\lfoGates], slot),
 			\voiceIndex, v,
 			\lfoIndex, slot
 		]);
@@ -367,7 +368,8 @@ Engine_Cule : CroneEngine {
 				\trig -> Bus.control(context.server),
 				\vels -> Bus.control(context.server, 2),
 				\egs -> Bus.audio(context.server, 2),
-				\lfos -> Bus.control(context.server, 3),
+				\lfoStates -> Bus.control(context.server, 3),
+				\lfoGates -> Bus.control(context.server, 3),
 				\sh -> Bus.control(context.server)
 			];
 			// create aliases for the above, for easy reading in mod matrix
@@ -377,9 +379,9 @@ Engine_Cule : CroneEngine {
 			dict.put(\svel, Bus.newFrom(dict[\vels], 1));
 			dict.put(\eg, Bus.newFrom(dict[\egs], 0));
 			dict.put(\eg2, Bus.newFrom(dict[\egs], 1));
-			dict.put(\lfoA, Bus.newFrom(dict[\lfos], 0));
-			dict.put(\lfoB, Bus.newFrom(dict[\lfos], 1));
-			dict.put(\lfoC, Bus.newFrom(dict[\lfos], 2));
+			dict.put(\lfoA, Bus.newFrom(dict[\lfoStates], 0));
+			dict.put(\lfoB, Bus.newFrom(dict[\lfoStates], 1));
+			dict.put(\lfoC, Bus.newFrom(dict[\lfoStates], 2));
 		});
 
 		// patch buses dictionary: [
@@ -626,7 +628,7 @@ Engine_Cule : CroneEngine {
 			var lfo = LFTri.kr(\freq.kr(1), 4.rand);
 			var gate = lfo > 0;
 			Out.kr(\stateBus.ir, lfo);
-			SendReply.kr(Changed.kr(gate), '/lfoGate', [\voiceIndex.ir, \lfoIndex.ir, gate]);
+			Out.kr(\gateBus.ir, gate);
 		}).add;
 
 		// Tempo-synced random step LFO
@@ -648,7 +650,7 @@ Engine_Cule : CroneEngine {
 			// that's good for triggering the S+H, but bad for clocking seq
 			var delayedGate = DelayN.kr(gate, 0.01, 0.01);
 			Out.kr(\stateBus.ir, Lag.kr(TRand.kr(-1, 1, gate), 0.01));
-			SendReply.kr(Changed.kr(delayedGate), '/lfoGate', [\voiceIndex.ir, \lfoIndex.ir, delayedGate]);
+			Out.kr(\gateBus.ir, delayedGate);
 		}).add;
 
 		// Random Dust step LFO
@@ -657,7 +659,7 @@ Engine_Cule : CroneEngine {
 			var trig = Dust.kr(freq);
 			var gate = Trig.kr(trig, (freq * 8).reciprocal);
 			Out.kr(\stateBus.ir, Lag.kr(TRand.kr(-1, 1, trig), 0.01));
-			SendReply.kr(Changed.kr(gate), '/lfoGate', [\voiceIndex.ir, \lfoIndex.ir, gate]);
+			Out.kr(\gateBus.ir, gate);
 		}).add;
 
 		// Smooth random LFO
@@ -666,7 +668,7 @@ Engine_Cule : CroneEngine {
 			var lfo = LFDNoise1.kr(LFNoise0.kr(freq * 0.5).linlin(0, 1, freq * 0.5, freq * 2));
 			var gate = lfo > 0;
 			Out.kr(\stateBus.ir, lfo);
-			SendReply.kr(Changed.kr(gate), '/lfoGate', [\voiceIndex.ir, \lfoIndex.ir, gate]);
+			Out.kr(\gateBus.ir, gate);
 		}).add;
 
 		// Ramp LFO
@@ -674,7 +676,7 @@ Engine_Cule : CroneEngine {
 			var lfo = LFSaw.kr(\freq.kr(1), 4.rand);
 			var gate = lfo < 0;
 			Out.kr(\stateBus.ir, Lag.kr(lfo, 0.01));
-			SendReply.kr(Changed.kr(gate), '/lfoGate', [\voiceIndex.ir, \lfoIndex.ir, gate]);
+			Out.kr(\gateBus.ir, gate);
 		}).add;
 
 		// Self-FM operator
@@ -1067,16 +1069,15 @@ Engine_Cule : CroneEngine {
 			Out.ar(context.out_b, Pan2.ar(voiceOutput, \pan.ar.fold2));
 		}).add;
 
-		// TODO NEXT: add engine commands to enable/disable these replies,
-		// so we're not sending more messages than we need
 		SynthDef.new(\reply, {
-			arg replyRate = 15;
-			var replyTrig = Impulse.kr(replyRate);
+			var selectedVoice = \selectedVoice.kr;
+			var replyTrig = Impulse.kr(\replyRate.kr(15));
 			nVoices.do({ |v|
 				var amp = In.ar(voiceParamBuses[v][\amp]);
 				var pitch = In.kr(voiceParamBuses[v][\pitch]);
 				var trig = In.kr(voiceOutputBuses[v][\trig]);
 				var pitchTrig = replyTrig + trig;
+				var lfoGates = In.kr(voiceOutputBuses[v][\lfoGates], 3);
 
 				// what's important is peak amplitude, not exact current amplitude at poll time
 				amp = Peak.kr(amp, replyTrig);
@@ -1084,6 +1085,10 @@ Engine_Cule : CroneEngine {
 
 				// respond quickly to triggers, which may change pitch in a meaningful way, even if the change is small
 				SendReply.kr(Peak.kr(Changed.kr(pitch), pitchTrig) * pitchTrig, '/voicePitch', [v, pitch, trig]);
+
+				lfoGates.do({ |gate, slot|
+					SendReply.kr(Changed.kr(gate) * (selectedVoice == v), '/lfoGate', [v, slot, gate]);
+				});
 			});
 		}).add;
 
@@ -1148,7 +1153,8 @@ Engine_Cule : CroneEngine {
 
 			lfos = Array.fill(3, { |slot|
 				var synth = Synth.new(\lfoTri, [
-					\stateBus, Bus.newFrom(outputBuses[\lfos], slot),
+					\stateBus, Bus.newFrom(outputBuses[\lfoStates], slot),
+					\gateBus, Bus.newFrom(outputBuses[\lfoGates], slot),
 					\voiceIndex, i,
 					\lfoIndex, slot
 				], group, \addToTail);
@@ -1284,6 +1290,8 @@ Engine_Cule : CroneEngine {
 			);
 			// select new voice
 			selectedVoice = msg[1] - 1;
+			// tell reply synth which LFO gates to send back
+			replySynth.set(\selectedVoice, selectedVoice);
 		});
 
 		this.addCommand(\poll_rate, "f", { |msg|
