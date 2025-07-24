@@ -199,6 +199,7 @@ Engine_Cule : CroneEngine {
 			});
 		}, {
 			// re-map all patch args to this voice's synths
+			// TODO NEXT: optionally, SET patch args to voice values first!!
 			patchBuses.keysValuesDo({ |name, patchBus|
 				if(patchBus.class === Dictionary, {
 					patchBus.keysValuesDo({ |sourceName, dests|
@@ -1102,6 +1103,7 @@ Engine_Cule : CroneEngine {
 			});
 		});
 
+		// TODO NOW: now something's wrong with this. whyyy
 		clockSynth = Synth.new(\clockPhasor, [], group, \addToTail);
 
 		voiceSynths = Array.fill(nVoices, { |i|
