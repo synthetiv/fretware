@@ -32,7 +32,7 @@ Engine_Cule : CroneEngine {
 	var patchBuses;
 	var replySynth;
 	var polls;
-	var opFadeReplyFunc;
+	var opHardReplyFunc;
 	var opTypeReplyFunc;
 	var fxTypeReplyFunc;
 	var lfoTypeReplyFunc;
@@ -134,10 +134,10 @@ Engine_Cule : CroneEngine {
 		arg v, op; // op A = 0, B = 1
 		var opState = voiceOpStates[v][op];
 		var defNames = opTypeDefNames[opState[\type]];
-		// some op types have separate versions for fade and non-fade, others don't
+		// some op types have separate versions for soft and hard, others don't
 		var defName = if(defNames.class === Array, {
-			// fade-specific op type
-			defNames[opState[\fade]]
+			// soft or hard version of op type
+			defNames[opState[\hard]]
 		}, defNames);
 		var paramBuses = voiceParamBuses[v];
 		var outputBuses = voiceOutputBuses[v];
@@ -222,15 +222,16 @@ Engine_Cule : CroneEngine {
 		"synced, starting alloc".postln;
 
 		opTypeDefNames = [
-			[ \operatorFM, \operatorFMFade ],
-			[ \operatorFB, \operatorFBFade ],
+			// arrays define 'soft' and 'hard' versions
+			[ \operatorFMFade, \operatorFM ],
+			[ \operatorFBFade, \operatorFB ],
 			[ \operatorSQ80Loop, \operatorSQ80OneShot ],
-			[ \operatorSquare, \operatorSquareFade ],
-			[ \operatorSaw, \operatorSawFade ],
+			[ \operatorSquareFade, \operatorSquare ],
+			[ \operatorSawFade, \operatorSaw ],
 			\operatorKarp,
 			\operatorComb,
 			\operatorCombExt,
-			[ \operatorFMD, \operatorFMDFade ],
+			[ \operatorFMDFade, \operatorFMD ],
 			\nothing
 		];
 
@@ -274,9 +275,9 @@ Engine_Cule : CroneEngine {
 
 		// non-slewed settings
 		patchOptions = [
-			\opFadeA,
+			\opHardA,
 			\opTypeA,
-			\opFadeB,
+			\opHardB,
 			\opTypeB,
 			\fxTypeA,
 			\fxTypeB,
@@ -468,7 +469,7 @@ Engine_Cule : CroneEngine {
 			// oh right -- this way all voices can read from the patch bus, and not pick up changes if they're locked
 			var voiceIndex = \voiceIndex.ir;
 			Dictionary[
-				\opFade -> [ \opFadeA, \opFadeB ],
+				\opHard -> [ \opHardA, \opHardB ],
 				\opType -> [ \opTypeA, \opTypeB ],
 				\fxType -> [ \fxTypeA, \fxTypeB ],
 				\lfoType -> [ \lfoTypeA, \lfoTypeB, \lfoTypeC ]
@@ -1103,7 +1104,7 @@ Engine_Cule : CroneEngine {
 			Array.fill(2, {
 				Dictionary[
 					\type -> 0,
-					\fade -> 0,
+					\hard -> 0,
 				];
 			});
 		});
@@ -1235,10 +1236,10 @@ Engine_Cule : CroneEngine {
 			];
 		});
 
-		opFadeReplyFunc = OSCFunc({ |msg|
-			voiceOpStates[msg[3]][msg[4]][\fade] = msg[5];
+		opHardReplyFunc = OSCFunc({ |msg|
+			voiceOpStates[msg[3]][msg[4]][\hard] = msg[5];
 			this.swapOp(msg[3], msg[4]);
-		}, path: '/opFade', srcID: context.server.addr);
+		}, path: '/opHard', srcID: context.server.addr);
 
 		opTypeReplyFunc = OSCFunc({ |msg|
 			voiceOpStates[msg[3]][msg[4]][\type] = msg[5];
@@ -1382,7 +1383,7 @@ Engine_Cule : CroneEngine {
 			voiceModBuses.do({ |dict| dict.do(_.free) });
 			voiceOutputBuses.do({ |dict| dict.do(_.free) });
 			baseFreqBus.free;
-			opFadeReplyFunc.free;
+			opHardReplyFunc.free;
 			opTypeReplyFunc.free;
 			fxTypeReplyFunc.free;
 			lfoTypeReplyFunc.free;

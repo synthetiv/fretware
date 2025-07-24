@@ -832,13 +832,13 @@ function init()
 	}
 
 	params:add {
-		name = 'op fade A',
-		id = 'opFadeA',
+		name = 'op hard A',
+		id = 'opHardA',
 		type = 'option',
-		options = { 'off', 'on' },
+		options = { 'no', 'yes' },
 		default = 1,
 		action = function(value)
-			engine.opFadeA(value - 1)
+			engine.opHardA(value - 1)
 		end
 	}
 
@@ -866,13 +866,13 @@ function init()
 	}
 
 	params:add {
-		name = 'op fade B',
-		id = 'opFadeB',
+		name = 'op hard B',
+		id = 'opHardB',
 		type = 'option',
-		options = { 'off', 'on' },
+		options = { 'no', 'yes' },
 		default = 1,
 		action = function(value)
-			engine.opFadeB(value - 1)
+			engine.opHardB(value - 1)
 		end
 	}
 
