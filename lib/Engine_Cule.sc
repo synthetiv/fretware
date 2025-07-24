@@ -1369,6 +1369,31 @@ Engine_Cule : CroneEngine {
 			this.timbreLock(msg[1] - 1, msg[2] > 0);
 		});
 
+		this.addCommand(\trace, "i", { |msg|
+			"Engine group trace -------------".postln;
+			group.trace;
+			"Clock synth -------------".postln;
+			clockSynth.trace;
+			voiceSynths.do { |voice, v|
+				// optional argument will trace only one voice's synths
+				if ((msg[1] == 0) || (msg[1] == v)) {
+					"Voice % synths -------------\n".postf(v);
+					voice.keysValuesDo { |type, synths|
+						if ([ Array, Dictionary ].includes(synths.type)) {
+							"% (% synths) -------------\n".postf(v, synths.size);
+							synths.do(_trace);
+						} {
+							// assume that if synths isn't an array, it's one synth
+							"% -------------\n".postf(v);
+							synths.trace;
+						};
+					};
+				};
+			};
+			"Reply synth -------------".postln;
+			replySynth.trace;
+		});
+
 		context.server.sync;
 	}
 
