@@ -1318,7 +1318,6 @@ Engine_Cule : CroneEngine {
 
 		patchArgs.do({ |name|
 			this.addCommand(name, "f", { |msg|
-				// TODO NOW: amp mode doesn't seem to get unmapped from this bus when timbre locked...?
 				patchBuses[name].setSynchronous(msg[1]);
 			});
 		});
