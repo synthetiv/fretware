@@ -1380,10 +1380,12 @@ function init()
 		end
 	end)
 
-	-- inform SC of tempo changes
+	-- inform SC of future tempo changes
 	clock.tempo_change_handler = function(tempo)
 		engine.tempo(tempo)
 	end
+	-- set initial tempo
+	engine.tempo(params:get('clock_tempo'))
 
 	grid_redraw()
 end

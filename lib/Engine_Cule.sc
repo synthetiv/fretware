@@ -1108,7 +1108,6 @@ Engine_Cule : CroneEngine {
 			});
 		});
 
-		// TODO NOW: now something's wrong with this. whyyy
 		clockSynth = Synth.new(\clockPhasor, [], group, \addToTail);
 
 		voiceSynths = Array.fill(nVoices, { |i|
