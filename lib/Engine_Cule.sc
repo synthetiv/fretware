@@ -456,8 +456,7 @@ Engine_Cule : CroneEngine {
 		SynthDef.new(\voiceControls, {
 
 			var bufferRate, bufferLength, buffer,
-				freeze, loopLength, loopPhase, bufferPhase,
-				freezeWithoutGate,
+				freeze, freezeEnv, loopLength, loopPhase, bufferPhase,
 				pitch, gate, trig, tip, hand, x, y,
 				recPitch, recGate, recTrig, recTip, recHand, recX, recY,
 				vel, svel, attack, release, eg, eg2,
@@ -514,12 +513,13 @@ Engine_Cule : CroneEngine {
 				interpolation: 1
 			);
 			// new pitch values can "punch through" frozen ones when gate is high
-			freezeWithoutGate = freeze.min(1 - gate);
-			pitch = Select.kr(freezeWithoutGate, [ pitch, recPitch + \shift.kr ]);
-			// punch tip through too, only when gate is high
-			tip = Select.kr(freezeWithoutGate, [ tip, recTip ]);
-			// mix incoming hand and x/y data with recorded data (fade in when freeze is engaged)
-			# hand, x, y = [ hand, x, y ] + (Linen.kr(freeze, 0.3, 1, 0) * [ recHand, recX, recY ]);
+			pitch = Select.kr(freeze.min(1 - gate), [ pitch, recPitch + \shift.kr ]);
+			// value mixes below should fade in when freeze is engaged
+			freezeEnv = Linen.kr(freeze, 0.3, 1, 0);
+			// recorded tip value can be increased with input, but not decreased
+			tip = tip.max(freezeEnv * recTip);
+			// mix incoming hand and x/y data with recorded data
+			# hand, x, y = [ hand, x, y ] + (freezeEnv * [ recHand, recX, recY ]);
 			// combine incoming gates with recorded gates
 			gate = gate.max(freeze * recGate);
 			trig = trig.max(freeze * recTrig);
