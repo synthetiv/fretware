@@ -73,7 +73,7 @@ Engine_Cule : CroneEngine {
 		// start, end, and pitch offset from baseFreq
 		var waveParamsWithPitchesCalculated = waveParamsArray.collect({
 			arg params;
-			var pitchAdjusted = [ params[0], params[1], (params[2] - (params[3] / 128)).midiratio ];
+			var pitchAdjusted = [ params[0], params[1], (params[2] + (params[3] / 256)).midiratio ];
 			pitchAdjusted;
 		});
 		var waveParams = Buffer.loadCollection(context.server, waveParamsWithPitchesCalculated.flatten, 3);
