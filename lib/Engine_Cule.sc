@@ -53,7 +53,7 @@ Engine_Cule : CroneEngine {
 		var whichRatio = harmonic.linlin(-1, 1, 0, nRatios - 1);
 		// Claude said to change this
 		var whichOsc = whichRatio.frac * 2.5 - 1.25;
-		var ratios = uGen.ar(hz * Index.kr(whichRatio + [ 1, 0 ] / 2, fmRatiosInterleaved), uGenArg);
+		var ratios = uGen.ar(hz * Index.kr(fmRatiosInterleaved, whichRatio + [ 1, 0 ] / 2), uGenArg);
 		^LinXFade2.ar(
 			ratios[0],
 			ratios[1],
@@ -86,7 +86,7 @@ Engine_Cule : CroneEngine {
 		// Looping sample player
 		SynthDef.new(prefix.asString ++ "Loop", {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
-			var pitch = \pitch.kr + Index.kr(whichRatio, fmIntervals);
+			var pitch = \pitch.kr + Index.kr(fmIntervals, whichRatio);
 			var rate = 2.pow(pitch) * In.kr(baseFreqBus) / baseFreq;
 			// TODO: the use of 'index' here means sample choice is modulated by amp by default,
 			// which usually doesn't sound great, and is confusing. use \ratio instead??
@@ -94,7 +94,7 @@ Engine_Cule : CroneEngine {
 			// -- something such as phase modulation... or sync or something
 			var whichMap = \index.ar.linlin(-1, 1, 0, waveMapsLoopArray.size - 0.5).trunc;
 			var whichRange = pitch.linlin(-1/24, 23/24, 9, 10.5, nil);
-			var whichWave = Index.ar(whichRange, Index.ar(whichMap, waveMapsLoop));
+			var whichWave = Index.ar(Index.ar(waveMapsLoop, whichMap), whichRange);
 			var duckTime = 0.005;
 			var waveChanged = Trig.ar(Changed.ar(whichWave) + Impulse.ar(0), duckTime);
 			var duckEnv = Env.new([1, 0, 0, 1], [duckTime, SampleDur.ir, duckTime]).ar(gate: waveChanged);
@@ -110,11 +110,11 @@ Engine_Cule : CroneEngine {
 		// One-shot sample player
 		SynthDef.new(prefix.asString ++ "OneShot", {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
-			var pitch = \pitch.kr + Index.kr(whichRatio, fmIntervals);
+			var pitch = \pitch.kr + Index.kr(fmIntervals, whichRatio);
 			var rate = 2.pow(pitch) * In.kr(baseFreqBus) / baseFreq;
 			var whichMap = \index.ar.linlin(-1, 1, 0, waveMapsOneShotArray.size - 0.5).trunc;
 			var whichRange = pitch.linlin(0, 1, 9, 10.5, nil);
-			var whichWave = Index.ar(whichRange, Index.ar(whichMap, waveMapsOneShot));
+			var whichWave = Index.ar(Index.ar(waveMapsOneShot, whichMap), whichRange);
 			// retrigger on sample change
 			var duckTime = 0.003;
 			var trig = Trig.ar(\trig.tr, duckTime); // don't retrigger DURING a duck
@@ -690,7 +690,7 @@ Engine_Cule : CroneEngine {
 			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus);
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
 			var output = SinOscFB.ar(
-				hz * Index.kr(whichRatio, fmRatios),
+				hz * Index.kr(fmRatios, whichRatio),
 				\index.ar(-1).lincurve(-1, 1, 0, 1.3pi, 3, \min)
 			);
 			Out.ar(\outBus.ir, output);
@@ -714,7 +714,7 @@ Engine_Cule : CroneEngine {
 			var hz = 2.pow(pitch) * In.kr(baseFreqBus);
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
 			var output = SinOsc.ar(
-				hz * Index.kr(whichRatio, fmRatios),
+				hz * Index.kr(fmRatios, whichRatio),
 				(InFeedback.ar(\inBus.ir) * \index.ar(-1).lincurve(-1, 1, 0, 13pi, 4, \min) * 0.7.pow(pitch)).mod(2pi)
 			);
 			Out.ar(\outBus.ir, output);
@@ -763,7 +763,7 @@ Engine_Cule : CroneEngine {
 				slewedDelayTime - (BlockSize.ir * SampleDur.ir)
 			);
 			var output = SinOsc.ar(
-				hz * Index.kr(whichRatio, fmRatios),
+				hz * Index.kr(fmRatios, whichRatio),
 				(delayedIn * \index.ar(-1).lincurve(-1, 1, 0, 13pi, 4, \min) * 0.7.pow(pitch)).mod(2pi)
 			);
 			Out.ar(\outBus.ir, output);
@@ -803,7 +803,7 @@ Engine_Cule : CroneEngine {
 		// Karplus-Strong oscillator
 		SynthDef.new(\operatorKarp, {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
-			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus) * Index.kr(whichRatio, fmRatios);
+			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus) * Index.kr(fmRatios, whichRatio);
 			var delayTime = K2A.ar(hz.reciprocal);
 			var delayDelayBuf = LocalBuf.new(SampleRate.ir * 2);
 			var delayedDelayTime = BufDelayN.ar(delayDelayBuf, delayTime, delayTime); // haha lol
@@ -827,7 +827,7 @@ Engine_Cule : CroneEngine {
 		// Comb filter
 		SynthDef.new(\operatorComb, {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
-			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus) * Index.kr(whichRatio, fmRatios);
+			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus) * Index.kr(fmRatios, whichRatio);
 			// when desired pitch is higher than control rate, find the highest octave
 			// DOWN from that pitch that will result in a delay time greater than the
 			// block size.
@@ -856,7 +856,7 @@ Engine_Cule : CroneEngine {
 		// Comb with external audio input
 		SynthDef.new(\operatorCombExt, {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
-			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus) * Index.kr(whichRatio, fmRatios);
+			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus) * Index.kr(fmRatios, whichRatio);
 			// when desired pitch is higher than control rate, find the highest octave
 			// DOWN from that pitch that will result in a delay time greater than the
 			// block size.
@@ -885,7 +885,7 @@ Engine_Cule : CroneEngine {
 		// Band-limited pseudo-analog oscillator, square-saw mix
 		SynthDef.new(\operatorSquare, {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
-			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus) * Index.kr(whichRatio, fmRatios);
+			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus) * Index.kr(fmRatios, whichRatio);
 			var output = LinXFade2.ar(
 				BlitB3Square.ar(hz),
 				BlitB3Saw.ar(hz * 2),
@@ -909,7 +909,7 @@ Engine_Cule : CroneEngine {
 		// Band-limited pseudo-analog oscillator, square-saw mix
 		SynthDef.new(\operatorSaw, {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
-			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus) * Index.kr(whichRatio, fmRatios);
+			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus) * Index.kr(fmRatios, whichRatio);
 			var output = LinXFade2.ar(
 				BlitB3Saw.ar(hz),
 				BlitB3Square.ar(hz / 2),
