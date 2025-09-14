@@ -94,7 +94,7 @@ Engine_Cule : CroneEngine {
 			// -- something such as phase modulation... or sync or something
 			var whichMap = \index.ar.linlin(-1, 1, 0, waveMapsLoopArray.size - 0.5).trunc;
 			var whichRange = pitch.linlin(-1/24, 23/24, 9, 10.5, nil);
-			var whichWave = Index.ar(Index.ar(waveMapsLoop, whichMap), whichRange);
+			var whichWave = Select.ar(whichRange, Index.ar(waveMapsLoop, whichMap));
 			var duckTime = 0.005;
 			var waveChanged = Trig.ar(Changed.ar(whichWave) + Impulse.ar(0), duckTime);
 			var duckEnv = Env.new([1, 0, 0, 1], [duckTime, SampleDur.ir, duckTime]).ar(gate: waveChanged);
@@ -114,7 +114,7 @@ Engine_Cule : CroneEngine {
 			var rate = 2.pow(pitch) * In.kr(baseFreqBus) / baseFreq;
 			var whichMap = \index.ar.linlin(-1, 1, 0, waveMapsOneShotArray.size - 0.5).trunc;
 			var whichRange = pitch.linlin(0, 1, 9, 10.5, nil);
-			var whichWave = Index.ar(Index.ar(waveMapsOneShot, whichMap), whichRange);
+			var whichWave = Select.ar(whichRange, Index.ar(waveMapsOneShot, whichMap));
 			// retrigger on sample change
 			var duckTime = 0.003;
 			var trig = Trig.ar(\trig.tr, duckTime); // don't retrigger DURING a duck
