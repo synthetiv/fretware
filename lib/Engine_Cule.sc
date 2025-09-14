@@ -53,7 +53,7 @@ Engine_Cule : CroneEngine {
 	harmonicOsc {
 		arg uGen, hz, harmonic, uGenArg;
 		var whichRatio = harmonic.linlin(-1, 1, 0, nRatios - 1);
-		var whichOsc = Fold.kr(whichRatio) * 1.5 - 0.25;
+		var whichOsc = Fold.kr(whichRatio) * 1.25 - 0.125;
 		// TODO:
 		// 1. whichRatio range is wrong... how???
 		// 2. this sounds different from LinXFade2... why???
