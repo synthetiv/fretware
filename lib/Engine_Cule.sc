@@ -15,6 +15,8 @@ Engine_Cule : CroneEngine {
 	var fmRatios;
 	var fmRatiosInterleaved;
 	var fmIntervals;
+	var fmRatiosBuf;
+	var fmIntervalsBuf;
 	var nRatios;
 
 	// var d50Resources;
@@ -51,11 +53,17 @@ Engine_Cule : CroneEngine {
 	harmonicOsc {
 		arg uGen, hz, harmonic, uGenArg;
 		var whichRatio = harmonic.linlin(-1, 1, 0, nRatios - 1);
-		var whichOsc = (Fold.kr(whichRatio).linlin(0, 1, -1, 1) * 1.25).clip2;
-		^LinXFade2.ar(
-			uGen.ar(hz * Select.kr(whichRatio + 1 / 2, fmRatiosInterleaved[0]), uGenArg),
-			uGen.ar(hz * Select.kr(whichRatio / 2, fmRatiosInterleaved[1]), uGenArg),
-			whichOsc
+		var whichOsc = Fold.kr(whichRatio) * 1.5 - 0.25;
+		// TODO:
+		// 1. whichRatio range is wrong... how???
+		// 2. this sounds different from LinXFade2... why???
+		var ratios = Index.kr(
+			LocalBuf.newFrom(fmRatiosInterleaved),
+			whichRatio + [ 1, 0 ] / 2
+		);
+		^LinSelectX.ar(
+			whichOsc,
+			uGen.ar(hz * ratios, uGenArg)
 		);
 	}
 
