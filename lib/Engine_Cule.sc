@@ -878,10 +878,11 @@ Engine_Cule : CroneEngine {
 		SynthDef.new(\operatorSquare, {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
 			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus) * Index.kr(fmRatios, whichRatio);
-			var output = LinSelectX.ar(\index.ar(-1).linlin(-1, 1, 0, 1), [
+			var output = LinXFade2.ar(
 				BlitB3Square.ar(hz),
-				BlitB3Saw.ar(hz * 2)
-			]);
+				BlitB3Saw.ar(hz * 2),
+				\index.ar(-1)
+			);
 			Out.ar(\outBus.ir, output * 6.dbamp);
 		}).add;
 
@@ -901,10 +902,11 @@ Engine_Cule : CroneEngine {
 		SynthDef.new(\operatorSaw, {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
 			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus) * Index.kr(fmRatios, whichRatio);
-			var output = LinSelectX.ar(\index.ar(-1).linlin(-1, 1, 0, 1), [
+			var output = LinXFade2.ar(
 				BlitB3Saw.ar(hz),
-				BlitB3Square.ar(hz / 2)
-			]);
+				BlitB3Square.ar(hz / 2),
+				\index.ar(-1)
+			);
 			Out.ar(\outBus.ir, output * 6.dbamp);
 		}).add;
 
