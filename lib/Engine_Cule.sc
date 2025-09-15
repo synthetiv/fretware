@@ -85,7 +85,7 @@ Engine_Cule : CroneEngine {
 		// Looping sample player
 		SynthDef.new(prefix.asString ++ "Loop", {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
-			var pitch = \pitch.kr + Select.kr(whichRatio, fmIntervals);
+			var pitch = \pitch.kr + Index.kr(fmIntervals, whichRatio);
 			var rate = 2.pow(pitch) * In.kr(baseFreqBus) / baseFreq;
 			// TODO: the use of 'index' here means sample choice is modulated by amp by default,
 			// which usually doesn't sound great, and is confusing. use \ratio instead??
@@ -109,7 +109,7 @@ Engine_Cule : CroneEngine {
 		// One-shot sample player
 		SynthDef.new(prefix.asString ++ "OneShot", {
 			var whichRatio = \ratio.kr.linlin(-1, 1, 0, nRatios);
-			var pitch = \pitch.kr + Select.kr(whichRatio, fmIntervals);
+			var pitch = \pitch.kr + Index.kr(fmIntervals, whichRatio);
 			var rate = 2.pow(pitch) * In.kr(baseFreqBus) / baseFreq;
 			var whichMap = \index.ar.linlin(-1, 1, 0, waveMapsOneShotArray.size - 0.5).trunc;
 			var whichRange = pitch.linlin(0, 1, 9, 10.5, nil);
@@ -305,8 +305,8 @@ Engine_Cule : CroneEngine {
 		// (see harmonicOsc function)
 		fmRatios = [1/128, 1/64, 1/32, 1/16, 1/8, 1/4, 1/2,
 			1, 2, /* 3, */ 4, /* 5, */ 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
-		fmIntervals = fmRatios.ratiomidi / 12;
 		nRatios = fmRatios.size;
+		fmIntervals = Buffer.loadCollection(context.server, fmRatios.ratiomidi / 12);
 		fmRatios = Buffer.loadCollection(context.server, fmRatios);
 
 		baseFreqBus = Bus.control(context.server);
