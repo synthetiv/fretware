@@ -74,12 +74,24 @@ Engine_Cule : CroneEngine {
 		// start, end, and pitch offset from baseFreq
 		var waveParamsWithPitchesCalculated = waveParamsArray.collect({
 			arg params;
-			var pitchAdjusted = [ params[0], params[1], (params[2] + (params[3] / 256)).midiratio ];
-			pitchAdjusted;
+			[
+				params[0], // start point
+				params[1], // end point
+				(params[2] + (params[3] / 256)).midiratio // rate scale factor
+			];
 		});
-		var waveParams = Buffer.loadCollection(context.server, waveParamsWithPitchesCalculated.flatten, 3);
-		var waveMapsLoop = Buffer.loadCollection(context.server, waveMapsLoopArray.flatten, 16);
-		var waveMapsOneShot = Buffer.loadCollection(context.server, waveMapsOneShotArray.flatten, 16);
+		// 3 buffers of params (start, end, and rate scale), indexed by wave
+		var waveParams = waveParamsWithPitchesCalculated.flop.collect({ |param|
+			Buffer.loadCollection(context.server, param).bufnum;
+		});
+		// n buffers (indexed by wave) of waveform buffers, indexed by pitch range
+		var waveMapsLoop = Buffer.loadCollection(context.server, waveMapsLoopArray.collect({ |map|
+			Buffer.loadCollection(context.server, map).bufnum;
+		}));
+		// n buffers (indexed by wave) of waveform buffers, indexed by pitch range
+		var waveMapsOneShot = Buffer.loadCollection(context.server, waveMapsOneShotArray.collect({ |map|
+			Buffer.loadCollection(context.server, map).bufnum;
+		}));
 		var sampleData = Buffer.read(context.server, path, 0, -1);
 
 		// Looping sample player
@@ -91,15 +103,15 @@ Engine_Cule : CroneEngine {
 			// which usually doesn't sound great, and is confusing. use \ratio instead??
 			// and index could control... uhhhhhhhhhh... saturation... tone... something
 			// -- something such as phase modulation... or sync or something
-			var whichMap = \index.ar.linlin(-1, 1, 0, waveMapsLoopArray.size - 0.5).trunc;
+			var whichMap = \index.kr.linlin(-1, 1, 0, waveMapsLoopArray.size - 0.5).trunc;
 			var whichRange = pitch.linlin(-1/24, 23/24, 9, 10.5, nil);
-			var whichWave = Select.ar(whichRange, BufRd.ar(16, waveMapsLoop, whichMap, interpolation: 1));
+			var whichWave = Index.kr(Index.kr(waveMapsLoop, whichMap), whichRange);
 			var duckTime = 0.005;
-			var waveChanged = Trig.ar(Changed.ar(whichWave) + Impulse.ar(0), duckTime);
+			var waveChanged = Trig.ar(K2A.ar(Changed.kr(whichWave) + Impulse.kr(0)), duckTime);
 			var duckEnv = Env.new([1, 0, 0, 1], [duckTime, SampleDur.ir, duckTime]).ar(gate: waveChanged);
 			var delayedTrig = TDelay.ar(waveChanged, duckTime);
 			var params = Latch.ar(
-				BufRd.ar(3, waveParams, whichWave, interpolation: 1),
+				Index.ar(waveParams, whichWave),
 				delayedTrig
 			);
 			var phase = Phasor.ar(delayedTrig, rate * params[2], params[0], params[1], params[0]);
@@ -113,14 +125,14 @@ Engine_Cule : CroneEngine {
 			var rate = 2.pow(pitch) * In.kr(baseFreqBus) / baseFreq;
 			var whichMap = \index.ar.linlin(-1, 1, 0, waveMapsOneShotArray.size - 0.5).trunc;
 			var whichRange = pitch.linlin(0, 1, 9, 10.5, nil);
-			var whichWave = Select.ar(whichRange, BufRd.ar(16, waveMapsOneShot, whichMap, interpolation: 1));
+			var whichWave = Index.kr(Index.kr(waveMapsOneShot, whichMap), whichRange);
 			// retrigger on sample change
 			var duckTime = 0.003;
 			var trig = Trig.ar(\trig.tr, duckTime); // don't retrigger DURING a duck
 			var duckEnv = Env.new([1, 0, 0, 1], [duckTime, SampleDur.ir, duckTime]).ar(gate: trig);
 			var delayedTrig = TDelay.ar(trig, duckTime);
 			var params = Latch.ar(
-				BufRd.ar(3, waveParams, whichWave, interpolation: 1),
+				Index.ar(waveParams, whichWave),
 				delayedTrig
 			);
 			var phase = (params[0] + Sweep.ar(delayedTrig, rate * SampleRate.ir * params[2]));
@@ -1409,6 +1421,7 @@ Engine_Cule : CroneEngine {
 	}
 
 	free {
+		// TODO free them all
 		fork {
 			sq80Resources.do(_.free);
 			// d50Resources.do(_.free);
