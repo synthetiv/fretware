@@ -476,7 +476,7 @@ Engine_Cule : CroneEngine {
 				var path = '/' ++ typeName;
 				controlNames.do({ |controlName, i|
 					var value = NamedControl.kr(controlName);
-					SendReply.kr(Changed.kr(value), path, [ voiceIndex, i, value ]);
+					SendReply.kr(Changed.kr(value), path, [ i, value ], voiceIndex);
 				});
 			});
 
@@ -1082,13 +1082,13 @@ Engine_Cule : CroneEngine {
 
 				// what's important is peak amplitude, not exact current amplitude at poll time
 				amp = Peak.kr(amp, replyTrig);
-				SendReply.kr(Peak.kr(Changed.kr(amp), replyTrig) * replyTrig, '/voiceAmp', [v, amp]);
+				SendReply.kr(Peak.kr(Changed.kr(amp), replyTrig) * replyTrig, '/voiceAmp', amp, v);
 
 				// respond quickly to triggers, which may change pitch in a meaningful way, even if the change is small
-				SendReply.kr(Peak.kr(Changed.kr(pitch), pitchTrig) * pitchTrig, '/voicePitch', [v, pitch, trig]);
+				SendReply.kr(Peak.kr(Changed.kr(pitch), pitchTrig) * pitchTrig, '/voicePitch', [ pitch, trig ], v);
 
 				lfoGates.do({ |gate, slot|
-					SendReply.kr(Changed.kr(gate) * BinaryOpUGen('==', selectedVoice, v), '/lfoGate', [v, slot, gate]);
+					SendReply.kr(Changed.kr(gate) * BinaryOpUGen('==', selectedVoice, v), '/lfoGate', [ slot, gate ], v);
 				});
 			});
 		}).add;
@@ -1237,42 +1237,46 @@ Engine_Cule : CroneEngine {
 		});
 
 		opHardReplyFunc = OSCFunc({ |msg|
-			voiceOpStates[msg[3]][msg[4]][\hard] = msg[5];
-			this.swapOp(msg[3], msg[4]);
+			// [ '/opType', node, voiceIndex, opIndex, hard ]
+			voiceOpStates[msg[2]][msg[3]][\hard] = msg[4];
+			this.swapOp(msg[2], msg[3]);
 		}, path: '/opHard', srcID: context.server.addr);
 
 		opTypeReplyFunc = OSCFunc({ |msg|
-			voiceOpStates[msg[3]][msg[4]][\type] = msg[5];
-			this.swapOp(msg[3], msg[4]);
+			// [ '/opType', node, voiceIndex, opIndex, type ]
+			voiceOpStates[msg[2]][msg[3]][\type] = msg[4];
+			this.swapOp(msg[2], msg[3]);
 		}, path: '/opType', srcID: context.server.addr);
 
 		fxTypeReplyFunc = OSCFunc({ |msg|
-			var def = [\fxSquiz, \fxTanh, \fxFold, \fxWaveLoss, \fxDecimator, \fxChorus, \nothing].at(msg[5]);
-			this.swapFx(msg[3], msg[4], def);
+			// [ '/opType', node, voiceIndex, fxIndex, type ]
+			var def = [\fxSquiz, \fxTanh, \fxFold, \fxWaveLoss, \fxDecimator, \fxChorus, \nothing].at(msg[4]);
+			this.swapFx(msg[2], msg[3], def);
 		}, path: '/fxType', srcID: context.server.addr);
 
 		lfoTypeReplyFunc = OSCFunc({ |msg|
-			var def = [\lfoTri, \lfoSH, \lfoDust, \lfoDrift, \lfoRamp, \nothing].at(msg[5]);
-			this.swapLfo(msg[3], msg[4], def);
+			// [ '/lfoType', node, voiceIndex, lfoIndex, type ]
+			var def = [\lfoTri, \lfoSH, \lfoDust, \lfoDrift, \lfoRamp, \nothing].at(msg[4]);
+			this.swapLfo(msg[2], msg[3], def);
 		}, path: '/lfoType', srcID: context.server.addr);
 
 		voiceAmpReplyFunc = OSCFunc({ |msg|
-			// msg looks like [ '/voiceAmp', ??, -1, voiceIndex, amp ]
-			polls[msg[3]][\amp].update(msg[4]);
+			// [ '/voiceAmp', node, voiceIndex, amp ]
+			polls[msg[2]][\amp].update(msg[3]);
 		}, path: '/voiceAmp', srcID: context.server.addr);
 
 		voicePitchReplyFunc = OSCFunc({ |msg|
-			// msg looks like [ '/voicePitch', ??, -1, voiceIndex, pitch, triggeredChange ]
-			if(msg[5] == 1, {
-				polls[msg[3]][\instantPitch].update(msg[4]);
+			// [ '/voicePitch', node, voiceIndex, pitch, triggeredChange ]
+			if(msg[4] == 1, {
+				polls[msg[2]][\instantPitch].update(msg[3]);
 			}, {
-				polls[msg[3]][\pitch].update(msg[4]);
+				polls[msg[2]][\pitch].update(msg[3]);
 			});
 		}, path: '/voicePitch', srcID: context.server.addr);
 
 		lfoGateReplyFunc = OSCFunc({ |msg|
-			// msg looks like [ '/lfoGate', ??, -1, voiceIndex, lfoIndex, state ]
-			polls[msg[3]][\lfos][msg[4]].update(msg[5]);
+			// msg looks like [ '/lfoGate', node, voiceIndex, lfoIndex, state ]
+			polls[msg[2]][\lfos][msg[3]].update(msg[4]);
 		}, path: '/lfoGate', srcID: context.server.addr);
 
 		context.server.sync;
