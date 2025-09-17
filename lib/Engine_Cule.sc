@@ -71,6 +71,8 @@ Engine_Cule : CroneEngine {
 	buildRomplerDefs {
 		arg prefix, baseFreq, path, waveParamsArray, waveMapsLoopArray, waveMapsOneShotArray;
 
+		var allBuffers = List.new;
+
 		// start, end, and pitch offset from baseFreq
 		var waveParamsWithPitchesCalculated = waveParamsArray.collect({
 			arg params;
@@ -80,19 +82,32 @@ Engine_Cule : CroneEngine {
 				(params[2] + (params[3] / 256)).midiratio // rate scale factor
 			];
 		});
+
 		// 3 buffers of params (start, end, and rate scale), indexed by wave
 		var waveParams = waveParamsWithPitchesCalculated.flop.collect({ |param|
-			Buffer.loadCollection(context.server, param).bufnum;
+			var buf = Buffer.loadCollection(context.server, param);
+			allBuffers.add(buf);
+			buf.bufnum;
 		});
+
 		// n buffers (indexed by wave) of waveform buffers, indexed by pitch range
 		var waveMapsLoop = Buffer.loadCollection(context.server, waveMapsLoopArray.collect({ |map|
-			Buffer.loadCollection(context.server, map).bufnum;
+			var buf = Buffer.loadCollection(context.server, map);
+			allBuffers.add(buf);
+			buf.bufnum;
 		}));
+		allBuffers.add(waveMapsLoop);
+
 		// n buffers (indexed by wave) of waveform buffers, indexed by pitch range
 		var waveMapsOneShot = Buffer.loadCollection(context.server, waveMapsOneShotArray.collect({ |map|
-			Buffer.loadCollection(context.server, map).bufnum;
+			var buf = Buffer.loadCollection(context.server, map);
+			allBuffers.add(buf);
+			buf.bufnum;
 		}));
+		alllBuffers.add(waveMapsOneShot);
+
 		var sampleData = Buffer.read(context.server, path, 0, -1);
+		allBuffers.add(sampleData);
 
 		// Looping sample player
 		SynthDef.new(prefix.asString ++ "Loop", {
@@ -140,7 +155,7 @@ Engine_Cule : CroneEngine {
 		}).add;
 
 		// return buffers so we can free them later
-		^[ waveParams, waveMapsLoop, waveMapsOneShot, sampleData ];
+		^allBuffers;
 	}
 
 	swapOp {
@@ -1425,7 +1440,6 @@ Engine_Cule : CroneEngine {
 	}
 
 	free {
-		// TODO free them all
 		fork {
 			sq80Resources.do(_.free);
 			// d50Resources.do(_.free);
@@ -1435,6 +1449,8 @@ Engine_Cule : CroneEngine {
 			voiceParamBuses.do({ |dict| dict.do(_.free) });
 			voiceModBuses.do({ |dict| dict.do(_.free) });
 			voiceOutputBuses.do({ |dict| dict.do(_.free) });
+			fmRatios.free;
+			fmIntervals.free;
 			baseFreqBus.free;
 			opHardReplyFunc.free;
 			opTypeReplyFunc.free;
