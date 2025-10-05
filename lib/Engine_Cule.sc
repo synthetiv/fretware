@@ -430,9 +430,9 @@ Engine_Cule : CroneEngine {
 			patchBuses.put(name, Bus.control(context.server));
 		});
 		patchBuses.put(\mod, Dictionary.new);
-		modulationSources.keysValuesDo({ |sourceName, sourceRate|
+		modulationSources.keys.do({ |sourceName|
 			patchBuses[\mod].put(sourceName, Dictionary.new);
-			modulationDests.keysValuesDo({ |destName, destRate|
+			modulationDests.keys.do({ |destName|
 				patchBuses[\mod][sourceName].put(destName, Bus.control(context.server));
 			});
 		});
@@ -1163,7 +1163,7 @@ Engine_Cule : CroneEngine {
 			// read params from patch buses
 			patchArgs.do({ |name| controlSynth.map(name, patchBuses[name]) });
 			// read modulation from this voice's mod buses
-			modulationDests.keysValuesDo({ |name, rate|
+			modulationDests.keys.do({ |name|
 				controlSynth.map(name ++ 'Mod', modBuses[name]);
 			});
 
@@ -1174,7 +1174,7 @@ Engine_Cule : CroneEngine {
 				var synth = Synth.new('modRouter_' ++ if(sourceName === \amp, \amp, sourceRate), [
 					\inBus, outputBuses[sourceName]
 				], group, \addToTail);
-				modulationDests.keysValuesDo({ |destName, destRate|
+				modulationDests.keys.do({ |destName|
 					synth.map(destName, patchBuses[\mod][sourceName][destName]);
 					synth.set(destName ++ 'Mod', modBuses[destName]);
 				});
