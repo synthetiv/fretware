@@ -1067,31 +1067,51 @@ function init()
 			params:add_group(source, #editor.dests)
 		end
 
+		-- create a dead zone near 0.0
+		local scale_value = function(value, squared)
+			local sign = (value > 0 and 1 or -1)
+			value = 1 - math.min(1, (1 - math.abs(value)) * 1.1)
+			if squared then
+				-- create a less-sensitive zone around the dead zone
+				value = value * value
+			end
+			return sign * value
+		end
+
 		for d = 1, #editor.dests do
 			local dest = editor.dests[d]
 			local engine_command = engine[source .. '_' .. dest.name]
-			local action = function(value)
-				-- create a dead zone near 0.0
-				value = (value > 0 and 1 or -1) * (1 - math.min(1, (1 - math.abs(value)) * 1.1))
-				engine_command(value)
-			end
-			if dest.name == 'detuneA' or dest.name == 'detuneB' then
-				-- set detune modulation on a curve
-				action = function(value)
-					-- create a dead zone near 0.0
-					local sign = (value > 0 and 1 or -1)
-					value = 1 - math.min(1, (1 - math.abs(value)) * 1.1)
-					value = sign * value * value
-					engine_command(value)
+			if dest.voice_dest then
+				for v = 1, n_voices do
+					local action = function(value)
+						engine_command(v, scale_value(value))
+					end
+					params:add {
+						name = source .. ' -> ' .. dest.label .. ' ' .. v,
+						id = source .. '_' .. dest.name .. '_' .. v,
+						type = 'control',
+						controlspec = controlspec.new(-1, 1, 'lin', 0, (dest.source_defaults and dest.source_defaults[source]) or 0),
+						action = action
+					}
 				end
+			else
+				local action = function(value)
+					engine_command(scale_value(value))
+				end
+				if dest.name == 'detuneA' or dest.name == 'detuneB' then
+					-- set detune modulation on a curve
+					action = function(value)
+						engine_command(scale_value(value, true))
+					end
+				end
+				params:add {
+					name = source .. ' -> ' .. dest.label,
+					id = source .. '_' .. dest.name,
+					type = 'control',
+					controlspec = controlspec.new(-1, 1, 'lin', 0, (dest.source_defaults and dest.source_defaults[source]) or 0),
+					action = action
+				}
 			end
-			params:add {
-				name = source .. ' -> ' .. dest.label,
-				id = source .. '_' .. dest.name,
-				type = 'control',
-				controlspec = controlspec.new(-1, 1, 'lin', 0, (dest.source_defaults and dest.source_defaults[source]) or 0),
-				action = action
-			}
 		end
 	end
 
@@ -1103,7 +1123,7 @@ function init()
 
 		params:add {
 			name = 'voice level ' .. v,
-			id = 'amp_' .. v,
+			id = 'outLevel_' .. v,
 			type = 'taper',
 			min = 0,
 			max = 1,
@@ -1111,7 +1131,7 @@ function init()
 			default = 0.3,
 			action = function(value)
 				voice.mix_level = value
-				engine.amp(v, value)
+				engine.outLevel(v, value)
 			end
 		}
 
@@ -1179,14 +1199,18 @@ function init()
 		else
 			patch_param_mappings[d] = SliderMapping.new(dest_name, slider_start_value, 'inner')
 		end
-		patch_mod_mappings[d] = {}
+		if dest.voice_dest then
+			voice_mod_mappings[d] = {}
+		else
+			patch_mod_mappings[d] = {}
+		end
 		for s = 1, #editor.source_names do
 			if dest.voice_dest then
 				local mappings = {}
 				for v = 1, n_voices do
 					mappings[v] = SliderMapping.new(editor.source_names[s] .. '_' .. dest_name .. '_' .. v)
 				end
-				patch_mod_mappings[d][s] = mappings
+				voice_mod_mappings[d][s] = mappings
 			else
 				patch_mod_mappings[d][s] = SliderMapping.new(editor.source_names[s] .. '_' .. dest_name)
 			end
@@ -1533,14 +1557,14 @@ function enc(n, d)
 		-- maybe auto-select amp or pan
 		local now = util.time()
 		editor.encoder_autoselect_deltas[n] = editor.encoder_autoselect_deltas[n] + math.abs(d)
-		if editor.selected_dest == 15 + n then
+		if editor.selected_dest == param_index then
 			editor.autoselect_time = now
 			editor.encoder_autoselect_deltas[n] = 0
 		else
 			local t = math.min(0.3, now - editor.autoselect_time) / 0.3
 			if editor.encoder_autoselect_deltas[n] * t > 0.05 then
 				editor.encoder_autoselect_deltas[n] = 0
-				editor.selected_dest = 15 + n
+				editor.selected_dest = param_index
 				editor.autoselect_time = now
 			end
 		end

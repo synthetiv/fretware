@@ -21,6 +21,7 @@ Engine_Cule : CroneEngine {
 	// var d50Resources;
 	var sq80Resources;
 
+	// TODO: we're having bus allocation and/or usage problems
 	var group;
 	var baseFreqBus;
 	var clockPhaseBus;
@@ -74,7 +75,7 @@ Engine_Cule : CroneEngine {
 		var amount = \amount.kr;
 		var fadeOutEnv = Env.asr(releaseTime: 0.1).kr(Done.pauseSelf, BinaryOpUGen('==', amount, 0));
 		// TODO: allow another modulation source (hand, lfo...) to scale this one
-		\scale.kr(1) * Lag.kr(amount, 0.1) * fadeOutEnv;
+		^\scale.kr(1) * Lag.kr(amount, 0.1) * fadeOutEnv;
 	}
 
 	buildRomplerDefs {
@@ -408,6 +409,7 @@ Engine_Cule : CroneEngine {
 					dict.put(sourceName ++ '_' ++ destName, Bus.control(context.server));
 				});
 			});
+			dict;
 		});
 
 		voiceOutputBuses = Array.fill(nVoices, {
@@ -462,31 +464,31 @@ Engine_Cule : CroneEngine {
 		// invoking this.modAmount gives each of these \scale and \amount args too
 		SynthDef.new(\modRouter_kr_kr, {
 			Out.kr(\outBus.ir, \in.kr * this.modAmount);
-		});
+		}).add;
 
-		SynthDef.new(\modRouter_ar_ar, {
+		SynthDef.new(\modRouter_ar_kr, {
 			Out.kr(\outBus.ir, A2K.kr(\in.ar * this.modAmount));
-		});
+		}).add;
 
 		SynthDef.new(\modRouter_kr_ar, {
 			Out.ar(\outBus.ir, K2A.ar(\in.kr * this.modAmount));
-		});
+		}).add;
 
 		SynthDef.new(\modRouter_ar_ar, {
 			Out.ar(\outBus.ir, \in.ar * this.modAmount);
-		});
+		}).add;
 
 		SynthDef.new(\modRouter_amp_down, {
 			// for index and LP cutoff modulation by amp
 			var polaritySwitch = BinaryOpUGen('>', \amount.kr, 0);
 			Out.ar(\outBus.ir, (\in.ar - polaritySwitch) * 2 * this.modAmount);
-		});
+		}).add;
 
 		SynthDef.new(\modRouter_amp_up, {
 			// for HP cutoff modulation by amp
 			var polaritySwitch = BinaryOpUGen('<', \amount.kr, 0);
 			Out.ar(\outBus.ir, (\in.ar - polaritySwitch) * 2 * this.modAmount);
-		});
+		}).add;
 
 		SynthDef.new(\voiceControls, {
 
@@ -1186,7 +1188,7 @@ Engine_Cule : CroneEngine {
 							if([ \indexA, \indexB, \lpCutoff ].includes(destName), {
 								\amp_down;
 							}, {
-								modulationDests[destName];
+								\ar_ ++ modulationDests[destName];
 							});
 						});
 					}, {
