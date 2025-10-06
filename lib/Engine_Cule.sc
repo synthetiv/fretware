@@ -105,7 +105,6 @@ Engine_Cule : CroneEngine {
 			allBuffers.add(buf);
 			buf.bufnum;
 		}));
-		allBuffers.add(waveMapsLoop);
 
 		// n buffers (indexed by wave) of waveform buffers, indexed by pitch range
 		var waveMapsOneShot = Buffer.loadCollection(context.server, waveMapsOneShotArray.collect({ |map|
@@ -113,9 +112,11 @@ Engine_Cule : CroneEngine {
 			allBuffers.add(buf);
 			buf.bufnum;
 		}));
-		alllBuffers.add(waveMapsOneShot);
 
 		var sampleData = Buffer.read(context.server, path, 0, -1);
+
+		allBuffers.add(waveMapsLoop);
+		allBuffers.add(waveMapsOneShot);
 		allBuffers.add(sampleData);
 
 		// Looping sample player
@@ -477,13 +478,13 @@ Engine_Cule : CroneEngine {
 
 		SynthDef.new(\modRouter_amp_down, {
 			// for index and LP cutoff modulation by amp
-			var polaritySwitch = BinaryOpUGen('>', amount, 0);
+			var polaritySwitch = BinaryOpUGen('>', \amount.kr, 0);
 			Out.ar(\outBus.ir, (\in.ar - polaritySwitch) * 2 * this.modAmount);
 		});
 
 		SynthDef.new(\modRouter_amp_up, {
 			// for HP cutoff modulation by amp
-			var polaritySwitch = BinaryOpUGen('<', amount, 0);
+			var polaritySwitch = BinaryOpUGen('<', \amount.kr, 0);
 			Out.ar(\outBus.ir, (\in.ar - polaritySwitch) * 2 * this.modAmount);
 		});
 
