@@ -249,12 +249,14 @@ editor = {
 		{
 			name = 'loopRate',
 			label = 'loop rate',
-			voice_param = 'loopRate'
+			voice_param = 'loopRate',
+			voice_dest = true
 		},
 		{
 			name = 'loopPosition',
 			label = 'loop position',
-			voice_param = 'loopPosition'
+			voice_param = 'loopPosition',
+			voice_dest = true
 		},
 		{
 			name = 'pan',
@@ -277,9 +279,18 @@ editor = {
 	}
 }
 
-dest_mappings = {}
-voice_mappings = {}
-source_mappings = {}
+patch_param_mappings = {
+	-- [dest number] = slider mapping
+}
+voice_param_mappings = {
+	-- [voice param name][voice index] = slider mapping
+}
+patch_mod_mappings = {
+	-- [dest number][source number] = slider mapping
+}
+voice_mod_mappings = {
+	-- [dest number][source number][voice index] = slider mapping
+}
 
 xvi_params = {
 	'ratioA',
@@ -976,7 +987,7 @@ function init()
 		end
 	}
 
-	params:add_group('voice params', #editor.dests - 9)
+	params:add_group('patch params', #editor.dests - 9)
 
 	for d = 1, #editor.dests do
 		local dest = editor.dests[d]
@@ -1092,7 +1103,7 @@ function init()
 
 		params:add {
 			name = 'voice level ' .. v,
-			id = 'outLevel_' .. v,
+			id = 'amp_' .. v,
 			type = 'taper',
 			min = 0,
 			max = 1,
@@ -1100,7 +1111,7 @@ function init()
 			default = 0.3,
 			action = function(value)
 				voice.mix_level = value
-				engine.outLevel(v, value)
+				engine.amp(v, value)
 			end
 		}
 
@@ -1152,7 +1163,8 @@ function init()
 		local dest = editor.dests[d]
 		local dest_name = dest.name
 		local slider_start_value = 0
-		if dest_name == 'detuneA' or dest_name == 'opMix' or dest_name == 'detuneB' or dest_name == 'pan' then
+		-- TODO: move this stuff to the editor.dests table?
+		if dest_name == 'detuneA' or dest_name == 'opMix' or dest_name == 'detuneB' or dest_name == 'pan' or dest_name == 'loopRate' or dest_name == 'loopPosition' then
 			slider_start_value = 0.5
 		elseif dest_name == 'lpCutoff' then
 			slider_start_value = 1
@@ -1163,13 +1175,21 @@ function init()
 			for v = 1, n_voices do
 				mappings[v] = SliderMapping.new(voice_param .. '_' .. v, slider_start_value, 'inner')
 			end
-			voice_mappings[voice_param] = mappings
+			voice_param_mappings[d] = mappings
 		else
-			dest_mappings[d] = SliderMapping.new(dest_name, slider_start_value, 'inner')
+			patch_param_mappings[d] = SliderMapping.new(dest_name, slider_start_value, 'inner')
 		end
-		source_mappings[d] = {}
+		patch_mod_mappings[d] = {}
 		for s = 1, #editor.source_names do
-			source_mappings[d][s] = SliderMapping.new(editor.source_names[s] .. '_' .. dest_name)
+			if dest.voice_dest then
+				local mappings = {}
+				for v = 1, n_voices do
+					mappings[v] = SliderMapping.new(editor.source_names[s] .. '_' .. dest_name .. '_' .. v)
+				end
+				patch_mod_mappings[d][s] = mappings
+			else
+				patch_mod_mappings[d][s] = SliderMapping.new(editor.source_names[s] .. '_' .. dest_name)
+			end
 		end
 	end
 
@@ -1205,9 +1225,9 @@ function init()
 				local dest = editor.dests[p]
 				local slider = nil
 				if dest.voice_param then
-					slider = voice_mappings[dest.voice_param][k.selected_voice].slider
-				elseif dest_mappings[p] then
-					slider = dest_mappings[p].slider
+					slider = voice_param_mappings[p][k.selected_voice].slider
+				elseif patch_param_mappings[p] then
+					slider = patch_param_mappings[p].slider
 				end
 				if slider.y ~= y then
 					slider.y = math.floor(slider.y + (y - slider.y) * 0.6)
@@ -1297,12 +1317,12 @@ function init()
 			local changed_source = false
 			for source = 1, #editor.source_names do
 				if source_menu.held[source] then
-					source_mappings[fader][source]:delta(new_value - old_value)
+					patch_mod_mappings[fader][source]:delta(new_value - old_value)
 					changed_source = true
 				end
 			end
 			if not changed_source then
-				dest_mappings[fader]:move(old_value, new_value)
+				patch_param_mappings[fader]:move(old_value, new_value)
 			end
 			state.delta = state.delta + math.abs(new_value - old_value)
 			state.value = new_value
@@ -1411,19 +1431,25 @@ function redraw()
 		local active = editor.selected_dest == d
 		local dest_slider = nil
 		if dest.voice_param then
-			dest_slider = voice_mappings[dest.voice_param][k.selected_voice].slider
+			dest_slider = voice_param_mappings[d][k.selected_voice].slider
 		else
-			dest_slider = dest_mappings[d].slider
+			dest_slider = patch_param_mappings[d].slider
 		end
 
 		if dest_slider.y >= -4 and dest_slider.y <= 132 then
-			-- TODO: maybe just indicate actual fader position, instead of offsetting -- it's a lil weird
+			-- TODO NEXT!!: maybe just indicate actual fader position, instead of offsetting -- it's a lil 
+			-- weird
 			if d <= 16 and xvi_state[d].value then
 				dest_slider.x = math.floor((dest_slider.value - xvi_state[d].value) * 64 + 0.5) + 1
 			else
 				dest_slider.x = 1
 			end
-			local source_slider = source_mappings[d][source_menu.value].slider
+			local source_slider = nil
+			if dest.voice_dest then
+				source_slider = voice_mod_mappings[d][source_menu.value][k.selected_voice].slider
+			else
+				source_slider = patch_mod_mappings[d][source_menu.value].slider
+			end
 			source_slider.y = dest_slider.y - 1
 			source_slider.x = dest_slider.x - 1
 			source_slider:redraw(active and 2 or 1, active and 15 or 4)
@@ -1485,28 +1511,24 @@ function enc(n, d)
 	else
 		-- TODO: handle 'delta' and auto-selection stuff in SliderMapping class
 		-- adjust amp, pan, loop rate, or loop pos
+		local param_index = 15 + n -- n>=2 and voice params start at dest index 17
 		if not held_keys[2] then
-			n = n + 2
+			param_index = param_index + 2
 		end
-		local param_index = 15 + n
 		local changed_source = false
 		local d_scaled = d / 128
 		for source = 1, #editor.source_names do
 			if source_menu.held[source] then
-				source_mappings[param_index][source]:delta(d_scaled)
+				if editor.dests[param_index].voice_dest then
+					voice_mod_mappings[param_index][source][k.selected_voice]:delta(d_scaled)
+				else
+					patch_mod_mappings[param_index][source]:delta(d_scaled)
+				end
 				changed_source = true
 			end
 		end
 		if not changed_source then
-			if n == 2 then
-				voice_mappings.loopRate[k.selected_voice]:delta(d_scaled)
-			elseif n == 3 then
-				voice_mappings.loopPosition[k.selected_voice]:delta(d_scaled)
-			elseif n == 4 then
-				voice_mappings.pan[k.selected_voice]:delta(d_scaled)
-			elseif n == 5 then
-				voice_mappings.outLevel[k.selected_voice]:delta(d_scaled)
-			end
+			voice_param_mappings[param_index][k.selected_voice]:delta(d_scaled)
 		end
 		-- maybe auto-select amp or pan
 		local now = util.time()
@@ -1531,7 +1553,6 @@ function key(n, z)
 		if n == 1 then
 			-- if any voice keys are held, toggle lock state.
 			-- note that this may mean locking one and unlocking another
-			-- TODO NOW: test, does that Feel Right?
 			for v = 1, n_voices do
 				if k.held_keys.voices[v] then
 					local voice_state = voice_states[v]

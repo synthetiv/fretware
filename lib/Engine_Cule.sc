@@ -6,6 +6,8 @@ Engine_Cule : CroneEngine {
 	classvar maxLoopTime = 60;
 
 	var opTypeDefNames;
+	var patchModulationDests;
+	var voiceModulationDests;
 	var modulationDests;
 	var modulationSources;
 	var patchOptions;
@@ -66,6 +68,13 @@ Engine_Cule : CroneEngine {
 		var blendAmount = \intensity.ar.linlin(-0.99, -0.9, -1, 1).lag(0.1);
 		var blended = LinXFade2.ar(dry, wet, blendAmount);
 		^ReplaceOut.ar(\bus.ir, blended);
+	}
+
+	modAmount {
+		var amount = \amount.kr;
+		var fadeOutEnv = Env.asr(releaseTime: 0.1).kr(Done.pauseSelf, BinaryOpUGen('==', amount, 0));
+		// TODO: allow another modulation source (hand, lfo...) to scale this one
+		\scale.kr(1) * Lag.kr(amount, 0.1) * fadeOutEnv;
 	}
 
 	buildRomplerDefs {
@@ -264,11 +273,9 @@ Engine_Cule : CroneEngine {
 		];
 
 		// modulatable parameters for audio synths
-		modulationDests = Dictionary[
+		patchModulationDests = Dictionary[
 			\amp -> \ar,
 			\pan -> \kr,
-			\loopPosition -> \kr,
-			\loopRate -> \kr,
 			\ratioA -> \kr,
 			\detuneA -> \kr,
 			\indexA -> \ar,
@@ -286,6 +293,13 @@ Engine_Cule : CroneEngine {
 			\lfoBFreq -> \kr,
 			\lfoCFreq -> \kr,
 		];
+
+		voiceModulationDests = Dictionary[
+			\loopPosition -> \kr,
+			\loopRate -> \kr,
+		];
+
+		modulationDests = patchModulationDests.merge(voiceModulationDests);
 
 		// modulation sources
 		modulationSources = Dictionary[
@@ -322,8 +336,9 @@ Engine_Cule : CroneEngine {
 			\hpRQ,
 			\lpRQ,
 			patchOptions,
-			// TODO: is there a more elegant way to do this...? declare these as voice params, not set patch-wide?
-			modulationDests.keys.difference([ \amp, \pan, \loopPosition, \loopRate ]).asArray,
+			// TODO: is there a more elegant way to do this...?
+			// declare these as voice params not to be set patch-wide?
+			patchModulationDests.keys.difference([ \amp, \pan ]).asArray,
 		].flatten;
 
 		// frequency ratios used by the two FM operators of each voice
@@ -370,9 +385,9 @@ Engine_Cule : CroneEngine {
 			buses;
 		});
 
-		// controlSynth synths write to these, and ops/fx/LFOs/etc read from them
 		voiceParamBuses = Array.fill(nVoices, {
-			Dictionary[
+			// controlSynth synths write to these, and ops/fx/LFOs/etc read from them
+			var dict = Dictionary[
 				\amp -> Bus.audio(context.server),
 				\pan -> Bus.control(context.server),
 				\pitch -> Bus.control(context.server),
@@ -386,6 +401,12 @@ Engine_Cule : CroneEngine {
 				\lfoFreq -> Bus.control(context.server, 3),
 				\outLevel -> Bus.control(context.server)
 			];
+			// engine commands write to these [wait... what?]
+			modulationSources.keys.do({ |sourceName|
+				voiceModulationDests.keys.do({ |destName|
+					dict.put(sourceName ++ '_' ++ destName, Bus.control(context.server));
+				});
+			});
 		});
 
 		voiceOutputBuses = Array.fill(nVoices, {
@@ -432,54 +453,39 @@ Engine_Cule : CroneEngine {
 		patchBuses.put(\mod, Dictionary.new);
 		modulationSources.keys.do({ |sourceName|
 			patchBuses[\mod].put(sourceName, Dictionary.new);
-			modulationDests.keys.do({ |destName|
+			patchModulationDests.keys.do({ |destName|
 				patchBuses[\mod][sourceName].put(destName, Bus.control(context.server));
 			});
 		});
 
-		SynthDef.new(\modRouter_kr, {
-			var input = In.kr(\inBus.kr);
-			modulationDests.keysValuesDo({ |name, rate|
-				var outBus = NamedControl.kr(name ++ 'Mod');
-				var amount = NamedControl.kr(name, 0.1);
-				if(rate === \kr, {
-					Out.kr(outBus, amount * input);
-				}, {
-					Out.ar(outBus, K2A.ar(amount * input));
-				});
-			});
-		}).add;
+		// invoking this.modAmount gives each of these \scale and \amount args too
+		SynthDef.new(\modRouter_kr_kr, {
+			Out.kr(\outBus.ir, \in.kr * this.modAmount);
+		});
 
-		SynthDef.new(\modRouter_ar, {
-			var input = InFeedback.ar(\inBus.kr);
-			modulationDests.keysValuesDo({ |name, rate|
-				var outBus = NamedControl.kr(name ++ 'Mod');
-				var amount = NamedControl.kr(name, 0.1);
-				if(rate === \kr, {
-					Out.kr(outBus, A2K.kr(amount * input));
-				}, {
-					Out.ar(outBus, amount * input);
-				});
-			});
-		}).add;
+		SynthDef.new(\modRouter_ar_ar, {
+			Out.kr(\outBus.ir, A2K.kr(\in.ar * this.modAmount));
+		});
 
-		SynthDef.new(\modRouter_amp, {
-			var amp = InFeedback.ar(\inBus.kr);
-			modulationDests.keysValuesDo({ |name, rate|
-				var outBus = NamedControl.kr(name ++ 'Mod');
-				var amount = NamedControl.kr(name, 0.1);
-				if(rate === \kr, {
-					Out.kr(outBus, A2K.kr(amount * amp));
-				}, {
-					if([ \indexA, \indexB, \hpCutoff, \lpCutoff ].includes(name), {
-						var polaritySwitch = BinaryOpUGen(if(\hpCutoff === name, '<', '>'), amount, 0);
-						Out.ar(outBus, (amp - polaritySwitch) * 2 * amount);
-					}, {
-						Out.ar(outBus, amount * amp);
-					});
-				});
-			});
-		}).add;
+		SynthDef.new(\modRouter_kr_ar, {
+			Out.ar(\outBus.ir, K2A.ar(\in.kr * this.modAmount));
+		});
+
+		SynthDef.new(\modRouter_ar_ar, {
+			Out.ar(\outBus.ir, \in.ar * this.modAmount);
+		});
+
+		SynthDef.new(\modRouter_amp_down, {
+			// for index and LP cutoff modulation by amp
+			var polaritySwitch = BinaryOpUGen('>', amount, 0);
+			Out.ar(\outBus.ir, (\in.ar - polaritySwitch) * 2 * this.modAmount);
+		});
+
+		SynthDef.new(\modRouter_amp_up, {
+			// for HP cutoff modulation by amp
+			var polaritySwitch = BinaryOpUGen('<', amount, 0);
+			Out.ar(\outBus.ir, (\in.ar - polaritySwitch) * 2 * this.modAmount);
+		});
 
 		SynthDef.new(\voiceControls, {
 
@@ -1167,18 +1173,35 @@ Engine_Cule : CroneEngine {
 				controlSynth.map(name ++ 'Mod', modBuses[name]);
 			});
 
-			// create mod router synths, map their inputs to controlSynth outputs and patch mod routings,
-			// and write to voiceModBuses
+			// create a Dictionary to be populated by mod router synths as needed
 			routerSynths = Dictionary.new;
 			modulationSources.keysValuesDo({ |sourceName, sourceRate|
-				var synth = Synth.new('modRouter_' ++ if(sourceName === \amp, \amp, sourceRate), [
-					\inBus, outputBuses[sourceName]
-				], group, \addToTail);
+				var destDict = Dictionary.new;
 				modulationDests.keys.do({ |destName|
-					synth.map(destName, patchBuses[\mod][sourceName][destName]);
-					synth.set(destName ++ 'Mod', modBuses[destName]);
+					var defName = \modRouter_ ++ if(sourceName === \amp, {
+						if(destName === \hpCutoff, {
+							\amp_up;
+						}, {
+							if([ \indexA, \indexB, \lpCutoff ].includes(destName), {
+								\amp_down;
+							}, {
+								modulationDests[destName];
+							});
+						});
+					}, {
+						modulationSources[sourceName] ++ '_' ++ modulationDests[destName];
+					});
+					var synth = Synth.newPaused(defName, [
+						\outBus, modBuses[destName],
+					], group, \addToTail);
+					// if this routing amount ISN'T set patch-wide, don't map amount!
+					if(patchModulationDests.includes(destName), {
+						synth.map(\amount, patchBuses[\mod][sourceName][destName]);
+					});
+					synth.map(\in, outputBuses[sourceName]);
+					destDict.put(destName, synth);
 				});
-				routerSynths.put(sourceName, synth);
+				routerSynths.put(sourceName, destDict);
 			});
 
 			lfos = Array.fill(3, { |slot|
@@ -1358,9 +1381,27 @@ Engine_Cule : CroneEngine {
 		});
 
 		modulationSources.keys.do({ |sourceName|
-			modulationDests.keys.do({ |destName|
+
+			patchModulationDests.keys.do({ |destName|
 				this.addCommand(sourceName ++ '_' ++ destName, "f", { |msg|
-					patchBuses[\mod][sourceName][destName].setSynchronous(msg[1]);
+					var amount = msg[1];
+					if(amount != 0, {
+						voiceSynths.do({ |synths|
+							synths[\mod][sourceName][destName].run;
+						});
+					});
+					patchBuses[\mod][sourceName][destName].set(\amount, amount);
+				});
+			});
+
+			voiceModulationDests.keys.do({ |destName|
+				this.addCommand(sourceName ++ '_' ++ destName, "if", { |msg|
+					var synth = voiceSynths[msg[1] - 1][\mod][sourceName][destName];
+					var amount = msg[2];
+					if(amount != 0, {
+						synth.run;
+					});
+					synth.set(\amount, amount);
 				});
 			});
 		});
