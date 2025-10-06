@@ -389,7 +389,7 @@ Engine_Cule : CroneEngine {
 
 		voiceParamBuses = Array.fill(nVoices, {
 			// controlSynth synths write to these, and ops/fx/LFOs/etc read from them
-			var dict = Dictionary[
+			Dictionary[
 				\amp -> Bus.audio(context.server),
 				\pan -> Bus.control(context.server),
 				\pitch -> Bus.control(context.server),
@@ -403,13 +403,6 @@ Engine_Cule : CroneEngine {
 				\lfoFreq -> Bus.control(context.server, 3),
 				\outLevel -> Bus.control(context.server)
 			];
-			// engine commands write to these [wait... what?]
-			modulationSources.keys.do({ |sourceName|
-				voiceModulationDests.keys.do({ |destName|
-					dict.put(sourceName ++ '_' ++ destName, Bus.control(context.server));
-				});
-			});
-			dict;
 		});
 
 		voiceOutputBuses = Array.fill(nVoices, {
@@ -1194,7 +1187,7 @@ Engine_Cule : CroneEngine {
 					}, {
 						modulationSources[sourceName] ++ '_' ++ modulationDests[destName];
 					});
-					var synth = Synth.newPaused(defName, [
+					var synth = Synth.new(defName, [
 						\outBus, modBuses[destName],
 					], group, \addToTail);
 					// if this routing amount ISN'T set patch-wide, don't map amount!
@@ -1202,6 +1195,8 @@ Engine_Cule : CroneEngine {
 						synth.map(\amount, patchBuses[\mod][sourceName][destName]);
 					});
 					synth.map(\in, outputBuses[sourceName]);
+					context.server.sync;
+					synth.run(false);
 					destDict.put(destName, synth);
 				});
 				routerSynths.put(sourceName, destDict);
@@ -1388,7 +1383,9 @@ Engine_Cule : CroneEngine {
 			patchModulationDests.keys.do({ |destName|
 				this.addCommand(sourceName ++ '_' ++ destName, "f", { |msg|
 					var amount = msg[1];
+					msg.postln;
 					if(amount != 0, {
+						"run".postln;
 						voiceSynths.do({ |synths|
 							synths[\mod][sourceName][destName].run;
 						});
@@ -1401,7 +1398,9 @@ Engine_Cule : CroneEngine {
 				this.addCommand(sourceName ++ '_' ++ destName, "if", { |msg|
 					var synth = voiceSynths[msg[1] - 1][\mod][sourceName][destName];
 					var amount = msg[2];
+					msg.postln;
 					if(amount != 0, {
+						"run".postln;
 						synth.run;
 					});
 					synth.set(\amount, amount);
@@ -1448,6 +1447,21 @@ Engine_Cule : CroneEngine {
 		});
 
 		this.addCommand(\trace, "i", { |msg|
+			var traceOrRecurse = { |label, value|
+				if (value.class === Synth) {
+					0.1.wait;
+					"% -------------\n".postf(label);
+					value.trace;
+				} {
+					0.25.wait;
+					"% (% synths) -------------\n".postf(label, value.size);
+					if (value.class === Dictionary) {
+						value.keysValuesDo(traceOrRecurse);
+					} {
+						value.do({ |value, index| traceOrRecurse.(index, value); });
+					}
+				}
+			};
 			fork {
 				"Engine group trace -------------".postln;
 				group.trace;
@@ -1459,20 +1473,7 @@ Engine_Cule : CroneEngine {
 					// optional argument will trace only one voice's synths
 					if ([ 0, v - 1 ].includes(msg[1])) {
 						"Voice % synths -------------\n".postf(v);
-						voice.keysValuesDo { |type, synths|
-							if ([ Array, Dictionary ].includes(synths.class)) {
-								"% (% synths) -------------\n".postf(type, synths.size);
-								synths.do { |synth|
-									synth.trace;
-									context.server.sync;
-								};
-							} {
-								// assume that if synths isn't an array, it's one synth
-								"% -------------\n".postf(type);
-								synths.trace;
-								context.server.sync;
-							};
-						};
+						voice.keysValuesDo(traceOrRecurse);
 					};
 				};
 				"Reply synth -------------".postln;
