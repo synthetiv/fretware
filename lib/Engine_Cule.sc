@@ -96,7 +96,6 @@ Engine_Cule : CroneEngine {
 			allBuffers.add(buf);
 			buf.bufnum;
 		}));
-		allBuffers.add(waveMapsLoop);
 
 		// n buffers (indexed by wave) of waveform buffers, indexed by pitch range
 		var waveMapsOneShot = Buffer.loadCollection(context.server, waveMapsOneShotArray.collect({ |map|
@@ -104,9 +103,11 @@ Engine_Cule : CroneEngine {
 			allBuffers.add(buf);
 			buf.bufnum;
 		}));
-		alllBuffers.add(waveMapsOneShot);
 
 		var sampleData = Buffer.read(context.server, path, 0, -1);
+
+		allBuffers.add(waveMapsLoop);
+		allBuffers.add(waveMapsOneShot);
 		allBuffers.add(sampleData);
 
 		// Looping sample player
