@@ -1481,6 +1481,21 @@ Engine_Cule : CroneEngine {
 			}
 		});
 
+		this.addCommand(\toggle, "si", { |msg|
+			var element = msg[1].asSymbol;
+			voiceSynths.do({ |voice|
+				var synth = voice[element];
+				var state = msg[2] > 0;
+				if ([ Array, Dictionary ].includes(synth.class)) {
+					synth.do({ |child|
+						child.run(state);
+					});
+				} {
+					synth.run(state);
+				};
+			});
+		});
+
 		context.server.sync;
 	}
 
