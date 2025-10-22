@@ -481,6 +481,7 @@ function g.key(x, y, z)
 		-- mod reset key
 		if source_menu.n_held > 0 then
 			-- if there are any held sources, reset all routes involving them
+			-- TODO: this isn't working for voice mod, like loop rate
 			for source = 1, #editor.source_names do
 				if source_menu.held[source] then
 					local source_name = editor.source_names[source]
@@ -499,6 +500,7 @@ function g.key(x, y, z)
 		end
 		if held_keys[1] then
 			-- if K1 is held, reset all routes involving the selected dest
+			-- TODO: this isn't working for voice mod, like loop rate
 			local dest_name = editor.dests[editor.selected_dest].name
 			local defaults = editor.dests[editor.selected_dest].source_defaults
 			for source = 1, #editor.source_names do
