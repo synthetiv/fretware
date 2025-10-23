@@ -481,13 +481,16 @@ function g.key(x, y, z)
 		-- mod reset key
 		if source_menu.n_held > 0 then
 			-- if there are any held sources, reset all routes involving them
-			-- TODO: this isn't working for voice mod, like loop rate
 			for source = 1, #editor.source_names do
 				if source_menu.held[source] then
 					local source_name = editor.source_names[source]
-					for dest = 1, #editor.dests do
-						local dest_name = editor.dests[dest].name
-						local defaults = editor.dests[dest].source_defaults
+					for d = 1, #editor.dests do
+						local dest = editor.dests[d]
+						local dest_name = dest.name
+						if dest.voice_dest then
+							dest_name = dest_name .. '_' .. k.selected_voice
+						end
+						local defaults = dest.source_defaults
 						local param = params:lookup_param(source_name .. '_' .. dest_name)
 						if defaults and defaults[source_name] then
 							param:set(defaults[source_name])
@@ -500,12 +503,16 @@ function g.key(x, y, z)
 		end
 		if held_keys[1] then
 			-- if K1 is held, reset all routes involving the selected dest
-			-- TODO: this isn't working for voice mod, like loop rate
-			local dest_name = editor.dests[editor.selected_dest].name
-			local defaults = editor.dests[editor.selected_dest].source_defaults
+			local dest = editor.dests[editor.selected_dest]
+			local dest_name = dest.name
+			if dest.voice_dest then
+				dest_name = dest_name .. '_' .. k.selected_voice
+			end
+			local defaults = dest.source_defaults
 			for source = 1, #editor.source_names do
 				local source_name = editor.source_names[source]
-				local param = params:lookup_param(source_name .. '_' .. dest_name)
+				local param_name = source_name .. '_' .. dest_name
+				local param = params:lookup_param(param_name)
 				if defaults and defaults[source_name] then
 					param:set(defaults[source_name])
 				else
