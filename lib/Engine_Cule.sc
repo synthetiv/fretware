@@ -512,7 +512,6 @@ Engine_Cule : CroneEngine {
 			});
 
 			// create buffer for looping control data
-			// TODO: now this isn't working???
 			bufferRate = ControlRate.ir * bufferRateScale;
 			bufferLength = context.server.sampleRate / context.server.options.blockSize * maxLoopTime * bufferRateScale;
 			buffer = LocalBuf.new(bufferLength, nRecordedModulators);
@@ -520,7 +519,7 @@ Engine_Cule : CroneEngine {
 			loopLength = (\loopLength.kr * bufferRate).min(bufferLength);
 			loopPhase = Phasor.kr(
 				Trig.kr(freeze) + \loopReset.tr,
-				bufferRateScale * \loopRate.kr * 8.pow(\loopRateMod.kr),
+				bufferRateScale * \loopRate.kr(1) * 8.pow(\loopRateMod.kr),
 				0, loopLength, 0
 			);
 			// offset by loopPosition, but constrain to loop bounds
