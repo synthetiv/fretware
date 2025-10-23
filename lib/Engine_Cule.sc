@@ -1194,8 +1194,6 @@ Engine_Cule : CroneEngine {
 					// if this routing amount ISN'T set patch-wide, don't map amount!
 					if(patchModulationDests.keys.includes(destName), {
 						// TODO: this is not working properly!! why??
-						("Mapping mod route: " ++ sourceName ++ " -> " ++ destName).postln;
-						patchBuses[\mod][sourceName][destName].postln;
 						synth.map(\amount, patchBuses[\mod][sourceName][destName]);
 					});
 					synth.map(\in, outputBuses[sourceName]);
@@ -1391,11 +1389,9 @@ Engine_Cule : CroneEngine {
 					if(amount != 0, {
 						voiceSynths.do({ |synths|
 							synths[\mod][sourceName][destName].run;
-							// TODO: bus mapping seems not to work, so we're doing this instead for now...
-							synths[\mod][sourceName][destName].set(\amount, amount);
 						});
 					});
-					// patchBuses[\mod][sourceName][destName].set(\amount, amount);
+					patchBuses[\mod][sourceName][destName].set(amount);
 				});
 			});
 
