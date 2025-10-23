@@ -1470,13 +1470,6 @@ function redraw()
 		end
 
 		if dest_slider.y >= -4 and dest_slider.y <= 132 then
-			-- TODO NEXT!!: maybe just indicate actual fader position, instead of offsetting -- it's a lil 
-			-- weird
-			if d <= 16 and xvi_state[d].value then
-				dest_slider.x = math.floor((dest_slider.value - xvi_state[d].value) * 64 + 0.5) + 1
-			else
-				dest_slider.x = 1
-			end
 			local source_slider = nil
 			if dest.voice_dest then
 				source_slider = voice_mod_mappings[d][source_menu.value][k.selected_voice].slider
@@ -1484,10 +1477,17 @@ function redraw()
 				source_slider = patch_mod_mappings[d][source_menu.value].slider
 			end
 			source_slider.y = dest_slider.y - 1
-			source_slider.x = dest_slider.x - 1
 			source_slider:redraw(active and 2 or 1, active and 15 or 4)
 
 			dest_slider:redraw(active and 1 or 0, active and 3 or 1)
+			if d <= 16 then
+				local xvi_value = xvi_state[d].value
+				if xvi_value then
+					local match = xvi_value == dest_slider.value
+					local cap_level = active and (match and 15 or 3) or 1
+					dest_slider:draw_cap(xvi_value, cap_level, match and cap_level or 0)
+				end
+			end
 
 			screen.level(active and 10 or 1)
 			screen.move(0, dest_slider.y - 3)
