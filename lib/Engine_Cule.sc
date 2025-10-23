@@ -56,7 +56,7 @@ Engine_Cule : CroneEngine {
 		var whichOsc = Fold.kr(whichRatio) * 2.5 - 1.25;
 		var oscRatios = Index.kr(fmRatios, (whichRatio + [ 1, 0 ]).trunc(2) + [ 0, 1 ]);
 		var oscs = uGen.ar(hz * oscRatios, uGenArg);
-		^LinXFade2.ar(
+		^XFade2.ar(
 			oscs[0],
 			oscs[1],
 			whichOsc
