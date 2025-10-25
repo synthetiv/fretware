@@ -73,7 +73,7 @@ Engine_Cule : CroneEngine {
 
 	modAmount {
 		var amount = \amount.kr;
-		var fadeOutEnv = Env.asr(releaseTime: 0.1).kr(Done.pauseSelf, BinaryOpUGen('!=', amount, 0));
+		var fadeOutEnv = Env.asr(releaseTime: 0.1).kr(Done.freeSelf, BinaryOpUGen('!=', amount, 0));
 		// TODO: allow another modulation source (hand, lfo...) to scale this one
 		// ^\scale.kr(1) * Lag.kr(amount, 0.1) * fadeOutEnv;
 		^Lag.kr(amount, 0.1) * fadeOutEnv;
@@ -257,9 +257,7 @@ Engine_Cule : CroneEngine {
 
 	alloc {
 
-		"alloc - syncing".postln;
-		context.server.sync;
-		"synced, starting alloc".postln;
+		"alloc".postln;
 
 		opTypeDefNames = [
 			// arrays define 'soft' and 'hard' versions
@@ -1171,37 +1169,9 @@ Engine_Cule : CroneEngine {
 			});
 
 			// create a Dictionary to be populated by mod router synths as needed
-			routerSynths = Dictionary.new;
-			modulationSources.keysValuesDo({ |sourceName, sourceRate|
-				var destDict = Dictionary.new;
-				modulationDests.keys.do({ |destName|
-					var defName = \modRouter_ ++ if(sourceName === \amp, {
-						if(destName === \hpCutoff, {
-							\amp_up;
-						}, {
-							if([ \indexA, \indexB, \lpCutoff ].includes(destName), {
-								\amp_down;
-							}, {
-								\ar_ ++ modulationDests[destName];
-							});
-						});
-					}, {
-						modulationSources[sourceName] ++ '_' ++ modulationDests[destName];
-					});
-					var synth = Synth.new(defName, [
-						\outBus, modBuses[destName],
-					], group, \addToTail);
-					// if this routing amount ISN'T set patch-wide, don't map amount!
-					if(patchModulationDests.keys.includes(destName), {
-						// TODO: this is not working properly!! why??
-						synth.map(\amount, patchBuses[\mod][sourceName][destName]);
-					});
-					synth.map(\in, outputBuses[sourceName]);
-					context.server.sync;
-					synth.run(false);
-					destDict.put(destName, synth);
-				});
-				routerSynths.put(sourceName, destDict);
+			routerSynths = Dictionary.new(modulationSources.size);
+			modulationSources.keys.do({ |sourceName|
+				routerSynths.put(sourceName, Dictionary.new(modulationDests.size));
 			});
 
 			lfos = Array.fill(3, { |slot|
@@ -1381,14 +1351,36 @@ Engine_Cule : CroneEngine {
 		});
 
 		modulationSources.keys.do({ |sourceName|
-
 			patchModulationDests.keys.do({ |destName|
+
+				var defName = \modRouter_ ++ if(sourceName === \amp, {
+					if(destName === \hpCutoff, {
+						\amp_up;
+					}, {
+						if([ \indexA, \indexB, \lpCutoff ].includes(destName), {
+							\amp_down;
+						}, {
+							\ar_ ++ modulationDests[destName];
+						});
+					});
+				}, {
+					modulationSources[sourceName] ++ '_' ++ modulationDests[destName];
+				});
+
 				this.addCommand(sourceName ++ '_' ++ destName, "f", { |msg|
 					var amount = msg[1];
-					msg.postln;
 					if(amount != 0, {
-						voiceSynths.do({ |synths|
-							synths[\mod][sourceName][destName].run;
+						voiceSynths.do({ |synths, v|
+							var sourceSynths = synths[\mod][sourceName];
+							if(sourceSynths[destName].isNil || sourceSynths[destName].isPlaying.not, {
+								var synth = Synth.new(defName, [
+									\outBus, voiceModBuses[v][destName],
+								], group, \addToTail);
+								synth.map(\in, voiceOutputBuses[v][sourceName]);
+								synth.map(\amount, patchBuses[\mod][sourceName][destName]);
+								synth.register(true);
+								sourceSynths.put(destName, synth);
+							});
 						});
 					});
 					patchBuses[\mod][sourceName][destName].set(amount);
@@ -1396,14 +1388,25 @@ Engine_Cule : CroneEngine {
 			});
 
 			voiceModulationDests.keys.do({ |destName|
+				var defName = \modRouter_ ++ modulationSources[sourceName] ++ '_' ++ modulationDests[destName];
 				this.addCommand(sourceName ++ '_' ++ destName, "if", { |msg|
-					var synth = voiceSynths[msg[1] - 1][\mod][sourceName][destName];
+					var v = msg[1] - 1;
+					var sourceSynths = voiceSynths[v][\mod][sourceName];
 					var amount = msg[2];
-					msg.postln;
-					if(amount != 0, {
-						synth.run;
+					// msg.postln;
+					if(sourceSynths[destName].isNil || sourceSynths[destName].isPlaying.not, {
+						if(amount != 0, {
+							var synth = Synth.new(defName, [
+								\outBus, voiceModBuses[v][destName],
+								\amount, amount,
+							], group, \addToTail);
+							synth.map(\in, voiceOutputBuses[v][sourceName]);
+							synth.register(true);
+							sourceSynths.put(destName, synth);
+						});
+					}, {
+						sourceSynths[destName].set(\amount, amount);
 					});
-					synth.set(\amount, amount);
 				});
 			});
 		});
@@ -1519,10 +1522,6 @@ Engine_Cule : CroneEngine {
 			voiceAmpReplyFunc.free;
 			voicePitchReplyFunc.free;
 			lfoGateReplyFunc.free;
-
-			context.server.sync;
-			"Engine_Cule freed. Remaining nodes:".postln;
-			context.server.queryAllNodes;
 		}
 	}
 }
