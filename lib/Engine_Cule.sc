@@ -998,7 +998,6 @@ Engine_Cule : CroneEngine {
 		// );
 
 		SynthDef.new(\operatorMixer, {
-			// TODO: pause op synths when they're fully mixed out??
 			var opA, opB, output;
 			# opA, opB = In.ar(\opsBus.ir, 2);
 			output = SelectX.ar(\mix.ar.linlin(-1, 1, 0, 4, nil).wrap(0, 3), [
@@ -1084,7 +1083,7 @@ Engine_Cule : CroneEngine {
 
 			// LPF
 			lpCutoff = IEnvGen.ar(
-				Env.xyc([ [-1, 4], [\lpBreakpointIn.kr(-0.5), \lpBreakpointOut.kr(400), \exp], [1, 24000] ]),
+				Env.xyc([ [-1, 4], [-0.5, 400, \exp], [1, 24000] ]),
 				\lpCutoff.ar(1)
 			);
 			lpRQ = \lpRQ.kr(0.7).max(0.1);
