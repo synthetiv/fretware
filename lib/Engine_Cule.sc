@@ -1,6 +1,6 @@
 Engine_Cule : CroneEngine {
 
-	classvar nVoices = 3;
+	classvar nVoices = 4;
 	classvar nRecordedModulators = 8;
 	classvar bufferRateScale = 0.5;
 	classvar maxLoopTime = 60;
