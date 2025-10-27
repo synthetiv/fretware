@@ -7,7 +7,7 @@ Lattice = require 'lattice'
 Slider = include 'lib/slider'
 SliderMapping = include 'lib/slidermapping'
 
-n_voices = 4
+n_voices = 3
 
 Keyboard = include 'lib/keyboard'
 k = Keyboard.new(1, 1, 16, 8)
