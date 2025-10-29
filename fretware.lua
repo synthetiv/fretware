@@ -1485,7 +1485,7 @@ function redraw()
 				if xvi_value then
 					local match = xvi_value == dest_slider.value
 					local cap_level = active and (match and 15 or 3) or 1
-					dest_slider:draw_cap(xvi_value, cap_level, match and cap_level or 0)
+					dest_slider:draw_cap(xvi_value, cap_level)
 				end
 			end
 

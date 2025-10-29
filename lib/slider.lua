@@ -27,7 +27,7 @@ end
 
 --- Redraw Slider.
 -- Call when changed.
-function Slider:redraw(bg_level, fg_level, cap_level)
+function Slider:redraw(bg_level, fg_level)
 	screen.rect(self.x, self.y, self.width, self.height)
 	screen.level(bg_level)
 	screen.fill()
@@ -46,11 +46,8 @@ function Slider:redraw(bg_level, fg_level, cap_level)
 	screen.fill()
 end
 
-function Slider:draw_cap(value, border_level, fill_level)
+function Slider:draw_cap(value, fill_level)
 	local cap_x = util.linlin(self.min_value, self.max_value, 0, self.width - 1, value or 0)
-	screen.rect(self.x + cap_x - 0.5, self.y - 1.5, 2, self.height + 3)
-	screen.level(border_level)
-	screen.stroke()
 	screen.rect(self.x + cap_x, self.y - 1, 1, self.height + 2)
 	screen.level(fill_level)
 	screen.fill()
