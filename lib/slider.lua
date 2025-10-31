@@ -46,10 +46,18 @@ function Slider:redraw(bg_level, fg_level)
 	screen.fill()
 end
 
-function Slider:draw_cap(value, fill_level)
+function Slider:draw_point(value, level)
 	local cap_x = util.linlin(self.min_value, self.max_value, 0, self.width - 1, value or 0)
-	screen.rect(self.x + cap_x, self.y - 1, 1, self.height + 2)
-	screen.level(fill_level)
+	screen.pixel(self.x + cap_x, self.y - 2)
+	screen.pixel(self.x + cap_x, self.y + self.height + 1)
+	screen.level(level)
+	screen.fill()
+end
+
+function Slider:draw_line(value, level)
+	local cap_x = util.linlin(self.min_value, self.max_value, 0, self.width - 1, value or 0)
+	screen.rect(self.x + cap_x, self.y - 2, 1, self.height + 4)
+	screen.level(level)
 	screen.fill()
 end
 

@@ -1482,10 +1482,16 @@ function redraw()
 			dest_slider:redraw(active and 1 or 0, active and 3 or 1)
 			if d <= 16 then
 				local xvi_value = xvi_state[d].value
+				local match = xvi_value == dest_slider.value
+				if not match then
+					dest_slider:draw_line(dest_slider.value, active and 5 or 3)
+				end
 				if xvi_value then
-					local match = xvi_value == dest_slider.value
-					local cap_level = active and (match and 15 or 3) or 1
-					dest_slider:draw_cap(xvi_value, cap_level)
+					if match then
+						dest_slider:draw_line(xvi_value, active and 15 or 3)
+					else
+						dest_slider:draw_point(xvi_value, 3)
+					end
 				end
 			end
 
