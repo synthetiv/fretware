@@ -1483,6 +1483,40 @@ Engine_Cule : CroneEngine {
 			}
 		});
 
+		this.addCommand(\listBuses, "", { |msg|
+			var traceOrRecurse = { |label, value|
+				if (value.class === Bus) {
+					if (value.numChannels > 1) {
+						value.numChannels.do({ |n|
+							"%[%]: % bus %\n".postf(label, n, value.rate, value.index + n);
+						});
+					} {
+						"%: % bus %\n".postf(label, value.rate, value.index);
+					}
+				} {
+					"% -------------\n".postf(label);
+					value.keysValuesDo(traceOrRecurse);
+					"-------------".postln;
+				}
+			};
+			"baseFreqBus: %\n".postf(baseFreqBus.index);
+			"clockPhaseBus: %\n".postf(clockPhaseBus.index);
+			voiceParamBuses.do({ |buses, voice|
+				"voice % params -------------\n".postf(voice);
+				buses.keysValuesDo(traceOrRecurse);
+			});
+			voiceModBuses.do({ |buses, voice|
+				"voice % mod -------------\n".postf(voice);
+				buses.keysValuesDo(traceOrRecurse);
+			});
+			voiceOutputBuses.do({ |buses, voice|
+				"voice % outs -------------\n".postf(voice);
+				buses.keysValuesDo(traceOrRecurse);
+			});
+			"patch -------------".postln;
+			patchBuses.keysValuesDo(traceOrRecurse);
+		});
+
 		this.addCommand(\toggle, "si", { |msg|
 			var element = msg[1].asSymbol;
 			var state = msg[2] > 0;
