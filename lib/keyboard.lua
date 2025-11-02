@@ -7,6 +7,8 @@ for p = 1, 12 do
 	et12[p] = { p / 12, nil }
 end
 
+local Stepper = include 'lib/stepper'
+
 local min_plectrum_distance = 1.5 -- plectrum must be <= 1.5 keys away to play/select a note
 
 -- TODO: panic function, for when a note gets stuck due to momentary grid connection loss
@@ -52,9 +54,8 @@ function Keyboard.new(x, y, width, height)
 			voices = {},
 			voice_loops = {}
 		},
-		sustained_keys = {}, -- stack of sustained key IDs
-		n_sustained_keys = 0,
-		editing_sustained_key_index = false,
+		stack = {}, -- arp/sustain stack: { id, gate... }
+		stack_edit_index = false,
 		arp_index = 0,
 		arp_insert = 0,
 		arp_direction = 1, -- select arp notes by (1) order played, (2) random, or (3) plectrum distance
@@ -85,6 +86,7 @@ function Keyboard.new(x, y, width, height)
 		on_pitch = function() end,
 		on_gate = function() end,
 	}
+	keyboard.stepper = Stepper.new(keyboard, 3, 1, 7, 7)
 	setmetatable(keyboard, Keyboard)
 	for v = 1, n_voices do
 		keyboard.voice_data[v] = {
@@ -176,7 +178,7 @@ function Keyboard:key(x, y, z)
 			-- latch key
 			if z == 1 then
 				self.held_keys.latch = not self.held_keys.latch
-				self:maybe_release_sustained_keys()
+				self:maybe_clear_stack()
 			end
 		elseif x == self.x + 3 then
 			-- glide toggle
@@ -260,19 +262,18 @@ function Keyboard:key(x, y, z)
 	end
 end
 
-function Keyboard:maybe_release_sustained_keys()
+function Keyboard:maybe_clear_stack()
 	if self.held_keys.latch then
 		return
 	end
 	local held_keys = self.held_keys
-	local sustained_keys = self.sustained_keys
+	local stack = self.stack
 	local i = 1
-	while i <= self.n_sustained_keys do
-		if held_keys[sustained_keys[i]] then
+	while i <= #self.stack do
+		if held_keys[stack[i].id] then
 			i = i + 1
 		else
-			table.remove(sustained_keys, i)
-			self.n_sustained_keys = self.n_sustained_keys - 1
+			table.remove(stack, i)
 			if self.arp_index >= i then
 				self.arp_index = self.arp_index - 1
 			end
@@ -281,10 +282,11 @@ function Keyboard:maybe_release_sustained_keys()
 			end
 		end
 	end
-	if self.n_sustained_keys > 0 then
-		self.arp_index = (self.arp_index - 1) % self.n_sustained_keys + 1
-		self.arp_insert = (self.arp_insert - 1) % self.n_sustained_keys + 1
-		self:set_active_key(sustained_keys[self.arp_index], true)
+	local n_stack = #self.stack
+	if n_stack > 0 then
+		self.arp_index = (self.arp_index - 1) % n_stack + 1
+		self.arp_insert = (self.arp_insert - 1) % n_stack + 1
+		self:set_active_key(stack[self.arp_index].id, true)
 	else
 		-- even if no keys are held, bend targets may need to be reset
 		self:set_bend_targets()
@@ -292,16 +294,6 @@ function Keyboard:maybe_release_sustained_keys()
 	if self.arp_plectrum then
 		self:move_plectrum(0, 0)
 	end
-end
-
-function Keyboard:find_sustained_key(key_id)
-	for k = 1, self.n_sustained_keys do
-		local index = (self.arp_index + k - 2) % self.n_sustained_keys + 1
-		if self.sustained_keys[index] == key_id then
-			return index
-		end
-	end
-	return false
 end
 
 function Keyboard:shift_octave(od)
@@ -312,17 +304,17 @@ function Keyboard:shift_octave(od)
 	od = self.octave - o
 	local held_keys = self.held_keys
 	-- move bent pitch, if appropriate
-	-- this needs to happen BEFORE we move sustained_keys around,
-	-- so we can know if all sustained keys were held before the shift happened
+	-- this needs to happen BEFORE we move stack keys around,
+	-- so we can know if all stack keys were held before the shift happened
 	if self.gliding then
 		-- always move if scroll is off
 		local move_bent_pitch = not held_keys.octave_scroll
-		-- or if ALL sustained keys are being held
-		if not move_bent_pitch and self.n_sustained_keys > 0 then
+		-- or if ALL stack keys are being held
+		if not move_bent_pitch and #self.stack > 0 then
 			move_bent_pitch = true
 			local k = 1
-			while move_bent_pitch and k <= self.n_sustained_keys do
-				move_bent_pitch = move_bent_pitch and held_keys[self.sustained_keys[k]]
+			while move_bent_pitch and k <= #self.stack do
+				move_bent_pitch = move_bent_pitch and held_keys[self.stack[k].id]
 				k = k + 1
 			end
 		end
@@ -331,14 +323,14 @@ function Keyboard:shift_octave(od)
 		end
 	end
 	-- when scroll is not engaged, all key IDs remain the same so that pitches change.
-	-- when engaged, sustained (but not held) keys must be shifted so that pitches remain the same
+	-- when engaged, stack keys that aren't held must be shifted so that pitches remain the same
 	if held_keys.octave_scroll then
-		local sustained_keys = self.sustained_keys
+		local stack = self.stack
 		-- how far must keys be shifted so that their pitches remain the same?
 		local d = -od * self.scale.length
-		for i = 1, self.n_sustained_keys do
-			if not held_keys[sustained_keys[i]] then
-				sustained_keys[i] = self:get_key_id_neighbor(sustained_keys[i], d)
+		for i = 1, #self.stack do
+			if not held_keys[stack[i].id] then
+				stack[i].id = self:get_key_id_neighbor(stack[i].id, d)
 			end
 		end
 		if not held_keys[self.active_key] then
@@ -352,22 +344,22 @@ function Keyboard:shift_octave(od)
 		self:move_plectrum(0, 0)
 	end
 	-- recalculate active pitch with new octave
-	if not self.arping or self.n_sustained_keys == 0 then
+	if not self.arping or #self.stack == 0 then
 		self:set_active_key(self.active_key)
-		if self.n_sustained_keys > 0 and self.retrig and not self.gliding then
+		if #self.stack > 0 and self.retrig and not self.gliding then
 			self.on_gate(true)
 		end
 	end
 end
 
 function Keyboard:set_bend_targets()
-	if not self.gliding or self.n_sustained_keys <= 1 then
+	if not self.gliding or #self.stack <= 1 then
 		return
 	end
 	local min = self.active_pitch
 	local max = self.active_pitch
-	for k = 1, self.n_sustained_keys do
-		local pitch = self:get_key_id_pitch_value(self.sustained_keys[k])
+	for k = 1, #self.stack do
+		local pitch = self:get_key_id_pitch_value(self.stack[k].id)
 		min = math.min(min, pitch)
 		max = math.max(max, pitch)
 	end
@@ -382,7 +374,7 @@ function Keyboard:set_bend_targets()
 end
 
 function Keyboard:glide()
-	if not self.gliding or self.n_sustained_keys <= 1 then
+	if not self.gliding or #self.stack <= 1 then
 		return
 	end
 	-- one-pole glide with overshoot and clamp: fixed-ISH glide time, expo/log-ISH approach but
@@ -422,69 +414,71 @@ end
 
 function Keyboard:note(x, y, z)
 	local key_id = self:get_key_id(x, y)
-	local sustained_key_index = self:find_sustained_key(key_id)
+	local stack_key_index = self:find_key_in_stack(key_id)
 	self.held_keys[key_id] = z == 1
 	if z == 1 then
 		-- key pressed
 		if self.held_keys.latch then
-			if self.editing_sustained_key_index then
-				self.sustained_keys[self.editing_sustained_key_index] = key_id
-				self.editing_sustained_key_index = false
+			if self.stack_edit_index then
+				self.stack[self.stack_edit_index].id = key_id
+				self.stack_edit_index = false
 				self:set_bend_targets()
 				if self.arp_plectrum then
 					self:move_plectrum(0, 0)
 				end
 				return
-			elseif not self.held_keys.shift and sustained_key_index then
-				self.editing_sustained_key_index = sustained_key_index
+			elseif not self.held_keys.shift and stack_key_index then
+				self.stack_edit_index = stack_key_index
 				return
 			end
 		end
-		if self.gliding or not self.arping or self.n_sustained_keys == 0 then
+		if self.gliding or not self.arping or #self.stack == 0 then
 			-- glide mode, no arp, or first note held: push new note to the stack
-			self.n_sustained_keys = self.n_sustained_keys + 1
-			self.arp_index = self.n_sustained_keys
-			self.arp_insert = self.n_sustained_keys
-			table.insert(self.sustained_keys, key_id)
+			self.arp_index = #self.stack
+			self.arp_insert = #self.stack
+			table.insert(self.stack, {
+				id = key_id,
+				gate = true
+			})
 			self:set_active_key(key_id)
 			-- set gate high if we're in retrig mode, or if this is the first note held
-			if not self.arping and ((self.retrig and not self.gliding) or self.n_sustained_keys == 1) then
+			if not self.arping and ((self.retrig and not self.gliding) or #self.stack == 1) then
 				self.on_gate(true)
 			end
 		else
 			-- arp: insert note to be played at next arp tick
 			self.arp_insert = self.arp_insert + 1
-			table.insert(self.sustained_keys, self.arp_insert, key_id)
-			self.n_sustained_keys = self.n_sustained_keys + 1
+			table.insert(self.stack, self.arp_insert, {
+				id = key_id,
+				gate = true
+			})
 		end
 	elseif self.held_keys.latch then
 		-- latch held, key released
-		if sustained_key_index and sustained_key_index == self.editing_sustained_key_index then
-			table.remove(self.sustained_keys, sustained_key_index)
-			if self.arp_index >= sustained_key_index then
+		if stack_key_index and stack_key_index == self.stack_edit_index then
+			table.remove(self.stack, stack_key_index)
+			if self.arp_index >= stack_key_index then
 				self.arp_index = self.arp_index - 1
 			end
-			if self.arp_insert >= sustained_key_index then
+			if self.arp_insert >= stack_key_index then
 				self.arp_insert = self.arp_insert - 1
 			end
-			self.n_sustained_keys = self.n_sustained_keys - 1
-			if not self.arping and sustained_key_index > self.n_sustained_keys and self.n_sustained_keys > 0 then
-				self:set_active_key(self.sustained_keys[self.n_sustained_keys])
+			if not self.arping and stack_key_index > #self.stack and #self.stack > 0 then
+				self:set_active_key(self.stack[#self.stack].id)
 			else
 				self:set_bend_targets()
 			end
-			if self.n_sustained_keys == 0 then
+			if #self.stack == 0 then
 				self.on_gate(false)
 			end
-			self.editing_sustained_key_index = false
+			self.stack_edit_index = false
 		end
 	else
-		-- key released: release or remove from sustained keys
+		-- key released: release or remove from stack
 		local i = 1
-		while i <= self.n_sustained_keys do
-			if self.sustained_keys[i] == key_id then
-				table.remove(self.sustained_keys, i)
-				self.n_sustained_keys = self.n_sustained_keys - 1
+		while i <= #self.stack do
+			if self.stack[i].id == key_id then
+				table.remove(self.stack, i)
 				if self.arp_index >= i then
 					self.arp_index = self.arp_index - 1
 				end
@@ -495,12 +489,13 @@ function Keyboard:note(x, y, z)
 				i = i + 1
 			end
 		end
-		if self.n_sustained_keys > 0 then
-			self.arp_index = (self.arp_index - 1) % self.n_sustained_keys + 1
-			self.arp_insert = (self.arp_insert - 1) % self.n_sustained_keys + 1
+		local n_stack = #self.stack
+		if n_stack > 0 then
+			self.arp_index = (self.arp_index - 1) % n_stack + 1
+			self.arp_insert = (self.arp_insert - 1) % n_stack + 1
 			if not self.arping then
 				local released_active_key = key_id == self.active_key
-				self:set_active_key(self.sustained_keys[self.arp_index], true)
+				self:set_active_key(self.stack[self.arp_index].id, true)
 				if released_active_key and self.retrig and not self.gliding then
 					self.on_gate(true)
 				end
@@ -514,9 +509,9 @@ function Keyboard:note(x, y, z)
 	end
 end
 
-function Keyboard:arp(do_step, gate)
-	if self.arping and self.n_sustained_keys > 0 then
-		if do_step then
+function Keyboard:arp(gate)
+	if self.arping and #self.stack > 0 then
+		if gate then
 			if self.arp_direction == 3 then
 				local new_arp_index = self:update_plectrum_arp_index()
 				if new_arp_index then
@@ -529,16 +524,18 @@ function Keyboard:arp(do_step, gate)
 				if self.arp_direction == 2 then
 					-- 1-rand makes random range (0,1] instead of [0,1)
 					-- so we'll be jumping at least 1 step, up to n_keys-1
-					step_size = math.ceil((1 - math.random()) * (self.n_sustained_keys - 1))
+					step_size = math.ceil((1 - math.random()) * (#self.stack - 1))
 				end
-				self.arp_index = (self.arp_index + step_size - 1) % self.n_sustained_keys + 1
+				self.arp_index = (self.arp_index + step_size - 1) % #self.stack + 1
 			end
 			self.arp_insert = self.arp_index
-			if gate then
-				self:set_active_key(self.sustained_keys[self.arp_index])
+			if self.stack[self.arp_index].gate then
+				self:set_active_key(self.stack[self.arp_index].id)
+				self.on_gate(true)
 			end
+		else
+			self.on_gate(false)
 		end
-		self.on_gate(gate)
 	end
 end
 
@@ -581,7 +578,7 @@ function Keyboard:move_plectrum(dx, dy, nowrap)
 	if octave_shift ~= 0 then
 		self:shift_octave(octave_shift)
 	end
-	if self.arp_plectrum and self.n_sustained_keys > 1 then
+	if self.arp_plectrum and #self.stack > 1 then
 		local old_key_id, old_pitch_id = self.plectrum.key_id, self.plectrum.pitch_id
 		local new_arp_index = self:update_plectrum_arp_index()
 		if not new_arp_index then
@@ -592,7 +589,7 @@ function Keyboard:move_plectrum(dx, dy, nowrap)
 			if old_key_id ~= self.plectrum.key_id or old_pitch_id ~= self.plectrum.pitch_id then
 				self.arp_index = new_arp_index
 				self.arp_insert = self.arp_index
-				self:set_active_key(self.sustained_keys[self.arp_index])
+				self:set_active_key(self.stack[self.arp_index].id)
 				self.on_gate(true)
 			end
 		end
@@ -610,7 +607,7 @@ function Keyboard:get_plectrum_distances(x, y)
 end
 
 function Keyboard:update_plectrum_arp_index()
-	if self.n_sustained_keys < 1 then
+	if #self.stack < 1 then
 		self.plectrum.arp_index = nil
 		self.plectrum.key_distance = math.huge
 		self.plectrum.key_id = nil
@@ -619,8 +616,8 @@ function Keyboard:update_plectrum_arp_index()
 	end
 	local best_distance = math.huge
 	local closest_arp_index = nil
-	for n = 1, self.n_sustained_keys do
-		local key_x, key_y = self:get_key_id_coords(self.sustained_keys[n])
+	for n = 1, #self.stack do
+		local key_x, key_y = self:get_key_id_coords(self.stack[n].id)
 		local dx, dy = self:get_plectrum_distances(key_x, key_y)
 		-- first, compare x and y directly so we can throw out any way-off candidates
 		if dx < min_plectrum_distance and dy < min_plectrum_distance then
@@ -636,7 +633,7 @@ function Keyboard:update_plectrum_arp_index()
 	if closest_arp_index then
 		self.plectrum.arp_index = closest_arp_index
 		self.plectrum.key_distance = best_distance
-		self.plectrum.key_id = self.sustained_keys[closest_arp_index]
+		self.plectrum.key_id = self.stack[closest_arp_index].id
 		self.plectrum.pitch_id = self:get_key_id_pitch_id(self.plectrum.key_id)
 	end
 	return closest_arp_index
@@ -644,7 +641,7 @@ end
 
 function Keyboard:bend(amount)
 	-- TODO: document/explain the logic here
-	if not self.gliding or self.n_sustained_keys <= 1 then
+	if not self.gliding or #self.stack <= 1 then
 		local delta = amount - self.bend_amount
 		if delta < 0 then
 			self.bent_pitch = self.bent_pitch + (self.active_pitch - self.bend_range - self.bent_pitch) * delta / (-1 - self.bend_amount)
@@ -661,12 +658,12 @@ function Keyboard:set_active_key(key_id, is_release)
 	self.active_key_x, self.active_key_y = self:get_key_id_coords(key_id)
 	self.active_pitch_id = self:get_key_pitch_id(self.active_key_x, self.active_key_y)
 	self.active_pitch = self:get_pitch_id_value(self.active_pitch_id)
-	if is_release and self.gliding and self.n_sustained_keys == 1 then
+	if is_release and self.gliding and #self.stack == 1 then
 		-- we just released the 2nd note of a glide pair; jump straight to the new active
 		-- pitch, as if bend value were 0, even though it's not. bend range will linearize
 		-- over time as bend() is called.
 		self.bent_pitch = self.active_pitch
-	elseif not self.gliding or self.n_sustained_keys == 1 then
+	elseif not self.gliding or #self.stack == 1 then
 		-- measure the current bend amount. if we've just released a note, measure bend from
 		-- the newly active pitch [TODO: but that basically has the effect of setting bend
 		-- to 0... right?]; if we've just added a note, measure from the previously active
@@ -683,14 +680,21 @@ function Keyboard:set_active_key(key_id, is_release)
 	self.on_pitch()
 end
 
-function Keyboard:is_key_sustained(key_id)
-	local sustained_keys = self.sustained_keys
-	for i = 1, self.n_sustained_keys do
-		if sustained_keys[i] == key_id then
-			return true
+function Keyboard:find_key_in_stack(key_id)
+	local stack = self.stack
+	local found_key = false
+	for k = 1, #self.stack do
+		local index = (self.arp_index + k - 2) % #self.stack + 1
+		if stack[index].id == key_id then
+			if stack[index].gate then
+				-- found the key AND the gate is high
+				return index, true
+			end
+			-- found but gate is low, keep looking just in case
+			found_key = index
 		end
 	end
-	return false
+	return found_key, false
 end
 
 function Keyboard:select_voice(v)
@@ -702,7 +706,7 @@ function Keyboard:select_voice(v)
 end
 
 function Keyboard:draw()
-	-- TODO: blink editing_sustained_key_index
+	-- TODO: blink stack_edit_index
 	g:led(self.x, self.y2, self.held_keys.shift and 15 or 6)
 	g:led(self.x + 2, self.y2, self.held_keys.latch and 7 or 2)
 	g:led(self.x + 3, self.y2, self.gliding and 7 or 2)
@@ -731,9 +735,10 @@ function Keyboard:draw()
 			local key_id = self:get_key_id(x, y)
 			local p = self:get_key_pitch_id(x, y)
 			local level = 0
-			-- highlight sustained keys
-			if self:is_key_sustained(key_id) then
-				level = led_blend(level, 6)
+			-- highlight stack keys
+			local in_stack, stack_gate = self:find_key_in_stack(key_id)
+			if in_stack then
+				level = led_blend(level, stack_gate and 6 or 3)
 			end
 
 			local pitch = self:get_key_id_pitch_id(key_id)

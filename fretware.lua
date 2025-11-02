@@ -12,9 +12,6 @@ n_voices = 3
 Keyboard = include 'lib/keyboard'
 k = Keyboard.new(1, 1, 16, 8)
 
-Stepper = include 'lib/stepper'
-stepper = Stepper.new(4, 2, 5, 5)
-
 Menu = include 'lib/menu'
 
 arp_menu = Menu.new(4, 5, 10, 2, {
@@ -54,7 +51,7 @@ arp_menu.on_select = function(source, old_source)
 		k.arping = true
 		k.gliding = false
 	elseif not source then
-		k:arp(false, false)
+		k:arp(false)
 		k.arping = false
 	end
 	k.arp_plectrum = (source == 13)
@@ -363,15 +360,13 @@ for d = 1, #arp_divs do
 		division = rate,
 	}
 	sprocket.action = function()
-		local gate = arp_gates[d]
 		if arp_gates_inverted[d] then
-			gate = sprocket.downbeat
+			arp_gates[d] = sprocket.downbeat
 		else
-			gate = not sprocket.downbeat
+			arp_gates[d] = not sprocket.downbeat
 		end
-		arp_gates[d] = gate
 		if arp_menu.value == d then
-			handle_arp_tick(gate)
+			k:arp(arp_gates[d])
 		end
 	end
 end
@@ -390,15 +385,6 @@ end
 
 loop_clock = false
 loop_free = false
-
-function handle_arp_tick(gate)
-	if gate then
-		stepper:step()
-		k:arp(true, gate and stepper.active_step.gate)
-	else
-		k:arp(false, false)
-	end
-end
 
 function clear_voice_loop(v)
 	-- stop looping (clear loop)
@@ -458,16 +444,16 @@ function g.key(x, y, z)
 		-- first priority in key handler to keyboard keyoffs, then menu keyon, then keyboard
 		-- keyon?
 		if z == 1 then
-			arp_menu.open = not arp_menu.open
-			arp_direction_menu.open = arp_menu.open
-			stepper.open = false
+			k.stepper.open = not k.stepper.open
+			arp_menu.open = false
+			arp_direction_menu.open = false
 			source_menu.open = false
 		end
 	elseif x == 7 and y == 8 then
 		if z == 1 then
-			stepper.open = not stepper.open
-			arp_menu.open = false
-			arp_direction_menu.open = false
+			arp_menu.open = not arp_menu.open
+			arp_direction_menu.open = arp_menu.open
+			k.stepper.open = false
 			source_menu.open = false
 		end
 	elseif x == 9 and y == 8 then
@@ -475,9 +461,9 @@ function g.key(x, y, z)
 			source_menu.open = not source_menu.open
 			arp_menu.open = false
 			arp_direction_menu.open = false
-			stepper.open = false
+			k.stepper.open = false
 		end
-	elseif stepper.open and stepper:key(x, y, z, k.held_keys.shift) then
+	elseif k.stepper.open and k.stepper:key(x, y, z, k.held_keys.shift) then
 		-- stepper handled this one
 	elseif arp_menu.open and x > 2 and y < 8 then
 		if not arp_direction_menu:key(x, y, z) and not arp_menu:key(x, y, z) and z == 1 then
@@ -570,8 +556,21 @@ function grid_redraw()
 			end
 		end
 	end
-	if arp_menu.open then
+	if k.stepper.open then
 		g:led(6, 8, 15)
+	else
+		local level = 2
+		if arp_menu.value then
+			level = 5
+			if k.stack[k.arp_index] and k.stack[k.arp_index].gate then
+				level = level + 2
+			end
+		end
+		g:led(6, 8, level)
+	end
+	k.stepper:draw()
+	if arp_menu.open then
+		g:led(7, 8, 15)
 	elseif arp_menu.value then
 		-- an arp clock source is selected; blink
 		local v = arp_menu.value
@@ -583,10 +582,10 @@ function grid_redraw()
 		elseif voice_states[k.selected_voice][lfo_gate_names[v - #arp_divs]] then
 			level = level + 2
 		end
-		g:led(6, 8, level)
+		g:led(7, 8, level)
 	else
 		-- no source selected; go dark
-		g:led(6, 8, 2)
+		g:led(7, 8, 2)
 	end
 	arp_menu:draw()
 	arp_direction_menu:draw()
@@ -600,20 +599,6 @@ function grid_redraw()
 	end
 	g:led(9, 8, source_menu.open and 7 or 2)
 	source_menu:draw()
-	-- TODO: swap stepper and arp menu keys
-	if stepper.open then
-		g:led(7, 8, 15)
-	else
-		local level = 2
-		if arp_menu.value then
-			level = 5
-			if stepper.active_step.gate then
-				level = level + 2
-			end
-		end
-		g:led(7, 8, level)
-	end
-	stepper:draw()
 	if source_menu.open and (source_menu.n_held > 0 or held_keys[1]) then
 		g:led(1, 1, 7)
 	end
@@ -779,7 +764,7 @@ function init()
 						end
 					end
 					if arp_menu.value == arp_source then
-						handle_arp_tick(gate)
+						k:arp(gate)
 					end
 				end
 			end)
