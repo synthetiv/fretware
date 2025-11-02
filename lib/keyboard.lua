@@ -262,6 +262,33 @@ function Keyboard:key(x, y, z)
 	end
 end
 
+function Keyboard:shift_stack(d)
+	if d > 0 then
+		for i = 1, d do
+			table.insert(self.stack, table.remove(self.stack, 1))
+		end
+	else
+		for i = 1, -d do
+			table.insert(self.stack, 1, table.remove(self.stack, #self.stack))
+		end
+	end
+	if self.stack_edit_index then
+		self.stack_edit_index = (self.stack_edit_index - d - 1) % #self.stack + 1
+	end
+	self.arp_index = (self.arp_index - d - 1) % #self.stack + 1
+	self.arp_insert = (self.arp_insert - d - 1) % #self.stack + 1
+end
+
+function Keyboard:remove_stack_key(i)
+	table.remove(self.stack, i)
+	if self.arp_index >= i then
+		self.arp_index = self.arp_index - 1
+	end
+	if self.arp_insert >= i then
+		self.arp_insert = self.arp_insert - 1
+	end
+end
+
 function Keyboard:maybe_clear_stack()
 	if self.held_keys.latch then
 		return
@@ -273,13 +300,7 @@ function Keyboard:maybe_clear_stack()
 		if held_keys[stack[i].id] then
 			i = i + 1
 		else
-			table.remove(stack, i)
-			if self.arp_index >= i then
-				self.arp_index = self.arp_index - 1
-			end
-			if self.arp_insert >= i then
-				self.arp_insert = self.arp_insert - 1
-			end
+			self:remove_stack_key(i)
 		end
 	end
 	local n_stack = #self.stack
@@ -419,6 +440,23 @@ function Keyboard:note(x, y, z)
 	if z == 1 then
 		-- key pressed
 		if self.held_keys.latch then
+			local did_edit_step = false
+			-- TODO: if a stepper key OUTSIDE stack length is held and a key is
+			-- pressed, rests should be added to fill gap between end and that step,
+			-- then that step set to the key.
+			for s = 1, #self.stack do
+				if self.stepper.held_steps[s] then
+					self.stack[s].id = key_id
+					did_edit_step = true
+				end
+			end
+			if did_edit_step then
+				self:set_bend_targets()
+				if self.arp_plectrum then
+					self:move_plectrum(0, 0)
+				end
+				return
+			end
 			if self.stack_edit_index then
 				self.stack[self.stack_edit_index].id = key_id
 				self.stack_edit_index = false
@@ -456,13 +494,8 @@ function Keyboard:note(x, y, z)
 	elseif self.held_keys.latch then
 		-- latch held, key released
 		if stack_key_index and stack_key_index == self.stack_edit_index then
-			table.remove(self.stack, stack_key_index)
-			if self.arp_index >= stack_key_index then
-				self.arp_index = self.arp_index - 1
-			end
-			if self.arp_insert >= stack_key_index then
-				self.arp_insert = self.arp_insert - 1
-			end
+			-- TODO: check how long this key has been held, don't delete if it's been held a long time
+			self:remove_stack_key(stack_key_index)
 			if not self.arping and stack_key_index > #self.stack and #self.stack > 0 then
 				self:set_active_key(self.stack[#self.stack].id)
 			else
@@ -478,13 +511,7 @@ function Keyboard:note(x, y, z)
 		local i = 1
 		while i <= #self.stack do
 			if self.stack[i].id == key_id then
-				table.remove(self.stack, i)
-				if self.arp_index >= i then
-					self.arp_index = self.arp_index - 1
-				end
-				if self.arp_insert >= i then
-					self.arp_insert = self.arp_insert - 1
-				end
+				self:remove_stack_key(i)
 			else
 				i = i + 1
 			end
@@ -706,7 +733,7 @@ function Keyboard:select_voice(v)
 end
 
 function Keyboard:draw()
-	-- TODO: blink stack_edit_index
+	-- TODO: blink/highlight stack_edit_index and stepper's held steps
 	g:led(self.x, self.y2, self.held_keys.shift and 15 or 6)
 	g:led(self.x + 2, self.y2, self.held_keys.latch and 7 or 2)
 	g:led(self.x + 3, self.y2, self.gliding and 7 or 2)

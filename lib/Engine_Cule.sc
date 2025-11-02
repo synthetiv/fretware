@@ -556,6 +556,12 @@ Engine_Cule : CroneEngine {
 			Out.kr(\handBus.ir, hand.lag(0.1));
 			Out.kr(\trigBus.ir, trig);
 
+			// TODO: instead of attack & release:
+			// - bias (short attack/long decay vs long attack/short decay)
+			// - overall time
+			// at lowest possible bias, there's no sustain; at middle, moderate (-12db? -6?); at max, sustain = 1.0
+			// maybe time affects sustain too?
+			// and decay could have a sharper curve than release does...
 			attack = \attack.kr * 8.pow(\attackMod.kr);
 			release = \release.kr * 8.pow(\releaseMod.kr);
 			eg = Select.ar(\egType.kr(1), [
