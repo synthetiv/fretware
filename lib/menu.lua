@@ -2,7 +2,7 @@ local Menu = {}
 Menu.__index = Menu
 
 function Menu.new(x, y, width, height, arg_values)
-	values = {}
+	local values = {}
 	local k = 1
 	for a = 1, height do
 		for b = 1, width do

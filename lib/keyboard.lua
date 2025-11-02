@@ -514,9 +514,9 @@ function Keyboard:note(x, y, z)
 	end
 end
 
-function Keyboard:arp(gate)
+function Keyboard:arp(do_step, gate)
 	if self.arping and self.n_sustained_keys > 0 then
-		if gate then
+		if do_step then
 			if self.arp_direction == 3 then
 				local new_arp_index = self:update_plectrum_arp_index()
 				if new_arp_index then
@@ -534,7 +534,9 @@ function Keyboard:arp(gate)
 				self.arp_index = (self.arp_index + step_size - 1) % self.n_sustained_keys + 1
 			end
 			self.arp_insert = self.arp_index
-			self:set_active_key(self.sustained_keys[self.arp_index])
+			if gate then
+				self:set_active_key(self.sustained_keys[self.arp_index])
+			end
 		end
 		self.on_gate(gate)
 	end

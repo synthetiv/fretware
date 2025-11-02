@@ -12,6 +12,9 @@ n_voices = 3
 Keyboard = include 'lib/keyboard'
 k = Keyboard.new(1, 1, 16, 8)
 
+Stepper = include 'lib/stepper'
+stepper = Stepper.new(4, 2, 5, 5)
+
 Menu = include 'lib/menu'
 
 arp_menu = Menu.new(4, 5, 10, 2, {
@@ -51,7 +54,7 @@ arp_menu.on_select = function(source, old_source)
 		k.arping = true
 		k.gliding = false
 	elseif not source then
-		k:arp(false)
+		k:arp(false, false)
 		k.arping = false
 	end
 	k.arp_plectrum = (source == 13)
@@ -347,6 +350,7 @@ tip = 0
 palm = 0
 gate_in = false
 
+-- TODO: change where arp divs appear, maybe...
 arp_divs = { 1/2, 3/8, 1/4, 3/16, 1/8, 3/32, 1/16, 1/24, 1/32 }
 arp_gates = {}
 arp_gates_inverted = {}
@@ -359,13 +363,15 @@ for d = 1, #arp_divs do
 		division = rate,
 	}
 	sprocket.action = function()
+		local gate = arp_gates[d]
 		if arp_gates_inverted[d] then
-			arp_gates[d] = sprocket.downbeat
+			gate = sprocket.downbeat
 		else
-			arp_gates[d] = not sprocket.downbeat
+			gate = not sprocket.downbeat
 		end
+		arp_gates[d] = gate
 		if arp_menu.value == d then
-			k:arp(arp_gates[d])
+			handle_arp_tick(gate)
 		end
 	end
 end
@@ -384,6 +390,15 @@ end
 
 loop_clock = false
 loop_free = false
+
+function handle_arp_tick(gate)
+	if gate then
+		stepper:step()
+		k:arp(true, gate and stepper.active_step.gate)
+	else
+		k:arp(false, false)
+	end
+end
 
 function clear_voice_loop(v)
 	-- stop looping (clear loop)
@@ -445,6 +460,14 @@ function g.key(x, y, z)
 		if z == 1 then
 			arp_menu.open = not arp_menu.open
 			arp_direction_menu.open = arp_menu.open
+			stepper.open = false
+			source_menu.open = false
+		end
+	elseif x == 7 and y == 8 then
+		if z == 1 then
+			stepper.open = not stepper.open
+			arp_menu.open = false
+			arp_direction_menu.open = false
 			source_menu.open = false
 		end
 	elseif x == 9 and y == 8 then
@@ -452,7 +475,10 @@ function g.key(x, y, z)
 			source_menu.open = not source_menu.open
 			arp_menu.open = false
 			arp_direction_menu.open = false
+			stepper.open = false
 		end
+	elseif stepper.open and stepper:key(x, y, z, k.held_keys.shift) then
+		-- stepper handled this one
 	elseif arp_menu.open and x > 2 and y < 8 then
 		if not arp_direction_menu:key(x, y, z) and not arp_menu:key(x, y, z) and z == 1 then
 			-- keydown, not caught by a menu
@@ -574,6 +600,20 @@ function grid_redraw()
 	end
 	g:led(9, 8, source_menu.open and 7 or 2)
 	source_menu:draw()
+	-- TODO: swap stepper and arp menu keys
+	if stepper.open then
+		g:led(7, 8, 15)
+	else
+		local level = 2
+		if arp_menu.value then
+			level = 5
+			if stepper.active_step.gate then
+				level = level + 2
+			end
+		end
+		g:led(7, 8, level)
+	end
+	stepper:draw()
 	if source_menu.open and (source_menu.n_held > 0 or held_keys[1]) then
 		g:led(1, 1, 7)
 	end
@@ -739,7 +779,7 @@ function init()
 						end
 					end
 					if arp_menu.value == arp_source then
-						k:arp(gate)
+						handle_arp_tick(gate)
 					end
 				end
 			end)
