@@ -56,6 +56,7 @@ function Keyboard.new(x, y, width, height)
 		},
 		stack = {}, -- arp/sustain stack: { id, gate... }
 		stack_edit_index = false,
+		stack_edit_start = 0,
 		arp_index = 0,
 		arp_insert = 0,
 		arp_direction = 1, -- select arp notes by (1) order played, (2) random, or (3) plectrum distance
@@ -169,6 +170,10 @@ function Keyboard:get_key_id_neighbor(id, d)
 	return self:get_key_id(x, y)
 end
 
+function Keyboard:can_delete_stack_edit_key()
+	return self.held_keys.latch and self.stack_edit_index and util.time() - self.stack_edit_start >= 0.1
+end
+
 function Keyboard:key(x, y, z)
 	if y == self.y2 then
 		if x == self.x then
@@ -225,7 +230,12 @@ function Keyboard:key(x, y, z)
 		local v = self.y2 - y
 		if x == self.x and y == self.y then
 			if z == 1 then
-				-- loop delete key
+				-- delete stack key
+				if self:can_delete_stack_edit_key() then
+					self:remove_stack_key(self.stack_edit_index)
+					self.stack_edit_index = false
+				end
+				-- delete voice loops
 				for ov = 1, n_voices do
 					if self.held_keys.voice_loops[ov] then
 						clear_voice_loop(ov)
@@ -281,6 +291,11 @@ end
 
 function Keyboard:remove_stack_key(i)
 	table.remove(self.stack, i)
+	if self.stack_edit_index then
+		if self.stack_edit_index >= i then
+			self.stack_edit_index = self.stack_edit_index - 1
+		end
+	end
 	if self.arp_index >= i then
 		self.arp_index = self.arp_index - 1
 	end
@@ -459,13 +474,14 @@ function Keyboard:note(x, y, z)
 			end
 			if self.stack_edit_index then
 				self.stack[self.stack_edit_index].id = key_id
-				self.stack_edit_index = false
 				self:set_bend_targets()
 				if self.arp_plectrum then
 					self:move_plectrum(0, 0)
 				end
+				self.stack_edit_start = 0 -- even if new key is released immediately, now that it's been moved, it won't be removed from the stack
 				return
 			elseif not self.held_keys.shift and stack_key_index then
+				self.stack_edit_start = util.time()
 				self.stack_edit_index = stack_key_index
 				return
 			end
@@ -490,16 +506,23 @@ function Keyboard:note(x, y, z)
 				id = key_id,
 				gate = true
 			})
+			self.stack_edit_index = self.arp_insert
+			self.stack_edit_start = 0
 		end
 	elseif self.held_keys.latch then
 		-- latch held, key released
 		if stack_key_index and stack_key_index == self.stack_edit_index then
-			-- TODO: check how long this key has been held, don't delete if it's been held a long time
-			self:remove_stack_key(stack_key_index)
-			if not self.arping and stack_key_index > #self.stack and #self.stack > 0 then
-				self:set_active_key(self.stack[#self.stack].id)
+			if self.arping then
+				if util.time() - self.stack_edit_start < 0.1 then
+					self:remove_stack_key(stack_key_index)
+				end
 			else
-				self:set_bend_targets()
+				self:remove_stack_key(stack_key_index)
+				if stack_key_index > #self.stack and #self.stack > 0 then
+					self:set_active_key(self.stack[#self.stack].id)
+				else
+					self:set_bend_targets()
+				end
 			end
 			if #self.stack == 0 then
 				self.on_gate(false)
@@ -710,6 +733,10 @@ end
 function Keyboard:find_key_in_stack(key_id)
 	local stack = self.stack
 	local found_key = false
+	-- TODO: why is stack_edit_index sometimes out of bounds...?
+	if self.stack_edit_index and self.stack[self.stack_edit_index] and self.stack[self.stack_edit_index].id == key_id then
+		return self.stack_edit_index, self.stack[self.stack_edit_index].gate
+	end
 	for k = 1, #self.stack do
 		local index = (self.arp_index + k - 2) % #self.stack + 1
 		if stack[index].id == key_id then
@@ -733,7 +760,6 @@ function Keyboard:select_voice(v)
 end
 
 function Keyboard:draw()
-	-- TODO: blink/highlight stack_edit_index and stepper's held steps
 	g:led(self.x, self.y2, self.held_keys.shift and 15 or 6)
 	g:led(self.x + 2, self.y2, self.held_keys.latch and 7 or 2)
 	g:led(self.x + 3, self.y2, self.gliding and 7 or 2)
@@ -763,9 +789,12 @@ function Keyboard:draw()
 			local p = self:get_key_pitch_id(x, y)
 			local level = 0
 			-- highlight stack keys
-			local in_stack, stack_gate = self:find_key_in_stack(key_id)
-			if in_stack then
+			local stack_index, stack_gate = self:find_key_in_stack(key_id)
+			if stack_index then
 				level = led_blend(level, stack_gate and 6 or 3)
+				if stack_index == self.stack_edit_index or self.stepper.held_steps[stack_index] then
+					level = led_blend(level, 6)
+				end
 			end
 
 			local pitch = self:get_key_id_pitch_id(key_id)
@@ -808,10 +837,15 @@ function Keyboard:draw()
 		end
 	end
 
-	-- voice loop delete key
-	for v = 1, n_voices do
-		if self.held_keys.voice_loops[v] and voice_states[v].looping then
-			g:led(self.x, self.y, 7)
+	-- stack edit delete key
+	if self:can_delete_stack_edit_key() then
+		g:led(self.x, self.y, 7)
+	else
+		-- voice loop delete key
+		for v = 1, n_voices do
+			if self.held_keys.voice_loops[v] and voice_states[v].looping then
+				g:led(self.x, self.y, 7)
+			end
 		end
 	end
 end
