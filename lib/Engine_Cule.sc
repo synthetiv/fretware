@@ -1542,6 +1542,16 @@ Engine_Cule : CroneEngine {
 			});
 		});
 
+		this.addCommand(\debugAllocators, "", { |msg|
+			"debugging allocators...".postln;
+			"Audio bus allocator:".postln;
+			context.server.audioBusAllocator.debug;
+			"Control bus allocator:".postln;
+			context.server.controlBusAllocator.debug;
+			"Buffer allocator:".postln;
+			context.server.bufferAllocator.debug;
+		});
+
 		context.server.sync;
 	}
 
@@ -1551,7 +1561,19 @@ Engine_Cule : CroneEngine {
 			// d50Resources.do(_.free);
 			group.free;
 			clockPhaseBus.free;
-			patchBuses.do({ |bus| if(bus.class === Dictionary, { bus.do(_.free) }, { bus.free }) });
+			patchBuses.do({ |bus|
+				if(bus.class === Dictionary, {
+					bus.do({ |subBus|
+						if(subBus.class === Dictionary, {
+							subBus.do(_.free);
+						}, {
+							subBus.free;
+						});
+					});
+				}, {
+					bus.free;
+				});
+			});
 			voiceParamBuses.do({ |dict| dict.do(_.free) });
 			voiceModBuses.do({ |dict| dict.do(_.free) });
 			voiceOutputBuses.do({ |dict| dict.do(_.free) });
@@ -1565,6 +1587,14 @@ Engine_Cule : CroneEngine {
 			voiceAmpReplyFunc.free;
 			voicePitchReplyFunc.free;
 			lfoGateReplyFunc.free;
+			// context.server.sync;
+			// "free complete; debugging allocators...".postln;
+			// "Audio bus allocator:".postln;
+			// context.server.audioBusAllocator.debug;
+			// "Control bus allocator:".postln;
+			// context.server.controlBusAllocator.debug;
+			// "Buffer allocator:".postln;
+			// context.server.bufferAllocator.debug;
 		}
 	}
 }
