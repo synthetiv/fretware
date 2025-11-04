@@ -1636,26 +1636,6 @@ function key(n, z)
 end
 
 function cleanup()
-	if redraw_metro ~= nil then
-		redraw_metro:stop()
-	end
-	local voice_polls = {
-		'amp',
-		'instant_pitch',
-		'pitch',
-		'lfoA_gate',
-		'lfoB_gate',
-		'lfoC_gate'
-	}
-	for v = 1, n_voices do
-		local voice = voice_states[v]
-		for p = 1, #voice_polls do
-			local poll = voice.polls[voice_polls[p]]
-			if poll then
-				poll:stop()
-			end
-		end
-	end
 	if uc4 then
 		for n = 12, 19 do
 			uc4:note_off(n)
