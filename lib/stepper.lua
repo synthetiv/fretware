@@ -64,18 +64,29 @@ function Stepper:draw()
 		end
 	end
 	-- delete key
-	if self:has_held_steps() then
+	if self:can_delete_steps() then
 		g:led(1, 1, 7)
 	end
 end
 
-function Stepper:has_held_steps()
+function Stepper:can_delete_step(s)
+	local now = util.time()
+	return self.held_steps[s] and now - math.abs(self.held_steps[s]) > 0.15
+end
+
+function Stepper:can_delete_steps()
 	for s = 1, #self.keyboard.stack do
-		if self.held_steps[s] then
+		if self:can_delete_step(s) then
 			return true
 		end
 	end
 	return false
+end
+
+function Stepper:clear_clipboard()
+	for cs = 1, self.max_length do
+		self.copied_steps[cs] = false
+	end
 end
 
 function Stepper:key(x, y, z, shift)
@@ -84,7 +95,7 @@ function Stepper:key(x, y, z, shift)
 	elseif x == 1 and y == 1 then
 		local n_deleted = 0
 		for s = 1, #self.keyboard.stack do
-			if self.held_steps[s] then
+			if self:can_delete_step(s) then
 				local ks = (s - n_deleted - 1) % #self.keyboard.stack + 1
 				self.keyboard:remove_stack_key(ks)
 				n_deleted = n_deleted + 1
@@ -125,7 +136,6 @@ function Stepper:key(x, y, z, shift)
 				for cs = 1, self.max_length do
 					local copied_step = self.copied_steps[cs]
 					if copied_step then
-						-- TODO: move arp_index + arp_insert
 						table.insert(self.keyboard.stack, s + pasted_steps, {
 							id = copied_step.id,
 							gate = copied_step.gate
@@ -180,18 +190,21 @@ function Stepper:key(x, y, z, shift)
 		else
 			if s <= #self.keyboard.stack then
 				if z == 1 then
-					self.held_steps[s] = now
+					if not self.keyboard.stack[s].gate then
+						self.keyboard.stack[s].gate = true
+						-- negative value indicates that delete key shouldn't be shown yet, but that releasing
+						-- this key immediately should NOT toggle it off
+						self.held_steps[s] = -now
+					else
+						self.held_steps[s] = now
+					end
 				else
-					local is_tap = self.held_steps[s] and (now - self.held_steps[s] < 0.1)
-					if is_tap and self.keyboard.stack[s] and self.held_steps[s] then
-						self.keyboard.stack[s].gate = not self.keyboard.stack[s].gate
+					-- note that can_delete_step() uses math.abs() but the below doesn't
+					if self.keyboard.stack[s].gate and self.held_steps[s] and (now - self.held_steps[s] < 0.15) then
+						self.keyboard.stack[s].gate = false
 					end
 					self.held_steps[s] = false
 				end
-			end
-			-- TODO: should this happen in the keyboard?
-			for cs = 1, self.max_length do
-				self.copied_steps[cs] = false
 			end
 		end
 	end

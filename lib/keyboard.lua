@@ -171,7 +171,7 @@ function Keyboard:get_key_id_neighbor(id, d)
 end
 
 function Keyboard:can_delete_stack_edit_key()
-	return self.held_keys.latch and self.stack_edit_index and util.time() - self.stack_edit_start >= 0.1
+	return self.held_keys.latch and self.stack_edit_index and util.time() - self.stack_edit_start >= 0.15
 end
 
 function Keyboard:key(x, y, z)
@@ -179,6 +179,9 @@ function Keyboard:key(x, y, z)
 		if x == self.x then
 			-- shift key
 			self.held_keys.shift = z == 1
+			if not self.held_keys.shift then
+				self.stepper:clear_clipboard()
+			end
 		elseif x == self.x + 2 then
 			-- latch key
 			if z == 1 then
@@ -506,18 +509,14 @@ function Keyboard:note(x, y, z)
 				id = key_id,
 				gate = true
 			})
-			self.stack_edit_index = self.arp_insert
-			self.stack_edit_start = 0
 		end
 	elseif self.held_keys.latch then
 		-- latch held, key released
 		if stack_key_index and stack_key_index == self.stack_edit_index then
-			if self.arping then
-				if util.time() - self.stack_edit_start < 0.1 then
-					self:remove_stack_key(stack_key_index)
-				end
-			else
+			if util.time() - self.stack_edit_start < 0.15 then
 				self:remove_stack_key(stack_key_index)
+			end
+			if not self.arping then
 				if stack_key_index > #self.stack and #self.stack > 0 then
 					self:set_active_key(self.stack[#self.stack].id)
 				else
