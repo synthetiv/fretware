@@ -50,7 +50,6 @@ function Stepper:draw()
 					g:led(x, y, 2)
 				else
 					local step = self.keyboard.stack[s]
-					-- TODO: highlight stack_edit_index
 					if s == self.keyboard.arp_index then
 						g:led(x, y, step.gate and 15 or 10)
 					elseif s == self.keyboard.stack_edit_index then

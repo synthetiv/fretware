@@ -1238,7 +1238,7 @@ function init()
 				palm = message.val / 126
 				engine.palm(palm)
 			elseif message.cc == 18 then
-				k:bend(-math.min(1, message.val / 126)) -- TODO: not sure why 126 is the max value I'm getting from Touche...
+				k:bend(-math.min(1, message.val / 126))
 				send_pitch()
 			elseif message.cc == 19 then
 				k:bend(math.min(1, message.val / 126))
