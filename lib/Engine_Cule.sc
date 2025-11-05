@@ -21,7 +21,6 @@ Engine_Cule : CroneEngine {
 	// var d50Resources;
 	var sq80Resources;
 
-	// TODO: we're having bus allocation and/or usage problems
 	var group;
 	var baseFreqBus;
 	var clockPhaseBus;
