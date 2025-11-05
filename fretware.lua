@@ -21,6 +21,7 @@ arp_menu = Menu.new(4, 5, 10, 2, {
 arp_menu.toggle = true
 arp_menu.on_select = function(source, old_source)
 	if k.held_keys.shift then
+		-- TODO: in theory, this could come in handy, but I never use it. change UI, or give it up?
 		source = source or old_source
 		if source >= 1 and source <= 9 then
 			-- jump arp forward by 1/2 length of the clock division whose button was pressed
@@ -53,6 +54,7 @@ arp_menu.on_select = function(source, old_source)
 	elseif not source then
 		k:arp(false)
 		k.arping = false
+		handle_synced_voice_loops(false) -- just in case we a loop start/end cued up
 	end
 	k.arp_plectrum = (source == 13)
 end
@@ -283,7 +285,7 @@ patch_param_mappings = {
 	-- [dest number] = slider mapping
 }
 voice_param_mappings = {
-	-- [voice param name][voice index] = slider mapping
+	-- [dest number][voice index] = slider mapping
 }
 patch_mod_mappings = {
 	-- [dest number][source number] = slider mapping
@@ -324,11 +326,11 @@ for v = 1, n_voices do
 		amp = 0,
 		mix_level = 1,
 		shift = 0,
-		looping = false,
-		looping_next = false,
-		loop_armed = false,
-		loop_armed_next = false,
-		loop_beat_sec = 0.25,
+		loop_playing = false,
+		loop_play_next = false,
+		loop_record_started = false,
+		loop_record_next = false,
+		loop_tempo_sync = false,
 		lfoA_gate = false,
 		lfoB_gate = false,
 		lfoC_gate = false,
@@ -366,6 +368,9 @@ for d = 1, #arp_divs do
 			arp_gates[d] = not sprocket.downbeat
 		end
 		if arp_menu.value == d then
+			if arp_gates[d] then
+				handle_synced_voice_loops(true)
+			end
 			k:arp(arp_gates[d])
 		end
 	end
@@ -383,57 +388,47 @@ clock.transport.start = function()
 	arp_lattice:hard_restart()
 end
 
-loop_clock = false
-loop_free = false
-
-function clear_voice_loop(v)
-	-- stop looping (clear loop)
+function voice_loop_clear(v)
 	local voice = voice_states[v]
-	if not voice.looping then
+	if not voice.loop_playing then
 		return
 	end
 	engine.clearLoop(v)
 	params:lookup_param('loopRate_' .. v):set_default()
 	params:lookup_param('loopPosition_' .. v):set_default()
-	voice.looping = false
-	if voice.loop_clock then
-		clock.cancel(voice.loop_clock)
-	end
+	voice.loop_playing = false
 	-- clear pitch shift, because it only confuses things when loop isn't engaged
 	voice.shift = 0
 	engine.shift(v, 0)
 end
 
-function record_voice_loop(v)
+function voice_loop_record(v)
 	-- start recording (set loop start time here)
 	local voice = voice_states[v]
-	if loop_free then
-		voice.loop_armed = util.time()
+	if k.arping then
+		voice.loop_record_next = true
 	else
-		voice.loop_armed_next = true
+		voice.loop_record_started = util.time()
+		voice.loop_tempo_sync = false
 	end
 end
 
--- TODO: these function names have gotten silly, refactor
--- set_ should be play_, play_ should be something like stop_recording_,
--- and some logic from loop_clock callback should be moved into the new play_
-function set_voice_loop(v, length)
-	engine.setLoop(v, length)
+function voice_loop_play(v)
+	local voice = voice_states[v]
+	engine.playLoop(v, util.time() - voice.loop_record_started, voice.loop_tempo_sync)
 	params:lookup_param('loopRate_' .. v):set_default()
 	params:lookup_param('loopPosition_' .. v):set_default()
 end
 
-function play_voice_loop(v)
+function voice_loop_set_end(v)
 	-- stop recording, start looping
 	local voice = voice_states[v]
-	if loop_free then
-		set_voice_loop(v, util.time() - voice.loop_armed)
-		-- TODO: maybe loop states should be polled from SC, so that we don't need to send as many
-		-- messages TO SC...?
-		voice.looping = true
-		voice.loop_armed = false
+	if k.arping then
+		voice.loop_play_next = true
 	else
-		voice.looping_next = true
+		voice_loop_play(v, false)
+		voice.loop_playing = true
+		voice.loop_record_started = false
 	end
 end
 
@@ -606,17 +601,13 @@ function grid_redraw()
 	for v = 1, n_voices do
 		local voice = voice_states[v]
 		local level = voice.amp
-		if voice.loop_armed_next then
-			-- about to start recording
+		if voice.loop_record_next then
 			level = level * 0.5 + (blink and 0.2 or 0)
-		elseif voice.looping_next then
-			-- recording, about to stop
+		elseif voice.loop_play_next then
 			level = level * 0.5 + (blink and 0.35 or 0.25)
-		elseif voice.loop_armed then
-			-- recording
+		elseif voice.loop_record_started then
 			level = level * 0.5 + (blink and 0.5 or 0)
-		elseif voice.looping then
-			-- playing back
+		elseif voice.loop_playing then
 			level = level * 0.75 + 0.25
 		end
 		level = math.floor(level * 15)
@@ -625,57 +616,22 @@ function grid_redraw()
 	g:refresh()
 end
 
-function reset_loop_clock()
-	if loop_clock then
-		clock.cancel(loop_clock)
-	end
+function handle_synced_voice_loops(tempo_based)
 	for v = 1, n_voices do
 		local voice = voice_states[v]
-		voice.loop_armed_next = false
-		voice.looping_next = false
-	end
-	local div = params:get('loop_clock_div')
-	loop_free = div == 3 -- 3 = free, unquantized looping
-	if not loop_free then
-		loop_clock = clock.run(function()
-			while true do
-				local rate = math.pow(2, -params:get('loop_clock_div'))
-				clock.sync(rate)
-				for v = 1, n_voices do
-					local voice = voice_states[v]
-					if voice.loop_armed_next then
-						-- get ready to loop (set loop start time here). when looping is synced, we set loop
-						-- lengths in beats, not seconds, in case tempo changes
-						voice.loop_armed = clock.get_beats()
-						voice.loop_armed_next = false
-					elseif voice.looping_next then
-						-- start looping
-						local beat_sec = clock.get_beat_sec()
-						local loop_length_beats = (clock.get_beats() - voice.loop_armed)
-						-- TODO: is rounding really appropriate here?
-						local loop_length_ticks = math.floor(loop_length_beats / rate + 0.5)
-						local loop_tick = 1
-						set_voice_loop(v, beat_sec * loop_length_beats)
-						voice.looping = true
-						voice.looping_next = false
-						voice.loop_armed = false
-						voice.loop_beat_sec = beat_sec
-						voice.loop_clock = clock.run(function()
-							while true do
-								clock.sync(rate)
-								loop_tick = loop_tick % loop_length_ticks + 1
-								if loop_tick == 1 then
-									engine.resetLoopPhase(v)
-								end
-							end
-						end)
-					elseif voice.looping then
-						-- update rate so it will be adjusted to match tempo as needed
-						params:lookup_param('loopRate_' .. v):bang()
-					end
-				end
-			end
-		end)
+		if voice.loop_record_next then
+			-- get ready to loop (set loop start time here)
+			voice.loop_record_started = util.time()
+			voice.loop_tempo_sync = tempo_based
+			voice.loop_record_next = false
+		elseif voice.loop_play_next then
+			-- start looping
+			voice_loop_play(v, true)
+			voice.loop_playing = true
+			voice.loop_play_next = false
+			voice.loop_record_started = false
+			-- TODO: loop is if tied to tempo, set things up so phase resets on downbeats
+		end
 	end
 end
 
@@ -687,8 +643,8 @@ function init()
 	k.on_select_voice = function(v)
 		-- if any other voice is recording, stop recording & start looping it
 		for ov = 1, n_voices do
-			if ov ~= v and voice_states[ov].loop_armed then
-				play_voice_loop(ov)
+			if ov ~= v and voice_states[ov].loop_record_started then
+				voice_loop_set_end(ov)
 			end
 		end
 		engine.select_voice(v)
@@ -764,25 +720,15 @@ function init()
 						end
 					end
 					if arp_menu.value == arp_source then
+						if gate then
+							handle_synced_voice_loops(false)
+						end
 						k:arp(gate)
 					end
 				end
 			end)
 			voice.polls[name]:start()
 		end
-
-		--[[
-		cpu_avg = poll.set('cpu_avg', function(value)
-			print('-- cpu avg: ', value)
-		end)
-		cpu_avg.time = 0.5
-		cpu_avg:start()
-		cpu_peak = poll.set('cpu_peak', function(value)
-			print('-- cpu peak: ', value)
-		end)
-		cpu_peak.time = 0.5
-		cpu_peak:start()
-		--]]
 	end
 
 	params:add_group('tuning', 5)
@@ -975,30 +921,6 @@ function init()
 
 	echo:add_params()
 
-	params:add_group('clock/arp', 1)
-
-	params:add {
-		name = 'loop clock div',
-		id = 'loop_clock_div',
-		type = 'number',
-		default = 3,
-		min = -3,
-		max = 3,
-		formatter = function(param)
-			local measures = -param:get() - 2
-			if measures == -5 then -- 3 = 1/32 = no quantization of loop lengths
-				return 'free'
-			elseif measures >= 0 then
-				return string.format('%d', math.pow(2, measures))
-			else
-				return string.format('1/%d', math.pow(2, -measures))
-			end
-		end,
-		action = function()
-			reset_loop_clock()
-		end
-	}
-
 	params:add_group('filter settings', 2)
 
 	params:add {
@@ -1185,13 +1107,7 @@ function init()
 			type = 'control',
 			controlspec = controlspec.new(0.25, 4, 'exp', 0, 1),
 			action = function(value)
-				if params:get('loop_clock_div') == 3 then
-					-- free-running loops: just set rate
-					engine.loopRate(v, value)
-				else
-					-- synced loops: scale relative to current + initial tempo
-					engine.loopRate(v, value * voice.loop_beat_sec / clock.get_beat_sec())
-				end
+				engine.loopRate(v, value)
 			end,
 			formatter = function(param)
 				return string.format('%.2fx', param:get())
@@ -1262,7 +1178,6 @@ function init()
 
 	params:set('clock_source', 3) -- always default to link clock
 
-	reset_loop_clock()
 	clock.run(function()
 		clock.sync(4)
 		arp_lattice:start()
@@ -1495,27 +1410,36 @@ function redraw()
 		end
 
 		if dest_slider.y >= -4 and dest_slider.y <= 132 then
-			local source_slider = nil
-			if dest.voice_dest then
-				source_slider = voice_mod_mappings[d][source_menu.value][k.selected_voice].slider
-			else
-				source_slider = patch_mod_mappings[d][source_menu.value].slider
-			end
-			source_slider.y = dest_slider.y - 1
-			source_slider:redraw(active and 2 or 1, active and 15 or 4)
 
-			dest_slider:redraw(active and 1 or 0, active and 3 or 1)
-			if d <= 16 then
-				local xvi_value = xvi_state[d].value
-				local match = xvi_value == dest_slider.value
-				if not match then
-					dest_slider:draw_line(dest_slider.value, active and 5 or 3)
+			if (dest.name == 'loopRate' or dest.name == 'loopPosition') and not voice.loop_playing then
+				-- don't even bother drawing loop-related sliders if loop isn't playing
+				-- TODO: how's this look?
+				screen.rect(dest_slider.x - 1, dest_slider.y - 1, dest_slider.width + 2, dest_slider.height + 2)
+				screen.level(2)
+				screen.stroke()
+			else
+				local source_slider = nil
+				if dest.voice_dest then
+					source_slider = voice_mod_mappings[d][source_menu.value][k.selected_voice].slider
+				else
+					source_slider = patch_mod_mappings[d][source_menu.value].slider
 				end
-				if xvi_value then
-					if match then
-						dest_slider:draw_line(xvi_value, active and 15 or 3)
-					else
-						dest_slider:draw_point(xvi_value, 3)
+				source_slider.y = dest_slider.y - 1
+				source_slider:redraw(active and 2 or 1, active and 15 or 4)
+
+				dest_slider:redraw(active and 1 or 0, active and 3 or 1)
+				if d <= 16 then
+					local xvi_value = xvi_state[d].value
+					local match = xvi_value == dest_slider.value
+					if not match then
+						dest_slider:draw_line(dest_slider.value, active and 5 or 3)
+					end
+					if xvi_value then
+						if match then
+							dest_slider:draw_line(xvi_value, active and 15 or 3)
+						else
+							dest_slider:draw_point(xvi_value, 3)
+						end
 					end
 				end
 			end
@@ -1581,20 +1505,23 @@ function enc(n, d)
 		end
 		local changed_source = false
 		local d_scaled = d / 128
-		for source = 1, #editor.source_names do
-			if source_menu.held[source] then
-				if editor.dests[param_index].voice_dest then
-					voice_mod_mappings[param_index][source][k.selected_voice]:delta(d_scaled)
-				else
-					patch_mod_mappings[param_index][source]:delta(d_scaled)
+		-- params 17 and 18 are loop-related, so don't modify them unless a loop is playing
+		if param_index >= 19 or voice_states[k.selected_voice].loop_playing then
+			for source = 1, #editor.source_names do
+				if source_menu.held[source] then
+					if editor.dests[param_index].voice_dest then
+						voice_mod_mappings[param_index][source][k.selected_voice]:delta(d_scaled)
+					else
+						patch_mod_mappings[param_index][source]:delta(d_scaled)
+					end
+					changed_source = true
 				end
-				changed_source = true
+			end
+			if not changed_source then
+				voice_param_mappings[param_index][k.selected_voice]:delta(d_scaled)
 			end
 		end
-		if not changed_source then
-			voice_param_mappings[param_index][k.selected_voice]:delta(d_scaled)
-		end
-		-- maybe auto-select amp or pan
+		-- maybe auto-select the affected dest
 		local now = util.time()
 		editor.encoder_autoselect_deltas[n] = editor.encoder_autoselect_deltas[n] + math.abs(d)
 		if editor.selected_dest == param_index then

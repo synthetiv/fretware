@@ -23,6 +23,7 @@ Engine_Cule : CroneEngine {
 
 	var group;
 	var baseFreqBus;
+	var clockRateBus;
 	var clockPhaseBus;
 	var clockSynth;
 	var voiceParamBuses;
@@ -353,9 +354,10 @@ Engine_Cule : CroneEngine {
 
 		baseFreqBus = Bus.control(context.server);
 
+		clockRateBus = Bus.control(context.server);
 		clockPhaseBus = Bus.control(context.server);
 		SynthDef.new(\clockPhasor, {
-			var rate = \rate.kr;
+			var rate = In.kr(clockRateBus);
 			var downbeat = \downbeat.tr;
 			// at each downbeat, hard-reset the phasor to 0, 1, 2, 3, 0...
 			var beat = Stepper.kr(downbeat, 0, 0, 3);
@@ -484,9 +486,9 @@ Engine_Cule : CroneEngine {
 		SynthDef.new(\voiceControls, {
 
 			var bufferRate, bufferLength, buffer,
-				freeze, freezeEnv, loopLength, loopPhase, bufferPhase,
-				pitch, gate, trig, tip, hand, x, y,
-				recPitch, recGate, recTrig, recTip, recHand, recX, recY,
+				loopLength, loopEngaged, loopRate, readPhase, loopEnv, writePhase,
+				pitch, gate, trig, tip, hand, x, y, clockRate,
+				recPitch, recGate, recTrig, recTip, recHand, recX, recY, recClockRate,
 				vel, svel, attack, release, eg, eg2,
 				amp, fxA, fxB;
 
@@ -511,16 +513,7 @@ Engine_Cule : CroneEngine {
 			// create buffer for looping control data
 			bufferRate = ControlRate.ir * bufferRateScale;
 			bufferLength = context.server.sampleRate / context.server.options.blockSize * maxLoopTime * bufferRateScale;
-			buffer = LocalBuf.new(bufferLength, nRecordedModulators);
-			freeze = \freeze.kr;
-			loopLength = (\loopLength.kr * bufferRate).min(bufferLength);
-			loopPhase = Phasor.kr(
-				Trig.kr(freeze) + \loopReset.tr,
-				bufferRateScale * \loopRate.kr(1) * 8.pow(\loopRateMod.kr),
-				0, loopLength, 0
-			);
-			// offset by loopPosition, but constrain to loop bounds
-			loopPhase = (loopPhase + (loopLength * (\loopPosition.kr + \loopPositionMod.kr))).wrap(0, loopLength);
+			buffer = LocalBuf.new(bufferLength, nRecordedModulators + 1);
 
 			// define what we'll be writing
 			pitch = \pitch.kr;
@@ -530,27 +523,43 @@ Engine_Cule : CroneEngine {
 			y = \dy.kr;
 			gate = \gate.kr;
 			trig = Trig.kr(\trig.tr, 0.01);
+			clockRate = Select.kr(\loopClockSync.kr, [ 1, In.kr(clockRateBus) ]);
 
-			bufferPhase = Phasor.kr(rate: bufferRateScale * (1 - freeze), end: bufferLength);
-			BufWr.kr([pitch, tip, hand, x, y, gate, trig], buffer, bufferPhase);
+			// define where we'll be reading
+			loopLength = (\loopLength.kr * bufferRate).min(bufferLength);
+			loopEngaged = loopLength > 0;
+			loopRate = \loopRate.kr(1) * 8.pow(\loopRateMod.kr);
+			recClockRate = LocalIn.kr(default: 1);
+			readPhase = Phasor.kr(
+				Trig.kr(loopEngaged) + \loopReset.tr, // TODO: trigger loopReset when appropriate
+				bufferRateScale * loopRate * clockRate / recClockRate,
+				end: loopLength
+			);
+			// offset by loopPosition, but constrain to loop bounds
+			readPhase = (readPhase + (loopLength * (\loopPosition.kr + \loopPositionMod.kr))).wrap(0, loopLength);
+
+			writePhase = Phasor.kr(rate: bufferRateScale * (1 - loopEngaged), end: bufferLength);
+			BufWr.kr([pitch, tip, hand, x, y, gate, trig, clockRate ], buffer, writePhase);
 			// read values from recorded loop (if any)
-			# recPitch, recTip, recHand, recX, recY, recGate, recTrig = BufRd.kr(
+			# recPitch, recTip, recHand, recX, recY, recGate, recTrig, recClockRate = BufRd.kr(
 				nRecordedModulators,
 				buffer,
-				bufferPhase - loopLength + loopPhase,
+				writePhase - loopLength + readPhase,
 				interpolation: 1
 			);
 			// new pitch values can "punch through" frozen ones when gate is high
-			pitch = Select.kr(freeze.min(1 - gate), [ pitch, recPitch + \shift.kr ]);
-			// value mixes below should fade in when freeze is engaged
-			freezeEnv = Linen.kr(freeze, 0.3, 1, 0);
+			pitch = Select.kr(loopEngaged.min(1 - gate), [ pitch, recPitch + \shift.kr ]);
+			// value mixes below should fade in when loop is engaged
+			loopEnv = Linen.kr(loopEngaged, 0.3, 1, 0);
 			// recorded tip value can be increased with input, but not decreased
-			tip = tip.max(freezeEnv * recTip);
+			tip = tip.max(loopEnv * recTip);
 			// mix incoming hand and x/y data with recorded data
-			# hand, x, y = [ hand, x, y ] + (freezeEnv * [ recHand, recX, recY ]);
+			# hand, x, y = [ hand, x, y ] + (loopEnv * [ recHand, recX, recY ]);
 			// combine incoming gates with recorded gates
-			gate = gate.max(freeze * recGate);
-			trig = trig.max(freeze * recTrig);
+			gate = gate.max(loopEngaged * recGate);
+			trig = trig.max(loopEngaged * recTrig);
+
+			LocalOut.kr(recClockRate);
 
 			Out.kr(\handBus.ir, hand.lag(0.1));
 			Out.kr(\trigBus.ir, trig);
@@ -633,7 +642,7 @@ Engine_Cule : CroneEngine {
 			// slew tip for direct control of amplitude -- otherwise there will be audible steppiness
 			tip = Lag.ar(K2A.ar(tip), 0.05);
 			// amp mode shouldn't change while frozen
-			amp = Select.ar(K2A.ar(Gate.kr(\ampMode.kr, 1 - freeze)), [
+			amp = Select.ar(K2A.ar(Gate.kr(\ampMode.kr, 1 - loopEngaged)), [
 				tip,
 				tip * eg,
 				eg * -6.dbamp
@@ -1333,19 +1342,18 @@ Engine_Cule : CroneEngine {
 			baseFreqBus.setSynchronous(msg[1]);
 		});
 
-		this.addCommand(\setLoop, "if", { |msg|
+		this.addCommand(\playLoop, "ifi", { |msg|
 			voiceSynths[msg[1] - 1][\control].set(
-				\loopLength, msg[2],
-				\freeze, 1
+				\loopClockSync, msg[3],
+				\loopLength, msg[2]
 			);
 		});
 
-		this.addCommand(\resetLoopPhase, "i", { |msg|
-			voiceSynths[msg[1] - 1][\control].set(\loopReset, 1);
-		});
-
 		this.addCommand(\clearLoop, "i", { |msg|
-			voiceSynths[msg[1] - 1][\control].set(\freeze, 0);
+			voiceSynths[msg[1] - 1][\control].set(
+				\loopClockSync, 0,
+				\loopLength, 0
+			);
 		});
 
 		patchArgs.do({ |name|
@@ -1427,7 +1435,6 @@ Engine_Cule : CroneEngine {
 		});
 
 		[
-			\freeze,
 			\loopPosition,
 			\loopRate,
 			\shift,
@@ -1440,7 +1447,7 @@ Engine_Cule : CroneEngine {
 		});
 
 		this.addCommand(\tempo, "f", { |msg|
-			clockSynth.set(\rate, msg[1] / 60 / context.server.sampleRate * context.server.options.blockSize);
+			clockRateBus.set(msg[1] / 60 / context.server.sampleRate * context.server.options.blockSize);
 		});
 
 		this.addCommand(\downbeat, "", { |msg|
@@ -1505,6 +1512,7 @@ Engine_Cule : CroneEngine {
 				}
 			};
 			"baseFreqBus: %\n".postf(baseFreqBus.index);
+			"clockRateBus: %\n".postf(clockRateBus.index);
 			"clockPhaseBus: %\n".postf(clockPhaseBus.index);
 			voiceParamBuses.do({ |buses, voice|
 				"voice % params -------------\n".postf(voice);
@@ -1559,6 +1567,7 @@ Engine_Cule : CroneEngine {
 			sq80Resources.do(_.free);
 			// d50Resources.do(_.free);
 			group.free;
+			clockRateBus.free;
 			clockPhaseBus.free;
 			patchBuses.do({ |bus|
 				if(bus.class === Dictionary, {

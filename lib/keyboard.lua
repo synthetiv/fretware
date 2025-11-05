@@ -241,7 +241,7 @@ function Keyboard:key(x, y, z)
 				-- delete voice loops
 				for ov = 1, n_voices do
 					if self.held_keys.voice_loops[ov] then
-						clear_voice_loop(ov)
+						voice_loop_clear(ov)
 					end
 				end
 			end
@@ -253,12 +253,12 @@ function Keyboard:key(x, y, z)
 					self.held_keys.voice_loops[v] = z == 1
 					local voice = voice_states[v]
 					-- cheating a little here by calling functions from fretware.lua. TODO: clean up?
-					if z == 1 and not voice.looping then
-						if voice.loop_armed then
-							play_voice_loop(v)
+					if z == 1 and not voice.loop_playing then
+						if voice.loop_record_started then
+							voice_loop_play(v)
 						else
 							self:select_voice(v)
-							record_voice_loop(v)
+							voice_loop_record(v)
 						end
 					end
 				end
@@ -842,7 +842,7 @@ function Keyboard:draw()
 	else
 		-- voice loop delete key
 		for v = 1, n_voices do
-			if self.held_keys.voice_loops[v] and voice_states[v].looping then
+			if self.held_keys.voice_loops[v] and voice_states[v].loop_playing then
 				g:led(self.x, self.y, 7)
 			end
 		end
