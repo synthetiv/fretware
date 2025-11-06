@@ -1342,7 +1342,7 @@ Engine_Cule : CroneEngine {
 			baseFreqBus.setSynchronous(msg[1]);
 		});
 
-		this.addCommand(\playLoop, "ifi", { |msg|
+		this.addCommand(\playLoop, "ifb", { |msg|
 			voiceSynths[msg[1] - 1][\control].set(
 				\loopClockSync, msg[3],
 				\loopLength, msg[2]
