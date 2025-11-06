@@ -255,7 +255,7 @@ function Keyboard:key(x, y, z)
 					-- cheating a little here by calling functions from fretware.lua. TODO: clean up?
 					if z == 1 and not voice.loop_playing then
 						if voice.loop_record_started then
-							voice_loop_play(v)
+							voice_loop_set_end(v)
 						else
 							self:select_voice(v)
 							voice_loop_record(v)

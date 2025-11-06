@@ -626,10 +626,14 @@ function handle_synced_voice_loops(tempo_based)
 			voice.loop_record_next = false
 		elseif voice.loop_play_next then
 			-- start looping
-			voice_loop_play(v, true)
+			voice_loop_play(v)
 			voice.loop_playing = true
 			voice.loop_play_next = false
 			voice.loop_record_started = false
+			-- stop arpeggiating!
+			arp_menu:select(false)
+			k.held_keys.latch = false
+			k:maybe_clear_stack()
 			-- TODO: loop is if tied to tempo, set things up so phase resets on downbeats
 		end
 	end
