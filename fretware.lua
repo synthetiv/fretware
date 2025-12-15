@@ -396,6 +396,10 @@ function voice_loop_clear(v)
 	engine.clearLoop(v)
 	params:lookup_param('loopRate_' .. v):set_default()
 	params:lookup_param('loopPosition_' .. v):set_default()
+	for s = 1, #editor.source_names do
+		params:lookup_param(editor.source_names[s] .. '_loopRate_' .. v):set_default()
+		params:lookup_param(editor.source_names[s] .. '_loopPosition_' .. v):set_default()
+	end
 	voice.loop_playing = false
 	-- clear pitch shift, because it only confuses things when loop isn't engaged
 	voice.shift = 0
