@@ -419,9 +419,11 @@ end
 
 function voice_loop_play(v)
 	local voice = voice_states[v]
-	engine.playLoop(v, util.time() - voice.loop_record_started, voice.loop_tempo_sync)
+	engine.playLoop(v, util.time() - voice.loop_record_started, voice.loop_tempo_sync and 1 or 0)
 	params:lookup_param('loopRate_' .. v):set_default()
 	params:lookup_param('loopPosition_' .. v):set_default()
+	voice.loop_playing = true
+	voice.loop_record_started = false
 end
 
 function voice_loop_set_end(v)
@@ -431,8 +433,6 @@ function voice_loop_set_end(v)
 		voice.loop_play_next = true
 	else
 		voice_loop_play(v, false)
-		voice.loop_playing = true
-		voice.loop_record_started = false
 	end
 end
 

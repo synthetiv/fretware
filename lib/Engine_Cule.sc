@@ -1,7 +1,6 @@
 Engine_Cule : CroneEngine {
 
 	classvar nVoices = 3;
-	classvar nRecordedModulators = 8;
 	classvar bufferRateScale = 0.5;
 	classvar maxLoopTime = 60;
 
@@ -354,7 +353,7 @@ Engine_Cule : CroneEngine {
 
 		baseFreqBus = Bus.control(context.server);
 
-		clockRateBus = Bus.control(context.server);
+		clockRateBus = Bus.control(context.server).set(1);
 		clockPhaseBus = Bus.control(context.server);
 		SynthDef.new(\clockPhasor, {
 			var rate = In.kr(clockRateBus);
@@ -513,7 +512,7 @@ Engine_Cule : CroneEngine {
 			// create buffer for looping control data
 			bufferRate = ControlRate.ir * bufferRateScale;
 			bufferLength = context.server.sampleRate / context.server.options.blockSize * maxLoopTime * bufferRateScale;
-			buffer = LocalBuf.new(bufferLength, nRecordedModulators + 1);
+			buffer = LocalBuf.new(bufferLength, 8);
 
 			// define what we'll be writing
 			pitch = \pitch.kr;
@@ -523,16 +522,19 @@ Engine_Cule : CroneEngine {
 			y = \dy.kr;
 			gate = \gate.kr;
 			trig = Trig.kr(\trig.tr, 0.01);
-			clockRate = Select.kr(\loopClockSync.kr, [ 1, In.kr(clockRateBus) ]);
+			// TODO: it seems like this isn't really getting initialized well? like, until tempo gets adjusted?
+			clockRate = In.kr(clockRateBus);
 
 			// define where we'll be reading
 			loopLength = (\loopLength.kr * bufferRate).min(bufferLength);
 			loopEngaged = loopLength > 0;
 			loopRate = \loopRate.kr(1) * 8.pow(\loopRateMod.kr);
 			recClockRate = LocalIn.kr(default: 1);
+			// TODO: this seems to be... slow...
+			loopRate = loopRate * Select.kr(\loopClockSync.kr, [ 1, clockRate / recClockRate ]);
 			readPhase = Phasor.kr(
 				Trig.kr(loopEngaged) + \loopReset.tr, // TODO: trigger loopReset when appropriate
-				bufferRateScale * loopRate * clockRate / recClockRate,
+				bufferRateScale * loopRate,
 				end: loopLength
 			);
 			// offset by loopPosition, but constrain to loop bounds
@@ -542,7 +544,7 @@ Engine_Cule : CroneEngine {
 			BufWr.kr([pitch, tip, hand, x, y, gate, trig, clockRate ], buffer, writePhase);
 			// read values from recorded loop (if any)
 			# recPitch, recTip, recHand, recX, recY, recGate, recTrig, recClockRate = BufRd.kr(
-				nRecordedModulators,
+				8,
 				buffer,
 				writePhase - loopLength + readPhase,
 				interpolation: 1
@@ -1342,7 +1344,7 @@ Engine_Cule : CroneEngine {
 			baseFreqBus.setSynchronous(msg[1]);
 		});
 
-		this.addCommand(\playLoop, "ifb", { |msg|
+		this.addCommand(\playLoop, "ifi", { |msg|
 			voiceSynths[msg[1] - 1][\control].set(
 				\loopClockSync, msg[3],
 				\loopLength, msg[2]
