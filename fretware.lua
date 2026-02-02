@@ -327,6 +327,7 @@ for v = 1, n_voices do
 		mix_level = 1,
 		shift = 0,
 		loop_playing = false,
+		loop_length = 0,
 		loop_play_next = false,
 		loop_record_started = false,
 		loop_record_next = false,
@@ -401,6 +402,7 @@ function voice_loop_clear(v)
 		params:lookup_param(editor.source_names[s] .. '_loopPosition_' .. v):set_default()
 	end
 	voice.loop_playing = false
+	voice.loop_length = 0
 	-- clear pitch shift, because it only confuses things when loop isn't engaged
 	voice.shift = 0
 	engine.shift(v, 0)
@@ -419,11 +421,13 @@ end
 
 function voice_loop_play(v)
 	local voice = voice_states[v]
-	engine.playLoop(v, util.time() - voice.loop_record_started, voice.loop_tempo_sync and 1 or 0)
+	local length = util.time() - voice.loop_record_started
+	engine.playLoop(v, length, voice.loop_tempo_sync and 1 or 0)
 	params:lookup_param('loopRate_' .. v):set_default()
 	params:lookup_param('loopPosition_' .. v):set_default()
 	voice.loop_playing = true
 	voice.loop_record_started = false
+	voice.loop_length = length
 end
 
 function voice_loop_set_end(v)
@@ -1431,7 +1435,7 @@ function redraw()
 				-- don't even bother drawing loop-related sliders if loop isn't playing
 				-- TODO: how's this look?
 				screen.rect(dest_slider.x - 1, dest_slider.y - 1, dest_slider.width + 2, dest_slider.height + 2)
-				screen.level(2)
+				screen.level(1)
 				screen.stroke()
 			else
 				local source_slider = nil
@@ -1523,6 +1527,10 @@ function enc(n, d)
 		local d_scaled = d / 128
 		-- params 17 and 18 are loop-related, so don't modify them unless a loop is playing
 		if param_index >= 19 or voice_states[k.selected_voice].loop_playing then
+			-- if modifying loop position, scale according to loop length
+			if editor.dests[param_index].name == 'loopPosition' then
+				d_scaled = d_scaled / math.max(1, voice_states[k.selected_voice].loop_length) * 3
+			end
 			for source = 1, #editor.source_names do
 				if source_menu.held[source] then
 					if editor.dests[param_index].voice_dest then
