@@ -13,7 +13,7 @@ function Stepper.new(keyboard, x, y, width, height)
 		y2 = y + height - 1,
 		max_length = max_length,
 		held_steps = {},
-		copied_steps = {},
+		clipboard = {},
 		held_keys = {},
 		-- active_step_index = 0, -- i.e. not active, because first step is 1
 		-- active_step = {},
@@ -22,7 +22,6 @@ function Stepper.new(keyboard, x, y, width, height)
 	}
 	for s = 1, max_length do
 		stepper.held_steps[s] = false
-		stepper.copied_steps[s] = false
 	end
 	setmetatable(stepper, Stepper)
 	return stepper
@@ -44,19 +43,30 @@ function Stepper:draw()
 					g:led(x, y, 0)
 				end
 			elseif x == self.x or x == self.x2 or y == self.y then
-				g:led(x, y, 0)
+				g:led(x, y, 2)
 			else
 				if s > #self.keyboard.stack then
-					g:led(x, y, 2)
+					g:led(x, y, 0)
 				else
 					local step = self.keyboard.stack[s]
-					if s == self.keyboard.arp_index then
-						g:led(x, y, step.gate and 15 or 10)
-					elseif s == self.keyboard.stack_edit_index then
-						g:led(x, y, step.gate and 10 or 7)
-					else
-						g:led(x, y, self.held_steps[s] and 10 or (step.gate and 7 or 3))
+					local level = 1
+					if step.gate then
+						-- get pitch *relative to keyboard octave*
+						local pitch = self.keyboard:get_key_id_pitch_value(step.id)
+						pitch = pitch - self.keyboard.octave * self.keyboard.scale.span
+						-- higher pitches = brighter keys
+						local pitch_level = math.max(0, math.min(15, pitch * 4))
+						level = led_blend(level, pitch_level)
 					end
+					if s == self.keyboard.stack_edit_index then
+						level = led_blend(level, 10)
+					elseif s == self.keyboard.arp_index then
+						level = led_blend(level, self.keyboard.stack_edit_index and 7 or 10)
+					end
+					if self.held_steps[s] then
+						level = led_blend(level, 10)
+					end
+					g:led(x, y, math.floor(level + 0.5))
 				end
 				s = s + 1
 			end
@@ -83,22 +93,50 @@ function Stepper:can_delete_steps()
 end
 
 function Stepper:clear_clipboard()
-	for cs = 1, self.max_length do
-		self.copied_steps[cs] = false
+	self.clipboard = {}
+end
+
+function Stepper:paste_steps(dest_index)
+	local step_count = #self.clipboard
+	for s = 1, step_count do
+		local source = self.clipboard[s]
+		table.insert(self.keyboard.stack, dest_index, {
+			id = source.id,
+			gate = source.gate
+		})
 	end
+	if self.keyboard.stack_edit_index and self.keyboard.stack_edit_index >= dest_index then
+		self.keyboard.stack_edit_index = self.keyboard.stack_edit_index + step_count
+	end
+	if self.keyboard.arp_index >= dest_index then
+		self.keyboard.arp_index = self.keyboard.arp_index + step_count
+	end
+	-- TODO: remind me what the difference between arp_insert and arp_index is??
+	if self.keyboard.arp_insert >= dest_index then
+		self.keyboard.arp_insert = self.keyboard.arp_insert + step_count
+	end
+end
+
+function Stepper:duplicate_step(source_index, dest_index)
+	local source = self.keyboard.stack[source_index]
+	dest_index = dest_index or source_index
+	table.insert(self.keyboard.stack, dest_index, {
+		id = source.id,
+		gate = source.gate
+	})
 end
 
 function Stepper:key(x, y, z, shift)
 	if not self.open then
 		return false
-	elseif x == 1 and y == 1 then
+	elseif x == 1 and y == 1 and z == 1 then
+		-- delete key
 		local n_deleted = 0
 		for s = 1, #self.keyboard.stack do
 			if self:can_delete_step(s) then
 				local ks = (s - n_deleted - 1) % #self.keyboard.stack + 1
 				self.keyboard:remove_stack_key(ks)
 				n_deleted = n_deleted + 1
-				self.held_steps[s] = false
 			end
 		end
 		return n_deleted > 0
@@ -131,59 +169,24 @@ function Stepper:key(x, y, z, shift)
 		local now = util.time()
 		if self.keyboard.held_keys.shift then
 			if z == 1 then
-				local pasted_steps = 0
-				for cs = 1, self.max_length do
-					local copied_step = self.copied_steps[cs]
-					if copied_step then
-						table.insert(self.keyboard.stack, s + pasted_steps, {
-							id = copied_step.id,
-							gate = copied_step.gate
-						})
-						pasted_steps = pasted_steps + 1
-					end
-				end
-				if pasted_steps > 0 then
-					if self.keyboard.stack_edit_index and self.keyboard.stack_edit_index >= s then
-						self.keyboard.stack_edit_index = self.keyboard.stack_edit_index + pasted_steps
-					end
-					if self.keyboard.arp_index >= s then
-						self.keyboard.arp_index = self.keyboard.arp_index + pasted_steps
-					end
-					if self.keyboard.arp_insert >= s then
-						self.keyboard.arp_insert = self.keyboard.arp_insert + pasted_steps
-					end
+				if #self.clipboard > 0 then
+					self:paste_steps(math.min(s, #self.keyboard.stack + 1))
 				else
 					local length_diff = s - #self.keyboard.stack
-					if length_diff < 0 then
-						-- delete steps at end
-						length_diff = -length_diff
-						for ds = 1, length_diff do
-							if self.keyboard.arp_index >= s then
-								self.keyboard.arp_index = self.keyboard.arp_index - length_diff
-							end
-							if self.keyboard.arp_insert >= s then
-								self.keyboard.arp_insert = self.keyboard.arp_insert - length_diff
-							end
-							self.keyboard:remove_stack_key(s)
-						end
-					elseif length_diff > 0 then
-						-- copy steps to end
-						local insert_point = #self.keyboard.stack + 1
+					if s <= #self.keyboard.stack then
+						-- duplicate the step that was pressed
+						self:duplicate_step(s)
+					else
+						-- copy steps from start until stack is 's' steps long
 						for is = 1, length_diff do
-							local copy_step = self.keyboard.stack[is]
-							table.insert(self.keyboard.stack, insert_point, {
-								id = copy_step.id,
-								gate = copy_step.gate
-							})
-							insert_point = insert_point + 1
+							self:duplicate_step(is, #self.keyboard.stack + 1)
 						end
 					end
 				end
 			else
 				if self.held_steps[s] then
 					-- add this to copied steps
-					self.copied_steps[s] = self.keyboard.stack[s]
-					self.held_steps[s] = false
+					table.insert(self.clipboard, self.keyboard.stack[s])
 				end
 			end
 		else
@@ -202,9 +205,12 @@ function Stepper:key(x, y, z, shift)
 					if self.keyboard.stack[s].gate and self.held_steps[s] and (now - self.held_steps[s] < 0.15) then
 						self.keyboard.stack[s].gate = false
 					end
-					self.held_steps[s] = false
 				end
 			end
+		end
+		if z == 0 then
+			-- always release, even if we're holding the key for a step that no longer exists
+			self.held_steps[s] = false
 		end
 	end
 	return true
