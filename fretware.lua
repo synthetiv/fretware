@@ -54,7 +54,7 @@ arp_menu.on_select = function(source, old_source)
 	elseif not source then
 		k:arp(false)
 		k.arping = false
-		handle_synced_voice_loops(false) -- just in case we a loop start/end cued up
+		handle_synced_voice_loops(false, true) -- just in case we had a loop start/end cued up
 	end
 	k.arp_plectrum = (source == 13)
 end
@@ -620,7 +620,15 @@ function grid_redraw()
 	g:refresh()
 end
 
-function handle_synced_voice_loops(tempo_based)
+function handle_synced_voice_loops(tempo_based, immediate)
+	-- if we're playing a sequence straight (not randomized order),
+	-- wait until the first step to either start or stop
+	if not immediate and k.arp_direction == 1 and k.arp_index ~= 1 then
+		-- TODO: in this situation, switching the selected voice should ALSO be delayed!
+		-- or something else needs to happen to ensure that we're still
+		-- sending user input to the voice that's actually recording
+		return
+	end
 	for v = 1, n_voices do
 		local voice = voice_states[v]
 		if voice.loop_record_next then
