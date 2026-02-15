@@ -158,6 +158,8 @@ editor = {
 		{
 			name = 'ratioA',
 			label = 'ratio A',
+			mode_param = 'opHardA',
+			modes = { 'soft', 'hard' },
 			default = -0.4167 -- 1/1 (4th out of 12 harmonics)
 		},
 		{
@@ -168,6 +170,8 @@ editor = {
 		{
 			name = 'indexA',
 			label = 'index A',
+			mode_param = 'opTypeA',
+			modes = { 'fm', 'fb', 'sp', 'wv' },
 			default = -1,
 			source_defaults = {
 				amp = 0.2
@@ -181,6 +185,8 @@ editor = {
 		{
 			name = 'ratioB',
 			label = 'ratio B',
+			mode_param = 'opHardB',
+			modes = { 'soft', 'hard' },
 			default = -0.25 -- 2/1 (5th out of 12 harmonics)
 		},
 		{
@@ -191,6 +197,8 @@ editor = {
 		{
 			name = 'indexB',
 			label = 'index B',
+			mode_param = 'opTypeB',
+			modes = { 'fm', 'fb', 'sp', 'wv' },
 			default = -1,
 			source_defaults = {
 				amp = 0.2
@@ -200,21 +208,31 @@ editor = {
 		{
 			name = 'fxA',
 			label = 'fx A',
+			mode_param = 'fxTypeA',
+			modes = { 'squiz', 'tanh' },
 			default = -1
 		},
 		{
 			name = 'fxB',
 			label = 'fx B',
+			mode_param = 'fxTypeB',
+			modes = { 'loss', 'chorus' },
 			default = -1
 		},
 		{
 			name = 'hpCutoff',
 			label = 'hp cutoff',
+			mode_param = 'hpQ',
+			modes = { 'lo', 'mid', 'hi' },
+			mode_values = { 1, 1.414, 5 },
 			default = -1
 		},
 		{
 			name = 'lpCutoff',
 			label = 'lp cutoff',
+			mode_param = 'lpQ',
+			modes = { 'lo', 'mid', 'hi' },
+			mode_values = { 1, 1.414, 5 },
 			default = 0.8,
 			source_defaults = {
 				amp = 0.2
@@ -224,27 +242,37 @@ editor = {
 		{
 			name = 'attack',
 			label = 'attack',
+			mode_param = 'amp_mode',
+			modes = { 'mod', '*', 'amp' },
 			default = 0
 		},
 		{
 			name = 'release',
 			label = 'release',
+			mode_param = 'eg_type',
+			modes = { 'gate', 'trig' },
 			default = 0,
 			has_divider = true
 		},
 		{
 			name = 'lfoAFreq',
-			label = 'lfo a freq',
+			label = 'lfo a',
+			mode_param = 'lfoTypeA',
+			modes = { 'tri', 'sy', 'rx', 'd', '/' },
 			default = 0
 		},
 		{
 			name = 'lfoBFreq',
-			label = 'lfo b freq',
+			label = 'lfo b',
+			mode_param = 'lfoTypeB',
+			modes = { 'tri', 'sy', 'rx', 'd', '/' },
 			default = -0.2
 		},
 		{
 			name = 'lfoCFreq',
-			label = 'lfo c freq',
+			label = 'lfo c',
+			mode_param = 'lfoTypeC',
+			modes = { 'tri', 'sy', 'rx', 'd', '/' },
 			default = -0.4,
 			has_divider = true
 		},
@@ -278,8 +306,7 @@ editor = {
 		[3] = 0,
 		[4] = 0,
 		[5] = 0
-	},
-	messages = {}
+	}
 }
 
 patch_param_mappings = {
@@ -821,13 +848,11 @@ function init()
 
 	params:add_group('modes', 9)
 
-	local op_types = { 'FM', 'FB', 'sample', 'square', 'saw', 'pluck', 'comb', 'comb ext' }
-
 	params:add {
 		name = 'op type A',
 		id = 'opTypeA',
 		type = 'option',
-		options = op_types,
+		options = { 'FM', 'FB', 'rompler', 'raw' --[[, 'saw', 'pluck', 'comb', 'comb ext' ]] },
 		default = 1,
 		action = function(value)
 			engine.opTypeA(value - 1)
@@ -839,7 +864,7 @@ function init()
 				editor.dests[3].source_defaults.amp = 0.2
 				params:set('amp_indexA', 0.2)
 			end
-			show_message('opA', op_types[value])
+			set_dest_mode('indexA', value)
 		end
 	}
 
@@ -851,7 +876,7 @@ function init()
 		default = 1,
 		action = function(value)
 			engine.opHardA(value - 1)
-			show_message('opA', value == 1 and 'soft' or 'hard')
+			set_dest_mode('ratioA', value)
 		end
 	}
 
@@ -859,13 +884,11 @@ function init()
 		name = 'op type B',
 		id = 'opTypeB',
 		type = 'option',
-		options = op_types,
-		default = 1,
+		options = { 'FM', 'FB', 'rompler', 'raw' --[[, 'saw', 'pluck', 'comb', 'comb ext' ]] },
+		default = 2,
 		action = function(value)
 			local raw_value = value
 			if value == 1 then
-				engine.opTypeB(1) -- default to FB
-			elseif value == 2 then
 				engine.opTypeB(8) -- and use delayed FM for FM
 			else
 				engine.opTypeB(value - 1)
@@ -877,7 +900,7 @@ function init()
 				editor.dests[7].source_defaults.amp = 0.2
 				params:set('amp_indexB', 0.2)
 			end
-			show_message('opB', op_types[raw_value])
+			set_dest_mode('indexB', raw_value)
 		end
 	}
 
@@ -889,7 +912,7 @@ function init()
 		default = 1,
 		action = function(value)
 			engine.opHardB(value - 1)
-			show_message('opB', value == 1 and 'soft' or 'hard')
+			set_dest_mode('ratioB', value)
 		end
 	}
 
@@ -901,7 +924,7 @@ function init()
 		default = 1,
 		action = function(value)
 			engine.fxTypeA(value - 1)
-			show_message('fxA', value == 1 and 'squiz' or 'tanh')
+			set_dest_mode('fxA', value)
 		end
 	}
 
@@ -913,21 +936,19 @@ function init()
 		default = 1,
 		action = function(value)
 			engine.fxTypeB(value == 1 and 3 or 5)
-			show_message('fxA', value == 1 and 'loss' or 'chorus')
+			set_dest_mode('fxB', value)
 		end
 	}
-
-	local lfo_types = { 'tri', 's+h', 'dust', 'drift', 'ramp' }
 
 	params:add {
 		name = 'lfo type A',
 		id = 'lfoTypeA',
 		type = 'option',
-		options = lfo_types,
+		options = { 'tri', 's+h', 'dust', 'drift', 'ramp' },
 		default = 1,
 		action = function(value)
 			engine.lfoTypeA(value - 1)
-			show_message('lfoA', lfo_types[value])
+			set_dest_mode('lfoAFreq', value)
 		end
 	}
 
@@ -935,11 +956,11 @@ function init()
 		name = 'lfo type B',
 		id = 'lfoTypeB',
 		type = 'option',
-		options = lfo_types,
+		options = { 'tri', 's+h', 'dust', 'drift', 'ramp' },
 		default = 1,
 		action = function(value)
 			engine.lfoTypeB(value - 1)
-			show_message('lfoB', lfo_types[value])
+			set_dest_mode('lfoBFreq', value)
 		end
 	}
 
@@ -947,11 +968,11 @@ function init()
 		name = 'lfo type C',
 		id = 'lfoTypeC',
 		type = 'option',
-		options = lfo_types,
+		options = { 'tri', 's+h', 'dust', 'drift', 'ramp' },
 		default = 1,
 		action = function(value)
 			engine.lfoTypeC(value - 1)
-			show_message('lfoC', lfo_types[value])
+			set_dest_mode('lfoCFreq', value)
 		end
 	}
 
@@ -966,7 +987,7 @@ function init()
 		controlspec = controlspec.new(1, 5, 'exp', 0, 1.414),
 		action = function(value)
 			engine.lpRQ(1 / value)
-			show_message('lpQ', string.format('%.1f', value))
+			set_dest_mode('lpCutoff', value <= 1.25 and 1 or (value <= 2.5 and 2 or 3))
 		end
 	}
 
@@ -977,7 +998,7 @@ function init()
 		controlspec = controlspec.new(1, 5, 'exp', 0, 1.414),
 		action = function(value)
 			engine.hpRQ(1 / value)
-			show_message('hpQ', string.format('%.1f', value))
+			set_dest_mode('hpCutoff', value <= 1.25 and 1 or (value <= 2.5 and 2 or 3))
 		end
 	}
 
@@ -1031,19 +1052,18 @@ function init()
 				default = 2,
 				action = function(value)
 					engine.egType(value - 1)
-					show_message('eg', value == 1 and 'gate' or 'trig')
+					set_dest_mode('release', value)
 				end
 			}
-			local amp_modes = { 'tip', 'tip*eg', 'eg' }
 			params:add {
 				name = 'amp mode',
 				id = 'amp_mode',
 				type = 'option',
-				options = amp_modes,
+				options = { 'tip', 'tip*eg', 'eg' },
 				default = 1,
 				action = function(value)
 					engine.ampMode(value - 1)
-					show_message('amp', amp_modes[value])
+					set_dest_mode('attack', value)
 				end
 			}
 		elseif source == 'lfoA' or source == 'lfoB' or source == 'lfoC' then
@@ -1253,16 +1273,6 @@ function init()
 					y = y + 16
 				end
 			end
-			-- clear old messages
-			local now = util.time()
-			local m = 1
-			while m <= #editor.messages do
-				if now - editor.messages[m].time > 2 then
-					table.remove(editor.messages, m)
-				else
-					m = m + 1
-				end
-			end
 			grid_redraw()
 		end
 	}
@@ -1328,7 +1338,6 @@ function init()
 	end
 
 	xvi = midi_devices_by_name['MiSW XVI-M'] or {}
-	sysex_response = {}
 	function xvi.event(data)
 		local message = midi.to_msg(data)
 		if message.type == 'pitchbend' then
@@ -1365,25 +1374,19 @@ function init()
 					state.delta = 0
 					editor.selected_dest = fader
 					editor.autoselect_time = now
+					print('autoselect by fader', fader)
 					screen.ping()
 				end
 			end
-		elseif data[1] == 0xf0 then
-			xvi.receiving_sysex = true
-			xvi.sysex_data = data
-		elseif xvi.receiving_sysex then
-			for n, v in ipairs(data) do
-				table.insert(xvi.sysex_data, v)
-				if v == 0xf7 then
-					xvi.receiving_sysex = false
-					while n < #xvi.sysex_data do
-						local line = ''
-						for j = 1, 8 do
-							line = line .. string.format('%02x%02x ', xvi.sysex_data[n] or 0, xvi.sysex_data[n + 1] or 0)
-							n = n + 2
-						end
-						print(line)
-					end
+		elseif message.type == 'cc' then
+			local button = message.ch
+			local dest = editor.dests[button]
+			if dest.mode_param then
+				local new_mode = dest.mode % #dest.modes + 1
+				if dest.mode_values then
+					params:set(dest.mode_param, dest.mode_values[new_mode])
+				else
+					params:set(dest.mode_param, new_mode)
 				end
 			end
 		end
@@ -1436,11 +1439,16 @@ function ampdb(amp)
 	return math.log(amp) / 0.05 / math.log(10)
 end
 
-function show_message(label, value)
-	table.insert(editor.messages, {
-		text = string.format('%s: %s', label, value),
-		time = util.time()
-	})
+function set_dest_mode(dest_name, mode)
+	for d = 1, #editor.dests do
+		if editor.dests[d].name == dest_name then
+			editor.dests[d].mode = mode
+			editor.selected_dest = d
+			editor.autoselect_time = util.time()
+			print('autoselect by dest mode', dest_name)
+			return
+		end
+	end
 end
 
 function redraw()
@@ -1505,7 +1513,17 @@ function redraw()
 
 			screen.level(active and 10 or 1)
 			screen.move(0, dest_slider.y - 3)
-			screen.text(editor.dests[d].label:upper())
+			screen.text(dest.label:upper())
+			if dest.modes then
+				local mode = dest.mode or 1
+				screen.move_rel(2, 0)
+				for m = 1, #dest.modes do
+					local this_mode = (m == mode)
+					screen.level(active and (this_mode and 10 or 1) or (this_mode and 1 or 0))
+					screen.text(dest.modes[m])
+					screen.move_rel(2, 0)
+				end
+			end
 			screen.stroke()
 		end
 	end
@@ -1543,20 +1561,6 @@ function redraw()
 	screen.line_rel(64, 0)
 	screen.level(1)
 	screen.stroke()
-
-	local message_count = #editor.messages
-	local now = util.time()
-	if message_count > 0 then
-		screen.level(0)
-		screen.rect(0, 127 - message_count * 7, 64, message_count * 7 + 1)
-		screen.fill()
-		for m = 1, message_count do
-			local message = editor.messages[m]
-			screen.move(0, 126 - (message_count - m) * 7)
-			screen.level(math.floor((2 - now + message.time) * 7.5 + 0.5))
-			screen.text(message.text)
-		end
-	end
 
 	screen.restore()
 	screen.update()
