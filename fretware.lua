@@ -1031,16 +1031,19 @@ function init()
 				default = 2,
 				action = function(value)
 					engine.egType(value - 1)
+					show_message('eg', value == 1 and 'gate' or 'trig')
 				end
 			}
+			local amp_modes = { 'tip', 'tip*eg', 'eg' }
 			params:add {
 				name = 'amp mode',
 				id = 'amp_mode',
 				type = 'option',
-				options = { 'tip', 'tip*eg', 'eg' },
+				options = amp_modes,
 				default = 1,
 				action = function(value)
 					engine.ampMode(value - 1)
+					show_message('amp', amp_modes[value])
 				end
 			}
 		elseif source == 'lfoA' or source == 'lfoB' or source == 'lfoC' then
