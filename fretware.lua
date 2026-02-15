@@ -15,8 +15,8 @@ k = Keyboard.new(1, 1, 16, 8)
 Menu = include 'lib/menu'
 
 arp_menu = Menu.new(4, 5, 10, 2, {
-	_, 1, 2, 3,  4,  5,  6, 7, 8, 9,
-	_, _, _, _, 10, 11, 12 -- value number 11 can be set to 13 when direction is set to 3
+	_, 1,  2, 3,  4,  5,  6, 7, 8, 9,
+	_, _, 14, _, 10, 11, 12 -- value number 11 can be set to 13 when direction is set to 3
 })
 arp_menu.toggle = true
 arp_menu.on_select = function(source, old_source)
@@ -1392,9 +1392,17 @@ function init()
 		end
 	end
 
-	-- trigger sysex config dump from xvi -- supposedly this SHOULD also
-	-- cause it to send fader values, but it doesn't :(
-	-- xvi:send { 0xf0, 0x7d, 0, 0, 0x1f, 0xf7 }
+	edrum = midi_devices_by_name['eDrumIn BLACK'] or {}
+	function edrum.event(data)
+		if arp_menu.value == 14 then
+			local message = midi.to_msg(data)
+			if message.type == 'note_on' then
+				k:arp(true)
+			elseif message.type == 'note_off' then
+				k:arp(false)
+			end
+		end
+	end
 
 	trackball = hid.connect(1)
 	function trackball.event(type, code, value)
