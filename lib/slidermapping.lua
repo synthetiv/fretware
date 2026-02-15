@@ -25,7 +25,9 @@ end
 
 -- respond to an absolute movement. values must be scaled to [0, 1]
 function SliderMapping:move(old_value, new_value)
-	if (math.abs(new_value - self.value) <= 0.02 or math.abs(old_value - self.value) <= 0.02) then
+	local crossed = (old_value <= self.value and self.value <= new_value)
+	local close = (math.abs(new_value - self.value) <= 0.02) or (math.abs(old_value - self.value) <= 0.02)
+	if crossed or close then
 		self.param:set_raw(new_value)
 	end
 end
