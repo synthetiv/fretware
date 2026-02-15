@@ -54,7 +54,11 @@ Engine_Cule : CroneEngine {
 		var whichRatio = harmonic.linlin(-1, 1, 0, nRatios - 1);
 		var whichOsc = Fold.kr(whichRatio) * 2.5 - 1.25;
 		var oscRatios = Index.kr(fmRatios, (whichRatio + [ 1, 0 ]).trunc(2) + [ 0, 1 ]);
-		var oscs = uGen.ar(hz * oscRatios, uGenArg);
+		var oscs = if(uGenArg.notNil, {
+			uGen.ar(hz * oscRatios, uGenArg);
+		}, {
+			uGen.ar(hz * oscRatios);
+		});
 		^XFade2.ar(
 			oscs[0],
 			oscs[1],
@@ -930,14 +934,14 @@ Engine_Cule : CroneEngine {
 			Out.ar(\outBus.ir, output * 6.dbamp);
 		}).add;
 
-		// Band-limited pseudo-analog oscillator, all square with fades between ratios and variable leak
+		// Band-limited pseudo-analog oscillator, square-saw mix with fades between ratios
 		SynthDef.new(\operatorSquareFade, {
 			var hz = 2.pow(\pitch.kr) * In.kr(baseFreqBus);
-			var output = this.harmonicOsc(
-				BlitB3Square,
-				hz,
-				\ratio.kr,
-				\index.ar(-1).lincurve(-1, 1, 0.99, 0, 3)
+			var ratio = \ratio.kr;
+			var output = LinXFade2.ar(
+				this.harmonicOsc(BlitB3Square, hz, ratio),
+				this.harmonicOsc(BlitB3Saw, hz * 2, ratio),
+				\index.ar(-1)
 			);
 			Out.ar(\outBus.ir, output * 6.dbamp);
 		}).add;
