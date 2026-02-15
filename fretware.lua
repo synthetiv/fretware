@@ -278,7 +278,8 @@ editor = {
 		[3] = 0,
 		[4] = 0,
 		[5] = 0
-	}
+	},
+	messages = {}
 }
 
 patch_param_mappings = {
@@ -820,11 +821,13 @@ function init()
 
 	params:add_group('modes', 9)
 
+	local op_types = { 'FM', 'FB', 'sample', 'square', 'saw', 'pluck', 'comb', 'comb ext' }
+
 	params:add {
 		name = 'op type A',
 		id = 'opTypeA',
 		type = 'option',
-		options = { 'FM', 'FB', 'sample', 'square', 'saw', 'pluck', 'comb', 'comb ext' },
+		options = op_types,
 		default = 1,
 		action = function(value)
 			engine.opTypeA(value - 1)
@@ -836,6 +839,7 @@ function init()
 				editor.dests[3].source_defaults.amp = 0.2
 				params:set('amp_indexA', 0.2)
 			end
+			show_message('opA', op_types[value])
 		end
 	}
 
@@ -847,6 +851,7 @@ function init()
 		default = 1,
 		action = function(value)
 			engine.opHardA(value - 1)
+			show_message('opA', value == 1 and 'soft' or 'hard')
 		end
 	}
 
@@ -854,15 +859,17 @@ function init()
 		name = 'op type B',
 		id = 'opTypeB',
 		type = 'option',
-		options = { 'FB', 'FM', 'sample', 'square', 'saw', 'pluck', 'comb', 'comb ext' },
+		options = op_types,
 		default = 1,
 		action = function(value)
+			local raw_value = value
 			if value == 1 then
-				value = 2 -- default to FB
+				engine.opTypeB(1) -- default to FB
 			elseif value == 2 then
-				value = 9 -- and use delayed FM for FM
+				engine.opTypeB(8) -- and use delayed FM for FM
+			else
+				engine.opTypeB(value - 1)
 			end
-			engine.opTypeB(value - 1)
 			if value == 3 then
 				editor.dests[7].source_defaults.amp = 0
 				params:set('amp_indexB', 0)
@@ -870,6 +877,7 @@ function init()
 				editor.dests[7].source_defaults.amp = 0.2
 				params:set('amp_indexB', 0.2)
 			end
+			show_message('opB', op_types[raw_value])
 		end
 	}
 
@@ -881,6 +889,7 @@ function init()
 		default = 1,
 		action = function(value)
 			engine.opHardB(value - 1)
+			show_message('opB', value == 1 and 'soft' or 'hard')
 		end
 	}
 
@@ -892,6 +901,7 @@ function init()
 		default = 1,
 		action = function(value)
 			engine.fxTypeA(value - 1)
+			show_message('fxA', value == 1 and 'squiz' or 'tanh')
 		end
 	}
 
@@ -903,17 +913,21 @@ function init()
 		default = 1,
 		action = function(value)
 			engine.fxTypeB(value == 1 and 3 or 5)
+			show_message('fxA', value == 1 and 'loss' or 'chorus')
 		end
 	}
+
+	local lfo_types = { 'tri', 's+h', 'dust', 'drift', 'ramp' }
 
 	params:add {
 		name = 'lfo type A',
 		id = 'lfoTypeA',
 		type = 'option',
-		options = { 'tri', 's+h', 'dust', 'drift', 'ramp' },
+		options = lfo_types,
 		default = 1,
 		action = function(value)
 			engine.lfoTypeA(value - 1)
+			show_message('lfoA', lfo_types[value])
 		end
 	}
 
@@ -921,10 +935,11 @@ function init()
 		name = 'lfo type B',
 		id = 'lfoTypeB',
 		type = 'option',
-		options = { 'tri', 's+h', 'dust', 'drift', 'ramp' },
+		options = lfo_types,
 		default = 1,
 		action = function(value)
 			engine.lfoTypeB(value - 1)
+			show_message('lfoB', lfo_types[value])
 		end
 	}
 
@@ -932,10 +947,11 @@ function init()
 		name = 'lfo type C',
 		id = 'lfoTypeC',
 		type = 'option',
-		options = { 'tri', 's+h', 'dust', 'drift', 'ramp' },
+		options = lfo_types,
 		default = 1,
 		action = function(value)
 			engine.lfoTypeC(value - 1)
+			show_message('lfoC', lfo_types[value])
 		end
 	}
 
@@ -950,6 +966,7 @@ function init()
 		controlspec = controlspec.new(1, 5, 'exp', 0, 1.414),
 		action = function(value)
 			engine.lpRQ(1 / value)
+			show_message('lpQ', string.format('%.1f', value))
 		end
 	}
 
@@ -960,6 +977,7 @@ function init()
 		controlspec = controlspec.new(1, 5, 'exp', 0, 1.414),
 		action = function(value)
 			engine.hpRQ(1 / value)
+			show_message('hpQ', string.format('%.1f', value))
 		end
 	}
 
@@ -1206,6 +1224,7 @@ function init()
 	redraw_metro = metro.init {
 		time = 1 / 30,
 		event = function(n)
+			-- calculate slider positions on screen
 			local y = 66
 			for p = 1, editor.selected_dest - 1 do
 				if editor.dests[p].has_divider then
@@ -1229,6 +1248,16 @@ function init()
 					y = y + 23
 				else
 					y = y + 16
+				end
+			end
+			-- clear old messages
+			local now = util.time()
+			local m = 1
+			while m <= #editor.messages do
+				if now - editor.messages[m].time > 2 then
+					table.remove(editor.messages, m)
+				else
+					m = m + 1
 				end
 			end
 			grid_redraw()
@@ -1404,6 +1433,13 @@ function ampdb(amp)
 	return math.log(amp) / 0.05 / math.log(10)
 end
 
+function show_message(label, value)
+	table.insert(editor.messages, {
+		text = string.format('%s: %s', label, value),
+		time = util.time()
+	})
+end
+
 function redraw()
 	-- TODO: show held pitch(es) based on how they're specified in scala file!!; indicate bend/glide
 	screen.clear()
@@ -1504,6 +1540,20 @@ function redraw()
 	screen.line_rel(64, 0)
 	screen.level(1)
 	screen.stroke()
+
+	local message_count = #editor.messages
+	local now = util.time()
+	if message_count > 0 then
+		screen.level(0)
+		screen.rect(0, 127 - message_count * 7, 64, message_count * 7 + 1)
+		screen.fill()
+		for m = 1, message_count do
+			local message = editor.messages[m]
+			screen.move(0, 126 - (message_count - m) * 7)
+			screen.level(math.floor((2 - now + message.time) * 7.5 + 0.5))
+			screen.text(message.text)
+		end
+	end
 
 	screen.restore()
 	screen.update()
