@@ -362,9 +362,9 @@ Engine_Cule : CroneEngine {
 		SynthDef.new(\clockPhasor, {
 			var rate = In.kr(clockRateBus);
 			var downbeat = \downbeat.tr;
-			// at each downbeat, hard-reset the phasor to 0, 1, 2, 3, 0...
-			var beat = Stepper.kr(downbeat, 0, 0, 3);
-			var phase = Phasor.kr(downbeat, rate, 0, 4, resetPos: beat);
+			// at each downbeat, hard-reset the phasor to 0, 1, 2, 3, ..., 7, 0, 1...
+			var beat = Stepper.kr(downbeat, 0, 0, 7);
+			var phase = Phasor.kr(downbeat, rate, 0, 8, resetPos: beat);
 			// now shift the whole thing up to compensate for:
 			// 1. message latency -- downbeat triggers will be sent using s.makeBundle for precise timing
 			var latencyOffset = 0.1 * ControlRate.ir * rate;
@@ -685,7 +685,7 @@ Engine_Cule : CroneEngine {
 		SynthDef.new(\lfoSH, {
 			var inPhase = In.kr(clockPhaseBus);
 			var freq = \freq.kr(1);
-			var rawMult = 2.pow(freq.log2.round); // frequency quantized to nearest power of 2
+			var rawMult = 2.pow(freq.log.round.max(-3)); // powers of 2, no lower than 1/8
 			// TODO: quantize to more fun divisions than this, like tuplets, dotted notes, etc
 			var rawPhase = (inPhase * rawMult).wrap(0, 1);
 			var rawGate = BinaryOpUGen('<', rawPhase, 0.5);
