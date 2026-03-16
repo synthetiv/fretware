@@ -450,6 +450,12 @@ end
 function voice_loop_play(v)
 	local voice = voice_states[v]
 	local length = util.time() - voice.loop_record_started
+	-- TODO: 'length' is measured in seconds; we'll need to also know how long that is in beats
+	-- either calculate that here, or in the synth
+	-- if we calculate here, then we can set up a clock here to trigger loopReset
+	-- oh but.......... once you start modulating the loop rate, a regular loopReset no longer makes sense
+	-- fffff!! uhh
+	--
 	engine.playLoop(v, length, voice.loop_tempo_sync and 1 or 0)
 	params:lookup_param('loopRate_' .. v):set_default()
 	params:lookup_param('loopPosition_' .. v):set_default()

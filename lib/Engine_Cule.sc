@@ -489,7 +489,8 @@ Engine_Cule : CroneEngine {
 		SynthDef.new(\voiceControls, {
 
 			var bufferRate, bufferLength, buffer,
-				loopLength, loopEngaged, loopRate, readPhase, loopEnv, writePhase,
+				loopLength, loopEngaged, loopRate, loopSync,
+				readPhase, loopEnv, writePhase,
 				pitch, gate, trig, tip, hand, x, y, clockRate,
 				recPitch, recGate, recTrig, recTip, recHand, recX, recY, recClockRate,
 				vel, svel, attack, release, eg, eg2,
@@ -533,11 +534,18 @@ Engine_Cule : CroneEngine {
 			loopLength = (\loopLength.kr * bufferRate).min(bufferLength);
 			loopEngaged = loopLength > 0;
 			loopRate = \loopRate.kr(1) * 8.pow(\loopRateMod.kr);
+			loopSync = \loopClockSync.kr;
 			recClockRate = LocalIn.kr(default: 1);
-			// TODO: this seems to be... slow...
-			loopRate = loopRate * Select.kr(\loopClockSync.kr, [ 1, clockRate / recClockRate ]);
+			loopRate = loopRate * Select.kr(loopSync, [ 1, clockRate / recClockRate ]);
+			// when synced, quantize rate to powers of 2
+			loopRate = Select.kr(loopSync, [ loopRate, 2.pow(loopRate.log2.round) ]);
+			// TODO: this quantization works, but as you change loopRate, the phase gets offset.
+			// you're going to have to do something like what the LFO does,
+			// where it latches the clock multiple AT the clock rate
+			// hmmmm yes... if this synth knows the clock multiple, it can derive a pulse from
+			// clockPhaseBus, and Latch rate changes to that
 			readPhase = Phasor.kr(
-				Trig.kr(loopEngaged) + \loopReset.tr, // TODO: trigger loopReset when appropriate
+				Trig.kr(loopEngaged) + \loopReset.tr, // TODO: actually trigger loopReset when appropriate
 				bufferRateScale * loopRate,
 				end: loopLength
 			);
