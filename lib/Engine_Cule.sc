@@ -22,7 +22,7 @@ Engine_Cule : CroneEngine {
 
 	var group;
 	var baseFreqBus;
-	var clockRateBus;
+	var beatSecBus;
 	var clockPhaseBus;
 	var clockSynth;
 	var voiceParamBuses;
@@ -40,6 +40,7 @@ Engine_Cule : CroneEngine {
 	var voiceAmpReplyFunc;
 	var voicePitchReplyFunc;
 	var lfoGateReplyFunc;
+	var loopStateReplyFunc;
 
 	var selectedVoice = 0;
 
@@ -357,10 +358,10 @@ Engine_Cule : CroneEngine {
 
 		baseFreqBus = Bus.control(context.server);
 
-		clockRateBus = Bus.control(context.server).set(1);
+		beatSecBus = Bus.control(context.server).set(2);
 		clockPhaseBus = Bus.control(context.server);
 		SynthDef.new(\clockPhasor, {
-			var rate = In.kr(clockRateBus);
+			var rate = (In.kr(beatSecBus) * ControlRate.ir).reciprocal;
 			var downbeat = \downbeat.tr;
 			// at each downbeat, hard-reset the phasor to 0, 1, 2, 3, ..., 7, 0, 1...
 			var beat = Stepper.kr(downbeat, 0, 0, 7);
@@ -373,6 +374,8 @@ Engine_Cule : CroneEngine {
 			var blockOffset = rate;
 			// 3. 0.01-second smoothing lag that gets applied to LFO outputs to avoid bad audible pops
 			var lagOffset = 0.01 * ControlRate.ir * rate;
+			// TODO: all of the above seem to shift things TOO early
+			// ...is multiplying by `rate` really correct?? 
 			Out.kr(clockPhaseBus, phase + latencyOffset + blockOffset + lagOffset);
 		}).add;
 
@@ -489,10 +492,14 @@ Engine_Cule : CroneEngine {
 		SynthDef.new(\voiceControls, {
 
 			var bufferRate, bufferLength, buffer,
-				loopLength, loopEngaged, loopRate, loopSync,
+				loopLength, loopSyncDiv, loopFree,
+				loopRate, loopPosition,
+				loopPhase, loopEngaged, loopBeatSec,
+				beatPhase, beatTrig, loopClockOffset,
 				readPhase, loopEnv, writePhase,
-				pitch, gate, trig, tip, hand, x, y, clockRate,
-				recPitch, recGate, recTrig, recTip, recHand, recX, recY, recClockRate,
+				// TODO: is there any actual reason to record x and y??
+				pitch, gate, trig, tip, hand, x, y,
+				recPitch, recGate, recTrig, recTip, recHand, recX, recY,
 				vel, svel, attack, release, eg, eg2,
 				amp, fxA, fxB;
 
@@ -516,7 +523,9 @@ Engine_Cule : CroneEngine {
 
 			// create buffer for looping control data
 			bufferRate = ControlRate.ir * bufferRateScale;
-			bufferLength = context.server.sampleRate / context.server.options.blockSize * maxLoopTime * bufferRateScale;
+			// TODO: wouldn't this work just as well??
+			bufferLength = bufferRate * maxLoopTime;
+			// bufferLength = context.server.sampleRate / context.server.options.blockSize * maxLoopTime * bufferRateScale;
 			buffer = LocalBuf.new(bufferLength, 8);
 
 			// define what we'll be writing
@@ -527,38 +536,51 @@ Engine_Cule : CroneEngine {
 			y = \dy.kr;
 			gate = \gate.kr;
 			trig = Trig.kr(\trig.tr, 0.01);
-			// TODO: it seems like this isn't really getting initialized well? like, until tempo gets adjusted?
-			clockRate = In.kr(clockRateBus);
 
 			// define where we'll be reading
-			loopLength = (\loopLength.kr * bufferRate).min(bufferLength);
-			loopEngaged = loopLength > 0;
+			// TODO: accept 'loop div' and 'loop length in divs' args instead
+			loopSyncDiv = \loopSyncDiv.kr;
+			loopFree = BinaryOpUGen('==', loopSyncDiv, 0);
+			loopLength = \loopLength.kr.round(loopSyncDiv); // measured in beats
 			loopRate = \loopRate.kr(1) * 8.pow(\loopRateMod.kr);
-			loopSync = \loopClockSync.kr;
-			recClockRate = LocalIn.kr(default: 1);
-			loopRate = loopRate * Select.kr(loopSync, [ 1, clockRate / recClockRate ]);
+			loopEngaged = loopLength > 0;
+			loopBeatSec = Latch.kr(In.kr(beatSecBus), loopEngaged);
+			beatPhase = In.kr(clockPhaseBus).wrap(0, 1);
+
+			// TODO: don't use this Delay1 thing -- use Trig.kr and < 0.5
+			beatTrig = BinaryOpUGen('<', beatPhase, 0.5);
+
 			// when synced, quantize rate to powers of 2
-			loopRate = Select.kr(loopSync, [ loopRate, 2.pow(loopRate.log2.round) ]);
-			// TODO: this quantization works, but as you change loopRate, the phase gets offset.
-			// you're going to have to do something like what the LFO does,
-			// where it latches the clock multiple AT the clock rate
-			// hmmmm yes... if this synth knows the clock multiple, it can derive a pulse from
-			// clockPhaseBus, and Latch rate changes to that
-			readPhase = Phasor.kr(
-				Trig.kr(loopEngaged) + \loopReset.tr, // TODO: actually trigger loopReset when appropriate
-				bufferRateScale * loopRate,
-				end: loopLength
+			loopRate = Select.kr(loopFree, [
+				2.pow(loopRate.log2.round),
+				loopRate
+			]);
+
+			loopClockOffset = Latch.kr(
+				LocalIn.kr - (beatPhase * loopRate),
+				Trig.kr(beatTrig, ControlDur.ir) + Changed.kr(loopRate) + Trig.kr(loopEngaged, ControlDur.ir)
 			);
+			loopClockOffset = loopClockOffset.round(loopSyncDiv);
+
+			loopPhase = (
+				(beatPhase * loopRate)
+				+ loopClockOffset
+			).wrap(0, loopLength);
+			LocalOut.kr(loopPhase);
+
 			// offset by loopPosition, but constrain to loop bounds
-			readPhase = (readPhase + (loopLength * (\loopPosition.kr + \loopPositionMod.kr))).wrap(0, loopLength);
+			loopPosition = (loopLength * (\loopPosition.kr + \loopPositionMod.kr)).round(loopSyncDiv);
+			loopPhase = (loopPhase + loopPosition).wrap(0, loopLength);
 
 			writePhase = Phasor.kr(rate: bufferRateScale * (1 - loopEngaged), end: bufferLength);
-			BufWr.kr([pitch, tip, hand, x, y, gate, trig, clockRate ], buffer, writePhase);
+			BufWr.kr([pitch, tip, hand, x, y, gate, trig ], buffer, writePhase);
 			// read values from recorded loop (if any)
-			# recPitch, recTip, recHand, recX, recY, recGate, recTrig, recClockRate = BufRd.kr(
-				8,
+			readPhase = writePhase + ((loopPhase - loopLength) * loopBeatSec * bufferRate);
+			SendReply.kr(Impulse.kr(10), '/loopState', [ loopPhase, readPhase, writePhase ], voiceIndex);
+			# recPitch, recTip, recHand, recX, recY, recGate, recTrig = BufRd.kr(
+				7,
 				buffer,
-				writePhase - loopLength + readPhase,
+				readPhase,
 				interpolation: 1
 			);
 			// new pitch values can "punch through" frozen ones when gate is high
@@ -572,8 +594,6 @@ Engine_Cule : CroneEngine {
 			// combine incoming gates with recorded gates
 			gate = gate.max(loopEngaged * recGate);
 			trig = trig.max(loopEngaged * recTrig);
-
-			LocalOut.kr(recClockRate);
 
 			Out.kr(\handBus.ir, hand.lag(0.1));
 			Out.kr(\trigBus.ir, trig);
@@ -692,20 +712,16 @@ Engine_Cule : CroneEngine {
 		// Tempo-synced random step LFO
 		SynthDef.new(\lfoSH, {
 			var inPhase = In.kr(clockPhaseBus);
-			var freq = \freq.kr(1);
-			var rawMult = 2.pow(freq.log.round.max(-3)); // powers of 2, no lower than 1/8
-			// TODO: quantize to more fun divisions than this, like tuplets, dotted notes, etc
-			var rawPhase = (inPhase * rawMult).wrap(0, 1);
-			var rawGate = BinaryOpUGen('<', rawPhase, 0.5);
-			// the 'raw' clock above is fine until you start modulating the frequency. then you get very
-			// awkward jumps as mult changes.
-			// in order to only change mult at note onsets, we derive ANOTHER clock whose frequency
-			// is Latched by the raw clock.
-			var mult = Latch.kr(rawMult, rawGate);
-			var phase = (inPhase * mult).wrap(0, 1);
+			var rate = 2.pow(\freq.kr(1).log.round.max(-3)); // powers of 2, no lower than 1/8
+			// change output rate only on "downbeats"
+			var changeGate = BinaryOpUGen('<', (inPhase * rate).wrap(0, 1), 0.5);
+			var latchedRate = Latch.kr(rate, changeGate);
+			// now we can derive a scaled ramp that always starts at 0
+			var phase = (inPhase * latchedRate).wrap(0, 1);
 			var gate = BinaryOpUGen('<', phase, 0.5);
 			// since S+H output will be lagged by 0.01, the clock we're being fed is 0.01s early.
 			// that's good for triggering the S+H, but bad for clocking seq
+			// TODO: does this *overcompensate* for the delay / phase offset that's built in to the clockPhaseBus signal...?
 			var delayedGate = DelayN.kr(gate, 0.01, 0.01);
 			Out.kr(\stateBus.ir, Lag.kr(TRand.kr(-1, 1, gate), 0.01));
 			Out.kr(\gateBus.ir, delayedGate);
@@ -716,6 +732,7 @@ Engine_Cule : CroneEngine {
 			var freq = \freq.kr(1);
 			var trig = Dust.kr(freq);
 			var gate = Trig.kr(trig, (freq * 8).reciprocal);
+			// TODO: this one does NOT delay the gate... which is better?
 			Out.kr(\stateBus.ir, Lag.kr(TRand.kr(-1, 1, trig), 0.01));
 			Out.kr(\gateBus.ir, gate);
 		}).add;
@@ -1282,7 +1299,10 @@ Engine_Cule : CroneEngine {
 					this.addPoll(("lfoA_gate_" ++ i).asSymbol, periodic: false),
 					this.addPoll(("lfoB_gate_" ++ i).asSymbol, periodic: false),
 					this.addPoll(("lfoC_gate_" ++ i).asSymbol, periodic: false)
-				]
+				],
+				\loopPhase -> this.addPoll(("loopPhase_" ++ i).asSymbol, periodic: false),
+				\readPhase -> this.addPoll(("readPhase_" ++ i).asSymbol, periodic: false),
+				\writePhase -> this.addPoll(("writePhase_" ++ i).asSymbol, periodic: false),
 			];
 		});
 
@@ -1329,6 +1349,12 @@ Engine_Cule : CroneEngine {
 			polls[msg[2]][\lfos][msg[3]].update(msg[4]);
 		}, path: '/lfoGate', srcID: context.server.addr);
 
+		loopStateReplyFunc = OSCFunc({ |msg|
+			polls[msg[2]][\loopPhase].update(msg[3]);
+			polls[msg[2]][\readPhase].update(msg[4]);
+			polls[msg[2]][\writePhase].update(msg[5]);
+		}, path: '/loopState', srcID: context.server.addr);
+
 		context.server.sync;
 		"polls and oscfuncs created".postln;
 
@@ -1356,16 +1382,16 @@ Engine_Cule : CroneEngine {
 			baseFreqBus.setSynchronous(msg[1]);
 		});
 
-		this.addCommand(\playLoop, "ifi", { |msg|
+		this.addCommand(\playLoop, "iff", { |msg|
 			voiceSynths[msg[1] - 1][\control].set(
-				\loopClockSync, msg[3],
+				\loopSyncDiv, msg[3],
 				\loopLength, msg[2]
 			);
 		});
 
 		this.addCommand(\clearLoop, "i", { |msg|
 			voiceSynths[msg[1] - 1][\control].set(
-				\loopClockSync, 0,
+				\loopSyncDiv, 0,
 				\loopLength, 0
 			);
 		});
@@ -1460,8 +1486,8 @@ Engine_Cule : CroneEngine {
 			});
 		});
 
-		this.addCommand(\tempo, "f", { |msg|
-			clockRateBus.set(msg[1] / 60 / context.server.sampleRate * context.server.options.blockSize);
+		this.addCommand(\beatSec, "f", { |msg|
+			beatSecBus.set(msg[1]);
 		});
 
 		this.addCommand(\downbeat, "", { |msg|
@@ -1526,7 +1552,7 @@ Engine_Cule : CroneEngine {
 				}
 			};
 			"baseFreqBus: %\n".postf(baseFreqBus.index);
-			"clockRateBus: %\n".postf(clockRateBus.index);
+			"beatSecBus: %\n".postf(beatSecBus.index);
 			"clockPhaseBus: %\n".postf(clockPhaseBus.index);
 			voiceParamBuses.do({ |buses, voice|
 				"voice % params -------------\n".postf(voice);
@@ -1581,7 +1607,7 @@ Engine_Cule : CroneEngine {
 			sq80Resources.do(_.free);
 			// d50Resources.do(_.free);
 			group.free;
-			clockRateBus.free;
+			beatSecBus.free;
 			clockPhaseBus.free;
 			patchBuses.do({ |bus|
 				if(bus.class === Dictionary, {
@@ -1609,6 +1635,7 @@ Engine_Cule : CroneEngine {
 			voiceAmpReplyFunc.free;
 			voicePitchReplyFunc.free;
 			lfoGateReplyFunc.free;
+			loopStateReplyFunc.free;
 			// context.server.sync;
 			// "free complete; debugging allocators...".postln;
 			// "Audio bus allocator:".postln;
