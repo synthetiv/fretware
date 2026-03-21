@@ -556,7 +556,7 @@ function g.key(x, y, z)
 end
 
 function send_pitch()
-	engine.pitch(k.bent_pitch)
+	engine.pitch(k.active_pitch, k.bent_pitch - k.active_pitch)
 end
 
 -- TODO: debounce here
@@ -688,6 +688,10 @@ function init()
 			voice.shift = voice.shift + d
 		end
 		engine.shift(v, voice.shift)
+	end
+
+	k.on_stack_change = function()
+		engine.heldKeys(#k.stack)
 	end
 
 	k.on_pitch = function()

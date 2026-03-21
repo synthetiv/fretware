@@ -84,6 +84,7 @@ function Keyboard.new(x, y, width, height)
 		-- overridable callbacks
 		on_select_voice = function() end,
 		on_voice_octave = function() end,
+		on_stack_change = function() end,
 		on_pitch = function() end,
 		on_gate = function() end,
 	}
@@ -305,6 +306,7 @@ function Keyboard:remove_stack_key(i)
 	if self.arp_insert >= i then
 		self.arp_insert = self.arp_insert - 1
 	end
+	self.on_stack_change()
 end
 
 function Keyboard:maybe_clear_stack()
@@ -442,7 +444,6 @@ function Keyboard:glide()
 			self.glide_min = math.min(self.glide_min_target, self.bent_pitch)
 		end
 	end
-	--]]
 	self.on_pitch()
 end
 
@@ -497,6 +498,7 @@ function Keyboard:note(x, y, z)
 				id = key_id,
 				gate = true
 			})
+			self.on_stack_change()
 			self:set_active_key(key_id)
 			-- set gate high if we're in retrig mode, or if this is the first note held
 			if not self.arping and ((self.retrig and not self.gliding) or #self.stack == 1) then
@@ -509,6 +511,7 @@ function Keyboard:note(x, y, z)
 				id = key_id,
 				gate = true
 			})
+			self.on_stack_change()
 		end
 	elseif self.held_keys.latch then
 		-- latch held, key released

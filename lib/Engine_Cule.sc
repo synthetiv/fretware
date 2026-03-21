@@ -488,10 +488,10 @@ Engine_Cule : CroneEngine {
 				loopRate, loopPosition,
 				loopPhase, loopEngaged, loopBeatSec,
 				beatPhase, beatTrig, loopClockOffset,
-				readPhase, loopEnv, writePhase,
+				readPhase, loopEnv, writePhase, loopListen,
 				// TODO: is there any actual reason to record x and y??
 				// TODO: I think I might be starting to hear timing jitter resulting from the half-control-rate recording... how to deal?
-				pitch, gate, trig, tip, hand, x, y,
+				pitch, bend, gate, trig, tip, hand, x, y,
 				recPitch, recGate, recTrig, recTip, recHand, recX, recY,
 				vel, svel, attack, release, eg, eg2,
 				amp, fxA, fxB;
@@ -520,6 +520,7 @@ Engine_Cule : CroneEngine {
 
 			// define what we'll be writing
 			pitch = \pitch.kr;
+			bend = \bend.kr;
 			tip = \tip.kr;
 			hand = tip - \palm.kr;
 			x = \dx.kr;
@@ -560,7 +561,7 @@ Engine_Cule : CroneEngine {
 			loopPhase = (loopPhase + loopPosition).wrap(0, loopLength);
 
 			writePhase = Phasor.kr(rate: bufferRateScale * (1 - loopEngaged), end: bufferLength);
-			BufWr.kr([pitch, tip, hand, x, y, gate, trig ], buffer, writePhase);
+			BufWr.kr([pitch + bend, tip, hand, x, y, gate, trig ], buffer, writePhase);
 			// read values from recorded loop (if any)
 			readPhase = writePhase + ((loopPhase - loopLength) * loopBeatSec * bufferRate);
 			# recPitch, recTip, recHand, recX, recY, recGate, recTrig = BufRd.kr(
@@ -569,17 +570,18 @@ Engine_Cule : CroneEngine {
 				readPhase,
 				interpolation: 1
 			);
-			// new pitch values can "punch through" frozen ones when gate is high
-			pitch = Select.kr(loopEngaged.min(1 - gate), [ pitch, recPitch + \shift.kr ]);
-			// value mixes below should fade in when loop is engaged
-			loopEnv = Linen.kr(loopEngaged, 0.3, 1, 0);
-			// recorded tip value can be increased with input, but not decreased
-			tip = tip.max(loopEnv * recTip);
-			// mix incoming hand and x/y data with recorded data
-			# hand, x, y = [ hand, x, y ] + (loopEnv * [ recHand, recX, recY ]);
-			// combine incoming gates with recorded gates
-			gate = gate.max(loopEngaged * recGate);
-			trig = trig.max(loopEngaged * recTrig);
+
+			// new input can "punch through" playback when 1 or more keyboard key is held
+			// note that bend and shift are applied to recorded pitch,
+			// and incoming tip values are ONLY used when punching in
+			loopListen = (loopEngaged - \heldKeys.kr).max(0);
+			# pitch, tip, hand, x, y, gate, trig = LinSelectX.kr(
+				loopListen.lag(0.01),
+				[
+					[ pitch + bend, tip, hand, x, y, gate, trig ],
+					[ recPitch + bend + \shift.kr, recTip, recHand + hand, recX + x, recY + y, gate, trig ],
+				]
+			);
 
 			Out.kr(\handBus.ir, hand.lag(0.1));
 			Out.kr(\trigBus.ir, trig);
@@ -1333,6 +1335,7 @@ Engine_Cule : CroneEngine {
 		this.addCommand(\select_voice, "i", { |msg|
 			// reset currently selected voice
 			voiceSynths[selectedVoice][\control].set(
+				\heldKeys, 0,
 				\gate, 0,
 				\tip, 0,
 				\palm, 0,
@@ -1435,9 +1438,20 @@ Engine_Cule : CroneEngine {
 			});
 		});
 
+		this.addCommand(\heldKeys, "i", { |msg|
+			voiceSynths[selectedVoice][\control].set(\heldKeys, msg[1]);
+		});
+
 		this.addCommand(\gate, "i", { |msg|
 			var value = msg[1];
 			voiceSynths[selectedVoice][\control].set(\gate, value, \trig, value);
+		});
+
+		this.addCommand(\pitch, "ff", { |msg|
+			voiceSynths[selectedVoice][\control].set(
+				\pitch, msg[1],
+				\bend, msg[2]
+			);
 		});
 
 		[ \pitch, \tip, \palm, \dx, \dy ].do({ |name|
