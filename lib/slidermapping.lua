@@ -1,7 +1,9 @@
+Slider = include 'lib/slider'
+
 local SliderMapping = {}
 SliderMapping.__index = SliderMapping
 
-function SliderMapping.new(param_name, slider_start_value, slider_style)
+function SliderMapping.new(param_name, neutral_value, slider_style)
 	local param = params:lookup_param(param_name)
 	local mapping = {
 		param = param,
@@ -14,10 +16,12 @@ function SliderMapping.new(param_name, slider_start_value, slider_style)
 		mapping:set(param:get_raw())
 	end
 	-- create slider
-	if slider_style == 'inner' then
-		mapping.slider = Slider.new(1, 0, 61, 2, slider_start_value)
+	if slider_style == 'primary' then
+		mapping.slider = Slider.new(neutral_value, -2, 3)
+	elseif slider_style == 'secondary' then
+		mapping.slider = Slider.new(neutral_value, 0, 2)
 	else
-		mapping.slider = Slider.new(0, 0, 63, 4, slider_start_value)
+		print('no slider style', param_name)
 	end
 	setmetatable(mapping, SliderMapping)
 	return mapping

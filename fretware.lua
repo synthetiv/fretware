@@ -4,7 +4,6 @@ engine.name = 'Cule'
 musicutil = require 'musicutil'
 Lattice = require 'lattice'
 
-Slider = include 'lib/slider'
 SliderMapping = include 'lib/slidermapping'
 
 n_voices = 3
@@ -1012,7 +1011,7 @@ function init()
 				name = 'attack',
 				id = 'attack',
 				type = 'control',
-				controlspec = controlspec.new(0.001, 7, 'exp', 0, 0.001, 's'),
+				controlspec = controlspec.new(0.001, 7, 'exp', 0, 0.003, 's'),
 				action = function(value)
 					engine.attack(value - 0.0005)
 				end
@@ -1175,22 +1174,22 @@ function init()
 	for d = 1, #editor.dests do
 		local dest = editor.dests[d]
 		local dest_name = dest.name
-		local slider_start_value = 0
+		local neutral_value = 0
 		-- TODO: move this stuff to the editor.dests table?
 		if dest_name == 'detuneA' or dest_name == 'opMix' or dest_name == 'detuneB' or dest_name == 'pan' or dest_name == 'loopRate' or dest_name == 'loopPosition' then
-			slider_start_value = 0.5
+			neutral_value = 0.5
 		elseif dest_name == 'lpCutoff' then
-			slider_start_value = 1
+			neutral_value = 1
 		end
 		if dest.voice_param then
 			local voice_param = dest.voice_param
 			local mappings = {}
 			for v = 1, n_voices do
-				mappings[v] = SliderMapping.new(voice_param .. '_' .. v, slider_start_value, 'inner')
+				mappings[v] = SliderMapping.new(voice_param .. '_' .. v, neutral_value, 'primary')
 			end
 			voice_param_mappings[d] = mappings
 		else
-			patch_param_mappings[d] = SliderMapping.new(dest_name, slider_start_value, 'inner')
+			patch_param_mappings[d] = SliderMapping.new(dest_name, neutral_value, 'primary')
 		end
 		if dest.voice_dest then
 			voice_mod_mappings[d] = {}
@@ -1201,11 +1200,11 @@ function init()
 			if dest.voice_dest then
 				local mappings = {}
 				for v = 1, n_voices do
-					mappings[v] = SliderMapping.new(editor.source_names[s] .. '_' .. dest_name .. '_' .. v)
+					mappings[v] = SliderMapping.new(editor.source_names[s] .. '_' .. dest_name .. '_' .. v, 0.5, 'secondary')
 				end
 				voice_mod_mappings[d][s] = mappings
 			else
-				patch_mod_mappings[d][s] = SliderMapping.new(editor.source_names[s] .. '_' .. dest_name)
+				patch_mod_mappings[d][s] = SliderMapping.new(editor.source_names[s] .. '_' .. dest_name, 0.5, 'secondary')
 			end
 		end
 	end
@@ -1233,9 +1232,9 @@ function init()
 			local y = 66
 			for p = 1, editor.selected_dest - 1 do
 				if editor.dests[p].has_divider then
-					y = y - 23
+					y = y - 18
 				else
-					y = y - 16
+					y = y - 14
 				end
 			end
 			for p = 1, #editor.dests do
@@ -1250,9 +1249,9 @@ function init()
 					slider.y = math.floor(slider.y + (y - slider.y) * 0.6)
 				end
 				if dest.has_divider then
-					y = y + 23
+					y = y + 18
 				else
-					y = y + 16
+					y = y + 14
 				end
 			end
 			grid_redraw()
@@ -1472,35 +1471,33 @@ function redraw()
 		if dest_slider.y >= -4 and dest_slider.y <= 132 then
 
 			if (dest.name == 'loopRate' or dest.name == 'loopPosition') and not voice.loop_playing then
-				-- don't even bother drawing loop-related sliders if loop isn't playing
-				screen.rect(dest_slider.x - 1, dest_slider.y - 1, dest_slider.width + 2, dest_slider.height + 2)
-				screen.level(1)
-				screen.stroke()
+				-- draw blank dummy sliders for loop controls when not looping
+				dest_slider:redraw(1, 0)
 			else
-				local source_slider = nil
+				local source_slider
 				if dest.voice_dest then
 					source_slider = voice_mod_mappings[d][source_menu.value][k.selected_voice].slider
 				else
 					source_slider = patch_mod_mappings[d][source_menu.value].slider
 				end
-				source_slider.y = dest_slider.y - 1
-				source_slider:redraw(active and 2 or 1, active and 15 or 4)
+				source_slider.y = dest_slider.y + 1
 
-				dest_slider:redraw(active and 1 or 0, active and 3 or 1)
+				local source_level = (source_slider.value == source_slider.neutral_value) and 0 or 2
+				local dest_level = active and 15 or 4
 				if d <= 16 then
 					local xvi_value = xvi_state[d].value
-					local match = xvi_value == dest_slider.value
-					if not match then
-						dest_slider:draw_line(dest_slider.value, active and 5 or 3)
+					if xvi_value and not (xvi_value == dest_slider.value) then
+						dest_slider:draw_point(xvi_value, dest_level)
+						dest_level = 4
 					end
-					if xvi_value then
-						if match then
-							dest_slider:draw_line(xvi_value, active and 15 or 3)
-						else
-							dest_slider:draw_point(xvi_value, 3)
-						end
-					end
+				else
 				end
+				if source_menu.n_held > 0 then
+					source_level = active and 15 or 4
+					dest_level = 2
+				end
+				source_slider:redraw(0, source_level)
+				dest_slider:redraw(1, dest_level)
 			end
 
 			screen.level(active and 10 or 1)
