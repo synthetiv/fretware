@@ -471,7 +471,6 @@ function voice_loop_set_end(v)
 	-- stop recording, start looping
 	local voice = voice_states[v]
 	if k.arping then
-		-- TODO: if arping but no keys are held, you'll be stuck! fix that
 		voice.loop_play_next = true
 	else
 		voice_loop_play(v, false)
@@ -665,7 +664,7 @@ end
 function handle_synced_voice_loops(immediate)
 	-- if we're playing a sequence straight (not randomized order),
 	-- wait until the first step to either start or stop
-	if not immediate and k.arp_direction == 1 and k.arp_index ~= 1 then
+	if not immediate and k.arp_direction == 1 and k.arp_index > 1 then
 		-- TODO: in this situation, switching the selected voice should ALSO be delayed!
 		-- or something else needs to happen to ensure that we're still
 		-- sending user input to the voice that's actually recording
