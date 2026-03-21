@@ -455,7 +455,6 @@ function voice_loop_play(v)
 	local div = 0
 	if voice.loop_tempo_sync then
 		-- round to appropriate beat division
-		-- TODO: make sure this is working!
 		local div_index = arp_menu.value
 		if div_index <= #arp_divs then
 			-- arp_divs are in measures, we need beats

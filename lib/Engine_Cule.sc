@@ -374,7 +374,7 @@ Engine_Cule : CroneEngine {
 			// 3. 0.01-second smoothing lag that gets applied to LFO outputs to avoid bad audible pops
 			var lagOffset = 0.01 * ControlRate.ir * rate;
 			// TODO: all of the above seem to shift things TOO early
-			// ...is multiplying by `rate` really correct?? 
+			// ...is multiplying by `rate` really correct??
 			Out.kr(clockPhaseBus, phase + latencyOffset + blockOffset + lagOffset);
 		}).add;
 
@@ -522,9 +522,7 @@ Engine_Cule : CroneEngine {
 
 			// create buffer for looping control data
 			bufferRate = ControlRate.ir * bufferRateScale;
-			// TODO: wouldn't this work just as well??
 			bufferLength = bufferRate * maxLoopTime;
-			// bufferLength = context.server.sampleRate / context.server.options.blockSize * maxLoopTime * bufferRateScale;
 			buffer = LocalBuf.new(bufferLength, 8);
 
 			// define what we'll be writing
@@ -537,7 +535,6 @@ Engine_Cule : CroneEngine {
 			trig = Trig.kr(\trig.tr, 0.01);
 
 			// define where we'll be reading
-			// TODO: accept 'loop div' and 'loop length in divs' args instead
 			loopSyncDiv = \loopSyncDiv.kr;
 			loopFree = BinaryOpUGen('==', loopSyncDiv, 0);
 			loopLength = \loopLength.kr.round(loopSyncDiv); // measured in beats
@@ -545,8 +542,6 @@ Engine_Cule : CroneEngine {
 			loopEngaged = loopLength > 0;
 			loopBeatSec = Latch.kr(In.kr(beatSecBus), loopEngaged);
 			beatPhase = In.kr(clockPhaseBus).wrap(0, 1);
-
-			// TODO: don't use this Delay1 thing -- use Trig.kr and < 0.5
 			beatTrig = BinaryOpUGen('<', beatPhase, 0.5);
 
 			// when synced, quantize rate to powers of 2
