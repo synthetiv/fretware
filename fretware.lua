@@ -365,9 +365,6 @@ for v = 1, n_voices do
 		lfoB_gate = false,
 		lfoC_gate = false,
 		timbre_lock = false,
-		loopPhase = 0,
-		readPhase = 0,
-		writePhase = 0,
 		polls = {},
 	}
 end
@@ -793,19 +790,6 @@ function init()
 			end)
 			voice.polls[name]:start()
 		end
-		-- more polls for debugging control buffer read/write points
-		voice.polls.loopPhase = poll.set('loopPhase_' .. v, function(value)
-			voice.loopPhase = value
-		end)
-		voice.polls.loopPhase:start()
-		voice.polls.readPhase = poll.set('readPhase_' .. v, function(value)
-			voice.readPhase = value
-		end)
-		voice.polls.readPhase:start()
-		voice.polls.writePhase = poll.set('writePhase_' .. v, function(value)
-			voice.writePhase = value
-		end)
-		voice.polls.writePhase:start()
 	end
 
 	params:add_group('tuning', 5)
@@ -1601,40 +1585,6 @@ function redraw()
 	screen.line_rel(64, 0)
 	screen.level(1)
 	screen.stroke()
-
-	-- draw voice loop states etc for debugging
-	screen.rect(0, 126 - n_voices * 8, 64, 64)
-	screen.level(0)
-	screen.fill()
-	local bufferLength = 60 * 0.5 * 48000 / 64
-	for v = 1, n_voices do
-		local y = 128 - (n_voices + 1 - v) * 8
-		screen.move(0, y)
-		screen.line_rel(64, 0)
-		screen.level(2)
-		screen.stroke()
-		screen.pixel(voice_states[v].loopPhase * 64 / voice_states[v].loop_length, y - 1)
-		screen.level(10)
-		screen.fill()
-
-		y = y + 2
-		screen.move(0, y)
-		screen.line_rel(64, 0)
-		screen.level(2)
-		screen.stroke()
-		screen.pixel(voice_states[v].readPhase * 64 / bufferLength, y - 1)
-		screen.level(10)
-		screen.fill()
-
-		y = y + 2
-		screen.move(0, y)
-		screen.line_rel(64, 0)
-		screen.level(2)
-		screen.stroke()
-		screen.pixel(voice_states[v].writePhase * 64 / bufferLength, y - 1)
-		screen.level(10)
-		screen.fill()
-	end
 
 	screen.restore()
 	screen.update()

@@ -40,7 +40,6 @@ Engine_Cule : CroneEngine {
 	var voiceAmpReplyFunc;
 	var voicePitchReplyFunc;
 	var lfoGateReplyFunc;
-	var loopStateReplyFunc;
 
 	var selectedVoice = 0;
 
@@ -576,7 +575,6 @@ Engine_Cule : CroneEngine {
 			BufWr.kr([pitch, tip, hand, x, y, gate, trig ], buffer, writePhase);
 			// read values from recorded loop (if any)
 			readPhase = writePhase + ((loopPhase - loopLength) * loopBeatSec * bufferRate);
-			SendReply.kr(Impulse.kr(10), '/loopState', [ loopPhase, readPhase, writePhase ], voiceIndex);
 			# recPitch, recTip, recHand, recX, recY, recGate, recTrig = BufRd.kr(
 				7,
 				buffer,
@@ -1299,10 +1297,7 @@ Engine_Cule : CroneEngine {
 					this.addPoll(("lfoA_gate_" ++ i).asSymbol, periodic: false),
 					this.addPoll(("lfoB_gate_" ++ i).asSymbol, periodic: false),
 					this.addPoll(("lfoC_gate_" ++ i).asSymbol, periodic: false)
-				],
-				\loopPhase -> this.addPoll(("loopPhase_" ++ i).asSymbol, periodic: false),
-				\readPhase -> this.addPoll(("readPhase_" ++ i).asSymbol, periodic: false),
-				\writePhase -> this.addPoll(("writePhase_" ++ i).asSymbol, periodic: false),
+				]
 			];
 		});
 
@@ -1348,12 +1343,6 @@ Engine_Cule : CroneEngine {
 			// msg looks like [ '/lfoGate', node, voiceIndex, lfoIndex, state ]
 			polls[msg[2]][\lfos][msg[3]].update(msg[4]);
 		}, path: '/lfoGate', srcID: context.server.addr);
-
-		loopStateReplyFunc = OSCFunc({ |msg|
-			polls[msg[2]][\loopPhase].update(msg[3]);
-			polls[msg[2]][\readPhase].update(msg[4]);
-			polls[msg[2]][\writePhase].update(msg[5]);
-		}, path: '/loopState', srcID: context.server.addr);
 
 		context.server.sync;
 		"polls and oscfuncs created".postln;
@@ -1635,7 +1624,6 @@ Engine_Cule : CroneEngine {
 			voiceAmpReplyFunc.free;
 			voicePitchReplyFunc.free;
 			lfoGateReplyFunc.free;
-			loopStateReplyFunc.free;
 			// context.server.sync;
 			// "free complete; debugging allocators...".postln;
 			// "Audio bus allocator:".postln;
