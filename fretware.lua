@@ -1573,12 +1573,14 @@ function enc(n, d)
 			param_index = param_index + 2
 		end
 		local changed_source = false
-		local d_scaled = d / 128
 		-- params 17 and 18 are loop-related, so don't modify them unless a loop is playing
 		if param_index >= 19 or voice_states[k.selected_voice].loop_playing then
+			local d_scaled
 			-- if modifying loop position, scale according to loop length
 			if editor.dests[param_index].name == 'loopPosition' then
-				d_scaled = d_scaled / math.max(1, voice_states[k.selected_voice].loop_length) * 3
+				d_scaled = d / math.max(1, voice_states[k.selected_voice].loop_length) / 8
+			else
+				d_scaled = d / 128
 			end
 			for source = 1, #editor.source_names do
 				if source_menu.held[source] then
