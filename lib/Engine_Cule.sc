@@ -365,17 +365,10 @@ Engine_Cule : CroneEngine {
 			// at each downbeat, hard-reset the phasor to 0, 1, 2, 3, ..., 7, 0, 1...
 			var beat = Stepper.kr(downbeat, 0, 0, 7);
 			var phase = Phasor.kr(downbeat, rate, 0, 8, resetPos: beat);
-			// now shift the whole thing up to compensate for:
-			// 1. message latency -- downbeat triggers will be sent using s.makeBundle for precise timing
-			var latencyOffset = 0.1 * ControlRate.ir * rate;
-			// 2. 1-block delay, because this phase will feed clocked LFOs that will also be fed by the
-			// mod matrix, and then they'll only be fed BACK into the mod matrix 1 block later
-			var blockOffset = rate;
-			// 3. 0.01-second smoothing lag that gets applied to LFO outputs to avoid bad audible pops
-			var lagOffset = 0.01 * ControlRate.ir * rate;
-			// TODO: all of the above seem to shift things TOO early
-			// ...is multiplying by `rate` really correct??
-			Out.kr(clockPhaseBus, phase + latencyOffset + blockOffset + lagOffset);
+			// now shift the whole thing up to compensate for message latency --
+			// downbeat triggers will be sent using s.makeBundle for precise timing
+			phase = phase + (0.1 * ControlRate.ir * rate);
+			Out.kr(clockPhaseBus, phase);
 		}).add;
 
 		// modRouter_* synths write to these, and controlSynth synths read from them
@@ -712,12 +705,8 @@ Engine_Cule : CroneEngine {
 			// now we can derive a scaled ramp that always starts at 0
 			var phase = (inPhase * latchedRate).wrap(0, 1);
 			var gate = BinaryOpUGen('<', phase, 0.5);
-			// since S+H output will be lagged by 0.01, the clock we're being fed is 0.01s early.
-			// that's good for triggering the S+H, but bad for clocking seq
-			// TODO: does this *overcompensate* for the delay / phase offset that's built in to the clockPhaseBus signal...?
-			var delayedGate = DelayN.kr(gate, 0.01, 0.01);
 			Out.kr(\stateBus.ir, Lag.kr(TRand.kr(-1, 1, gate), 0.01));
-			Out.kr(\gateBus.ir, delayedGate);
+			Out.kr(\gateBus.ir, gate);
 		}).add;
 
 		// Random Dust step LFO
@@ -725,7 +714,6 @@ Engine_Cule : CroneEngine {
 			var freq = \freq.kr(1);
 			var trig = Dust.kr(freq);
 			var gate = Trig.kr(trig, (freq * 8).reciprocal);
-			// TODO: this one does NOT delay the gate... which is better?
 			Out.kr(\stateBus.ir, Lag.kr(TRand.kr(-1, 1, trig), 0.01));
 			Out.kr(\gateBus.ir, gate);
 		}).add;

@@ -382,7 +382,9 @@ gate_in = false
 arp_divs = { 1/2, 3/8, 1/4, 3/16, 1/8, 1/12, 1/16, 1/24, 1/32 }
 arp_gates = {}
 arp_gates_inverted = {}
-arp_lattice = Lattice.new()
+arp_lattice = Lattice.new {
+	ppqn = 24 -- this is all the resolution we need for the divisions above
+}
 for d = 1, #arp_divs do
 	local rate = arp_divs[d] / 2
 	arp_gates[d] = false
@@ -408,8 +410,8 @@ end
 arp_lattice:new_sprocket {
 	division = 1/4,
 	action = function()
-		link_peers = clock.link.get_number_of_peers()
 		engine.downbeat()
+		link_peers = clock.link.get_number_of_peers()
 	end
 }
 
