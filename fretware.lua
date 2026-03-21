@@ -54,7 +54,7 @@ arp_menu.on_select = function(source, old_source)
 	elseif not source then
 		k:arp(false)
 		k.arping = false
-		handle_synced_voice_loops(false, true) -- just in case we had a loop start/end cued up
+		handle_synced_voice_loops(true) -- just in case we had a loop start/end cued up
 	end
 	k.arp_plectrum = (source == 13)
 end
@@ -360,7 +360,6 @@ for v = 1, n_voices do
 		loop_play_next = false,
 		loop_record_started = false,
 		loop_record_next = false,
-		loop_tempo_sync = false,
 		lfoA_gate = false,
 		lfoB_gate = false,
 		lfoC_gate = false,
@@ -399,7 +398,7 @@ for d = 1, #arp_divs do
 		end
 		if arp_menu.value == d then
 			if arp_gates[d] then
-				handle_synced_voice_loops(true)
+				handle_synced_voice_loops()
 			end
 			k:arp(arp_gates[d])
 		end
@@ -444,7 +443,6 @@ function voice_loop_record(v)
 		voice.loop_record_next = true
 	else
 		voice.loop_record_started = util.time()
-		voice.loop_tempo_sync = false
 	end
 end
 
@@ -453,13 +451,13 @@ function voice_loop_play(v)
 	-- TODO: limit loop length on Lua side by auto-stopping recording
 	local length = (util.time() - voice.loop_record_started) / clock.get_beat_sec()
 	local div = 0
-	if voice.loop_tempo_sync then
-		-- round to appropriate beat division
-		local div_index = arp_menu.value
-		if div_index <= #arp_divs then
-			-- arp_divs are in measures, we need beats
-			div = arp_divs[div_index] * 4
-		end
+	-- round to appropriate beat division
+	local div_index = arp_menu.value
+	-- TODO: do something special to handle clocking by synced LFOs:
+	-- send the computed tempo multiple from LFO synth to a poll?
+	if div_index and div_index <= #arp_divs then
+		-- arp_divs are in measures, we need beats
+		div = arp_divs[div_index] * 4
 	end
 	engine.playLoop(v, length, div)
 	params:lookup_param('loopRate_' .. v):set_default()
@@ -664,7 +662,7 @@ function grid_redraw()
 	g:refresh()
 end
 
-function handle_synced_voice_loops(tempo_based, immediate)
+function handle_synced_voice_loops(immediate)
 	-- if we're playing a sequence straight (not randomized order),
 	-- wait until the first step to either start or stop
 	if not immediate and k.arp_direction == 1 and k.arp_index ~= 1 then
@@ -678,7 +676,6 @@ function handle_synced_voice_loops(tempo_based, immediate)
 		if voice.loop_record_next then
 			-- get ready to loop (set loop start time here)
 			voice.loop_record_started = util.time()
-			voice.loop_tempo_sync = tempo_based
 			voice.loop_record_next = false
 		elseif voice.loop_play_next then
 			-- start looping
@@ -781,7 +778,7 @@ function init()
 					end
 					if arp_menu.value == arp_source then
 						if gate then
-							handle_synced_voice_loops(false)
+							handle_synced_voice_loops()
 						end
 						k:arp(gate)
 					end
