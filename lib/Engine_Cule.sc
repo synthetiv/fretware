@@ -357,7 +357,7 @@ Engine_Cule : CroneEngine {
 
 		baseFreqBus = Bus.control(context.server);
 
-		beatSecBus = Bus.control(context.server).set(2);
+		beatSecBus = Bus.control(context.server).set(0.5);
 		clockPhaseBus = Bus.control(context.server);
 		SynthDef.new(\clockPhasor, {
 			var rate = (In.kr(beatSecBus) * ControlRate.ir).reciprocal;
