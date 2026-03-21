@@ -490,15 +490,15 @@ Engine_Cule : CroneEngine {
 				beatPhase, beatTrig, loopClockOffset,
 				readPhase, loopEnv, writePhase,
 				// TODO: is there any actual reason to record x and y??
+				// TODO: I think I might be starting to hear timing jitter resulting from the half-control-rate recording... how to deal?
 				pitch, gate, trig, tip, hand, x, y,
 				recPitch, recGate, recTrig, recTip, recHand, recX, recY,
 				vel, svel, attack, release, eg, eg2,
 				amp, fxA, fxB;
 
-			// watch type op/fx/lfo type parameters and send signals to sclang to
-			// handle op, fx, and lfo type changes
-			// TODO: is this really the best place to do this?? why not just create engine commands??
-			// oh right -- this way all voices can read from the patch bus, and not pick up changes if they're locked
+			// watch type op/fx/lfo type parameters and send signals to sclang to handle changes to op,
+			// fx, and lfo types.
+			// this way all voices can read from the patch bus, and NOT pick up changes if they're locked
 			var voiceIndex = \voiceIndex.ir;
 			Dictionary[
 				\opHard -> [ \opHardA, \opHardB ],

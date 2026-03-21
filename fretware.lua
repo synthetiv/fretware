@@ -20,33 +20,6 @@ arp_menu = Menu.new(4, 5, 10, 2, {
 })
 arp_menu.toggle = true
 arp_menu.on_select = function(source, old_source)
-	if k.held_keys.shift then
-		-- TODO: in theory, this could come in handy, but I never use it. change UI, or give it up?
-		source = source or old_source
-		if source >= 1 and source <= 9 then
-			-- jump arp forward by 1/2 length of the clock division whose button was pressed
-			local division = arp_divs[source] / 2
-			-- if we're synced to the clock, then offset all sprockets' phase
-			-- by synced sprocket's cycle length in ppc (ppqn*4)
-			-- that makes this sprocket's downbeats into upbeats, and keeps others in sync
-			local ppc = arp_lattice.ppqn * 4
-			local phase_jump = division * ppc
-			for id, sprocket in pairs(arp_lattice.sprockets) do
-				local div_ppc = sprocket.division * ppc
-				sprocket.phase = sprocket.phase + phase_jump
-				if sprocket.phase > div_ppc then
-					local skipped_cycles = math.floor(sprocket.phase / div_ppc)
-					sprocket.phase = sprocket.phase % div_ppc
-					-- only toggle downbeat status if we've skipped an odd number of cycles for this sprocket
-					if skipped_cycles % 2 == 1 then
-						sprocket.downbeat = not sprocket.downbeat
-					end
-				end
-			end
-		end
-		-- don't actually *select* this division
-		return false
-	end
 	-- enable arp when a source is selected, disable when toggled off
 	if source and not k.arping then
 		k.arping = true
@@ -378,7 +351,6 @@ tip = 0
 palm = 0
 gate_in = false
 
--- TODO: change where arp divs appear, maybe...
 arp_divs = { 1/2, 3/8, 1/4, 3/16, 1/8, 1/12, 1/16, 1/24, 1/32 }
 arp_gates = {}
 arp_gates_inverted = {}
@@ -511,6 +483,7 @@ function g.key(x, y, z)
 		if not arp_direction_menu:key(x, y, z) and not arp_menu:key(x, y, z) and z == 1 then
 			-- keydown, not caught by a menu
 			if (x == 12 or x == 13) and y == 3 then
+				-- TODO: handle nudges by less than 1 ppq
 				if x == 12 then
 					-- nudge down: pause for one pulse worth of time
 					clock.run(function()
@@ -688,7 +661,6 @@ function handle_synced_voice_loops(immediate)
 			arp_menu:select(false)
 			k.held_keys.latch = false
 			k:maybe_clear_stack()
-			-- TODO: loop is if tied to tempo, set things up so phase resets on downbeats
 		end
 	end
 end
@@ -1429,7 +1401,7 @@ function init()
 
 	clock.run(function()
 		while true do
-			clock.sleep(0.1) -- TODO NEXT: fine tune rate
+			clock.sleep(0.1) -- TODO: fine tune rate
 			if trackball_values.x ~= 0 or trackball_values.last_x ~= 0 then
 				engine.dx(trackball_values.x / 32)
 				trackball_values.last_x = trackball_values.x
@@ -1501,7 +1473,6 @@ function redraw()
 
 			if (dest.name == 'loopRate' or dest.name == 'loopPosition') and not voice.loop_playing then
 				-- don't even bother drawing loop-related sliders if loop isn't playing
-				-- TODO: how's this look?
 				screen.rect(dest_slider.x - 1, dest_slider.y - 1, dest_slider.width + 2, dest_slider.height + 2)
 				screen.level(1)
 				screen.stroke()
