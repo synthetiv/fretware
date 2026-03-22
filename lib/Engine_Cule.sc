@@ -1439,6 +1439,9 @@ Engine_Cule : CroneEngine {
 			});
 		});
 
+		// TODO: instead of setting synth args directly, write to buses
+		// then voices can choose to pick up incoming control data or not
+
 		this.addCommand(\heldKeys, "i", { |msg|
 			voiceSynths[selectedVoice][\control].set(\heldKeys, msg[1]);
 		});
