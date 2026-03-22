@@ -529,6 +529,7 @@ Engine_Cule : CroneEngine {
 			trig = Trig.kr(\trig.tr, 0.01);
 
 			// define where we'll be reading
+			// TODO: allow this to be changed during playback, by holding a loop key and pressing an arp div
 			loopSyncDiv = \loopSyncDiv.kr;
 			loopFree = BinaryOpUGen('==', loopSyncDiv, 0);
 			loopLength = \loopLength.kr.round(loopSyncDiv); // measured in beats
