@@ -21,7 +21,7 @@ function SliderMapping.new(param_name, neutral_value, slider_style)
 	elseif slider_style == 'secondary' then
 		mapping.slider = Slider.new(neutral_value, 0, 2)
 	else
-		print('no slider style', param_name)
+		error('no slider style specified for mapping', param_name)
 	end
 	setmetatable(mapping, SliderMapping)
 	return mapping

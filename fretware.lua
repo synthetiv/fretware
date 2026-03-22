@@ -492,7 +492,6 @@ function g.key(x, y, z)
 			k.stepper:close()
 			handled = true
 		elseif arp_menu.is_open and y == 3 and z == 1 then
-			-- TODO NEXT: handle nudges by less than 1 ppq
 			if x == 12 then
 				-- nudge back: pause for one pulse worth of time
 				clock.run(function()
@@ -1371,7 +1370,6 @@ function init()
 					state.delta = 0
 					editor.selected_dest = fader
 					editor.autoselect_time = now
-					print('autoselect by fader', fader)
 				end
 			end
 			screen.ping()
@@ -1454,7 +1452,6 @@ function set_dest_mode(dest_name, mode)
 			editor.dests[d].mode = mode
 			editor.selected_dest = d
 			editor.autoselect_time = util.time()
-			print('autoselect by dest mode', dest_name)
 			return
 		end
 	end

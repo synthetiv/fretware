@@ -45,7 +45,6 @@ function Stepper:draw()
 					g:led(x, y, 0)
 				end
 			elseif x == self.x or x == self.x2 or y == self.y then
-				-- TODO NEXT: fill in lower-left and lower-right corners too...?
 				g:led(x, y, 2)
 			else
 				if s > #self.keyboard.stack then
