@@ -243,7 +243,7 @@ Engine_Cule : CroneEngine {
 			});
 		}, {
 			// re-map all patch args to this voice's synths
-			// TODO NEXT: optionally, SET patch args to voice values first!!
+			// TODO NEXT (timbre freeze): optionally, SET patch args to voice values first!!
 			patchBuses.keysValuesDo({ |name, patchBus|
 				if(patchBus.class === Dictionary, {
 					patchBus.keysValuesDo({ |sourceName, dests|

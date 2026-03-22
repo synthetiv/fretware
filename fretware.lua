@@ -700,7 +700,7 @@ function voice_loop_play(v)
 	local div = 0
 	-- round to appropriate beat division
 	local div_index = arp_menu.value
-	-- TODO NEXT: do something special to handle clocking by synced LFOs:
+	-- TODO NEXT (QoL): do something special to handle clocking by synced LFOs:
 	-- send the computed tempo multiple from LFO synth to a poll?
 	if div_index and div_index <= #arp_divs then
 		-- arp_divs are in measures, we need beats
@@ -808,7 +808,7 @@ function handle_synced_voice_loops(immediate)
 	-- if we're playing a sequence straight (not randomized order),
 	-- wait until the first step to either start or stop
 	if not immediate and k.arp_direction == 1 and k.arp_index > 1 then
-		-- TODO NEXT: in this situation, switching the selected voice should ALSO be delayed!
+		-- TODO NEXT (QoL): in this situation, switching the selected voice should ALSO be delayed!
 		-- or something else needs to happen to ensure that we're still
 		-- sending user input to the voice that's actually recording
 		return
