@@ -1130,7 +1130,7 @@ function init()
 			min = 0,
 			max = 1,
 			k = 2,
-			default = 0.3,
+			default = 0.269,
 			action = function(value)
 				voice.mix_level = value
 				engine.outLevel(v, value)
