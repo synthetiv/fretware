@@ -580,7 +580,7 @@ Engine_Cule : CroneEngine {
 				loopListen.lag(0.01),
 				[
 					[ pitch + bend, tip, hand, x, y, gate, trig ],
-					[ recPitch + bend + \shift.kr, recTip, recHand + hand, recX + x, recY + y, gate, trig ],
+					[ recPitch + bend + \shift.kr, recTip, recHand + hand, recX + x, recY + y, recGate, recTrig ],
 				]
 			);
 
