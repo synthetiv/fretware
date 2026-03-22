@@ -1468,13 +1468,34 @@ function init()
 
 	-- inform SC of future tempo changes
 	clock.tempo_change_handler = function(tempo)
+		print('tempo change... beat sec', clock.get_beat_sec(), 'clock tempo', 60 / clock.get_tempo(), 'param', 60 / params:get('clock_tempo'))
 		engine.beatSec(clock.get_beat_sec())
 	end
 	-- set initial tempo
-	-- TODO: this still doesn't seem to work consistently...
+	-- TODO NOW (QoL): this still doesn't seem to work consistently...
 	-- engine often seems to think the tempo is different on script start.
 	-- there must be a race condition somewhere...
-	engine.beatSec(clock.get_beat_sec())
+	-- so it looks as if the engine commands haven't been fully "reported" yet by this time!!
+	-- what does it mean for SC to 'report' a command?
+	-- well, there is an OSC message that gets fired back: /report/commands/end
+	-- and it DOES appear that that fires earlier than it should: Crone.sc does NOT sync before sending it,
+	-- and there may be more /report/commands/entry messages to send (in this script, seems like there almost always are)
+	-- BUT....... telling it to sync still doesn't do the initial beatSec properly
+	-- okay, adding a postln to Engine_Cule's callback for that command confirms...
+	-- ... it just doesn't fire sometimes. even if all the 'report' stuff appears to be done. WTF??
+	-- but the Lua side DOES know the beatSec command exists.
+	-- you can see it in the "___ engine commands ___" message. that appears, in complete form,
+	-- BEFORE all the "command entry..." messages from SC are done.
+	-- so most of that ^ is a big school of red-ass herrings rotting in the sun
+	-- maybe a packet (or more than one) is getting dropped during the big series of xruns during load
+	-- what's causing all of those anyway?
+	-- well... for now... we can just delay the tempo initialization
+	clock.run(function()
+		clock.sync(1)
+		local beat_sec = clock.get_beat_sec()
+		print('clocked tempo init... beat sec', clock.get_beat_sec(), 'clock tempo', 60 / clock.get_tempo(), 'param', 60 / params:get('clock_tempo'))
+		engine.beatSec(clock.get_beat_sec())
+	end)
 
 	grid_redraw()
 end
