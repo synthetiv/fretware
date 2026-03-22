@@ -21,14 +21,15 @@ function Menu.new(x, y, width, height, arg_values)
 		height = height,
 		x2 = x + width - 1,
 		y2 = y + height - 1,
-		toggle = false,
-		multi = false,
+		n_keys = width * height,
+		is_toggle = false,
+		is_multi = false,
 		values = values,
-		n_values = width * height,
-		held = {},
+		held_values = {},
+		held_blanks = {},
 		n_held = 0,
 		value = false,
-		open = false,
+		is_open = false,
 		on_select = function() end
 	}
 	setmetatable(menu, Menu)
@@ -40,7 +41,7 @@ function Menu.get_key_level(value, selected, held)
 end
 
 function Menu:draw()
-	if not self.open then
+	if not self.is_open then
 		return
 	end
 	local k = 1
@@ -49,10 +50,10 @@ function Menu:draw()
 			local v = self.values[k]
 			if v then
 				local selected = self.value == v
-				if self.multi and self.n_held > 0 then
-					selected = self.held[v]
+				if self.is_multi and self.n_held > 0 then
+					selected = self.held_values[v]
 				end
-				g:led(x, y, self.get_key_level(self.values[k], selected, self.held[v]))
+				g:led(x, y, self.get_key_level(self.values[k], selected, self.held_values[v]))
 			end
 			k = k + 1
 		end
@@ -60,7 +61,7 @@ function Menu:draw()
 end
 
 function Menu:key(x, y, z)
-	if not self.open or x < self.x or x > self.x2 or y < self.y or y > self.y2 then
+	if not self.is_open or x < self.x or x > self.x2 or y < self.y or y > self.y2 then
 		return false
 	end
 	x = x - self.x
@@ -69,26 +70,41 @@ function Menu:key(x, y, z)
 	local v = self.values[k]
 	if v then
 		if z == 1 then
-			self.held[v] = true
+			self.held_values[v] = true
 			self.n_held = self.n_held + 1
-			if self.toggle and self.value == v then
+			if self.is_toggle and self.value == v then
 				k = false
 			end
 			self:select(k)
-		else
-			self.held[v] = false
+			return true
+		elseif self.held_values[v] then
+			self.held_values[v] = false
 			self.n_held = self.n_held - 1
 			if self.n_held > 0 then
-				for nk = self.n_values, 1, -1 do
-					if self.held[self.values[nk]] then
+				-- if there are other keys held, change selection to the highest numbered one
+				for nk = self.n_keys, 1, -1 do
+					if self.held_values[self.values[nk]] then
 						self:select(nk)
 						return true
 					end
 				end
 			end
+			return true
 		end
+	end
+	-- handle events on otherwise-unhandled keys
+	-- block keydowns from affecting other controls; but if a key is released that we didn't
+	-- previously know was held, allow other controls to handle it
+	-- example: press and hold a keyboard note, then open a menu, then release the note key; the
+	-- keyboard should be the one to receive the key up event
+	if z == 1 then
+		self.held_blanks[k] = true
+		return true
+	elseif self.held_blanks[k] then
+		self.held_blanks[k] = false
 		return true
 	end
+	return false
 end
 
 function Menu:select(k)
@@ -103,7 +119,7 @@ function Menu:select(k)
 end
 
 function Menu:select_value(v)
-	for k = 1, self.n_values do
+	for k = 1, self.n_keys do
 		if self.values[k] == v then
 			self:select(k)
 			return
@@ -112,10 +128,35 @@ function Menu:select_value(v)
 end
 
 function Menu:is_selected(v)
-	if self.multi and self.n_held > 0 then
+	if self.is_multi and self.n_held > 0 then
 		return self.held[v]
 	end
 	return self.value == v
+end
+
+function Menu:toggle()
+	if self.is_open then
+		self:close()
+	else
+		self:open()
+	end
+end
+
+function Menu:open()
+	self.is_open = true
+end
+
+function Menu:close()
+	for k = 1, self.n_keys do
+		local v = self.values[k]
+		if v and self.held_values[v] then
+			self.held_values[v] = false
+		end
+		if self.held_blanks[k] then
+			self.held_blanks[k] = false
+		end
+	end
+	self.is_open = false
 end
 
 return Menu

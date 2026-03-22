@@ -11,14 +11,16 @@ function Stepper.new(keyboard, x, y, width, height)
 		height = height,
 		x2 = x + width - 1,
 		y2 = y + height - 1,
+		n_keys = width * height,
 		max_length = max_length,
 		held_steps = {},
 		clipboard = {},
 		held_keys = {},
+		held_blanks = {},
 		-- active_step_index = 0, -- i.e. not active, because first step is 1
 		-- active_step = {},
 		-- length = 0,
-		open = false
+		is_open = false
 	}
 	for s = 1, max_length do
 		stepper.held_steps[s] = false
@@ -28,7 +30,7 @@ function Stepper.new(keyboard, x, y, width, height)
 end
 
 function Stepper:draw()
-	if not self.open then
+	if not self.is_open then
 		return
 	end
 	local s = 1
@@ -43,6 +45,7 @@ function Stepper:draw()
 					g:led(x, y, 0)
 				end
 			elseif x == self.x or x == self.x2 or y == self.y then
+				-- TODO NEXT: fill in lower-left and lower-right corners too...?
 				g:led(x, y, 2)
 			else
 				if s > #self.keyboard.stack then
@@ -63,7 +66,7 @@ function Stepper:draw()
 					elseif s == self.keyboard.arp_index then
 						level = led_blend(level, self.keyboard.stack_edit_index and 7 or 10)
 					end
-					if self.held_steps[s] then
+					if self.held_steps[s] and s <= #self.keyboard.stack then
 						level = led_blend(level, 10)
 					end
 					g:led(x, y, math.floor(level + 0.5))
@@ -127,10 +130,11 @@ function Stepper:duplicate_step(source_index, dest_index)
 end
 
 function Stepper:key(x, y, z, shift)
-	if not self.open then
+	if not self.is_open then
 		return false
 	elseif x == 1 and y == 1 and z == 1 then
 		-- delete key
+		-- TODO: move this bit into a :delete_key() handler
 		local n_deleted = 0
 		for s = 1, #self.keyboard.stack do
 			if self:can_delete_step(s) then
@@ -144,30 +148,38 @@ function Stepper:key(x, y, z, shift)
 		return false
 	elseif y == self.y2 then
 		if x == self.x + 2 then
-			self.held_keys.left = z == 1
 			if z == 1 then
-				if self.keyboard.held_keys.shift then
+				self.held_keys.left = true
+				if shift then
 					self.keyboard.arp_index = (self.keyboard.arp_index - 2) % #self.keyboard.stack + 1
 				else
 					self.keyboard:shift_stack(-1)
 				end
+				return true
+			elseif self.held_keys.left then
+				self.held_keys.left = false
+				return true
 			end
 		elseif x == self.x2 - 2 then
-			self.held_keys.right = z == 1
 			if z == 1 then
-				if self.keyboard.held_keys.shift then
+				self.held_keys.right = true
+				if shift then
 					self.keyboard.arp_index = self.keyboard.arp_index % #self.keyboard.stack + 1
 				else
 					self.keyboard:shift_stack(1)
 				end
+				return true
+			elseif self.held_keys.right then
+				self.held_keys.right = false
+				return true
 			end
 		end
-	else
-		x = x - self.x - 1
-		y = y - self.y - 1
+	elseif x > self.x and x < self.x2 and y > self.y then
+		local x = x - self.x - 1
+		local y = y - self.y - 1
 		local s = x + (y * (self.width - 2)) + 1
 		local now = util.time()
-		if self.keyboard.held_keys.shift then
+		if shift then
 			if z == 1 then
 				if #self.clipboard > 0 then
 					self:paste_steps(math.min(s, #self.keyboard.stack + 1))
@@ -183,37 +195,76 @@ function Stepper:key(x, y, z, shift)
 						end
 					end
 				end
-			else
-				if self.held_steps[s] then
+				return true
+			elseif self.held_steps[s] then
+				if self.keyboard.stack[s] then
 					-- add this to copied steps
 					table.insert(self.clipboard, self.keyboard.stack[s])
 				end
+				self.held_steps[s] = false
+				return true
 			end
-		else
-			if s <= #self.keyboard.stack then
-				if z == 1 then
-					if not self.keyboard.stack[s].gate then
-						self.keyboard.stack[s].gate = true
-						-- negative value indicates that delete key shouldn't be shown yet, but that releasing
-						-- this key immediately should NOT toggle it off
-						self.held_steps[s] = -now
-					else
-						self.held_steps[s] = now
-					end
+		elseif self.keyboard.stack[s] then
+			if z == 1 then
+				if not self.keyboard.stack[s].gate then
+					self.keyboard.stack[s].gate = true
+					-- negative value indicates that delete key shouldn't be shown yet, but that releasing
+					-- this key immediately should NOT toggle it off
+					self.held_steps[s] = -now
 				else
-					-- note that can_delete_step() uses math.abs() but the below doesn't
-					if self.keyboard.stack[s].gate and self.held_steps[s] and (now - self.held_steps[s] < 0.15) then
-						self.keyboard.stack[s].gate = false
-					end
+					self.held_steps[s] = now
 				end
+				return true
+			elseif self.held_steps[s] then
+				-- note that can_delete_step() uses math.abs() but the below doesn't 
+				-- see note about negative values above
+				if self.keyboard.stack[s].gate and (now - self.held_steps[s] < 0.15) then
+					self.keyboard.stack[s].gate = false
+				end
+				self.held_steps[s] = false
+				return true
 			end
-		end
-		if z == 0 then
+		elseif z == 0 then
 			-- always release, even if we're holding the key for a step that no longer exists
 			self.held_steps[s] = false
 		end
 	end
-	return true
+	-- handle events on non-keys
+	local k = x + (y * self.width) + 1
+	if z == 1 then
+		self.held_blanks[k] = true
+		return true
+	elseif self.held_blanks[k] then
+		self.held_blanks[k] = false
+		return true
+	end
+	return false
+end
+
+function Stepper:toggle()
+	if self.is_open then
+		self:close()
+	else
+		self:open()
+	end
+end
+
+function Stepper:open()
+	self.is_open = true
+end
+
+function Stepper:close()
+	self.held_keys.left = false
+	self.held_keys.right = false
+	for s = 1, self.max_length do
+		self.held_steps[s] = false
+	end
+	for k = 1, self.n_keys do
+		if self.held_blanks[k] then
+			self.held_blanks[k] = false
+		end
+	end
+	self.is_open = false
 end
 
 return Stepper

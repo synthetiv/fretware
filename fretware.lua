@@ -8,8 +8,11 @@ SliderMapping = include 'lib/slidermapping'
 
 n_voices = 3
 
+grid_controls = {}
+
 Keyboard = include 'lib/keyboard'
 k = Keyboard.new(1, 1, 16, 8)
+table.insert(grid_controls, 1, k.stepper)
 
 Menu = include 'lib/menu'
 
@@ -17,7 +20,7 @@ arp_menu = Menu.new(4, 5, 10, 2, {
 	_, 1,  2, 3,  4,  5,  6, 7, 8, 9,
 	_, _, 14, _, 10, 11, 12 -- value number 11 can be set to 13 when direction is set to 3
 })
-arp_menu.toggle = true
+arp_menu.is_toggle = true
 arp_menu.on_select = function(source, old_source)
 	-- enable arp when a source is selected, disable when toggled off
 	if source and not k.arping then
@@ -41,6 +44,7 @@ arp_menu.get_key_level = function(value, selected)
 	end
 	return level + (selected and 11 or 4)
 end
+table.insert(grid_controls, 1, arp_menu)
 
 arp_direction_menu = Menu.new(4, 3, 5, 1, {
 	3, _, 2, _, 1
@@ -57,6 +61,7 @@ arp_direction_menu.on_select = function(value)
 	end
 end
 arp_direction_menu:select_value(1)
+table.insert(grid_controls, 1, arp_direction_menu)
 
 source_menu = Menu.new(5, 1, 11, 2, {
 	-- map of source numbers (in editor.source_names) to keys
@@ -64,7 +69,7 @@ source_menu = Menu.new(5, 1, 11, 2, {
 	 2, _, 3, _, 5, _, 7,  8, 9, _, 1,
 	 _, _, 4, _, 6, _, _, 10
 })
-source_menu.multi = true
+source_menu.is_multi = true
 source_menu:select_value(1)
 source_menu.get_key_level = function(value, selected, held)
 	local level = 0
@@ -96,6 +101,7 @@ source_menu.get_key_level = function(value, selected, held)
 	end
 	return (held and 11 or (selected and 6 or 3)) + level
 end
+table.insert(grid_controls, 1, source_menu)
 
 link_peers = 0
 
@@ -104,7 +110,7 @@ echo = Echo.new()
 
 redraw_metro = nil
 
--- TODO: handle when grid gets disconnected!!
+-- TODO NEXT: handle when grid gets disconnected!!
 g = grid.connect()
 
 trackball_values = {
@@ -434,7 +440,7 @@ function voice_loop_play(v)
 	local div = 0
 	-- round to appropriate beat division
 	local div_index = arp_menu.value
-	-- TODO: do something special to handle clocking by synced LFOs:
+	-- TODO NEXT: do something special to handle clocking by synced LFOs:
 	-- send the computed tempo multiple from LFO synth to a poll?
 	if div_index and div_index <= #arp_divs then
 		-- arp_divs are in measures, we need beats
@@ -459,108 +465,112 @@ function voice_loop_set_end(v)
 end
 
 function g.key(x, y, z)
-	if x == 6 and y == 8 then
-		-- TODO: this could lead to stuck keys, since the menu will steal key input from the
-		-- keyboard. how could you work around that? examine keyboard's held keys and give
-		-- first priority in key handler to keyboard keyoffs, then menu keyon, then keyboard
-		-- keyon?
-		if z == 1 then
-			k.stepper.open = not k.stepper.open
-			arp_menu.open = false
-			arp_direction_menu.open = false
-			source_menu.open = false
-		end
-	elseif x == 7 and y == 8 then
-		if z == 1 then
-			arp_menu.open = not arp_menu.open
-			arp_direction_menu.open = arp_menu.open
-			k.stepper.open = false
-			source_menu.open = false
-		end
-	elseif x == 9 and y == 8 then
-		if z == 1 then
-			source_menu.open = not source_menu.open
-			arp_menu.open = false
-			arp_direction_menu.open = false
-			k.stepper.open = false
-		end
-	elseif k.stepper.open and k.stepper:key(x, y, z, k.held_keys.shift) then
-		-- stepper handled this one
-	elseif arp_menu.open and x > 2 and y < 8 then
-		if not arp_direction_menu:key(x, y, z) and not arp_menu:key(x, y, z) and z == 1 then
-			-- keydown, not caught by a menu
-			if (x == 12 or x == 13) and y == 3 then
-				-- TODO: handle nudges by less than 1 ppq
-				if x == 12 then
-					-- nudge down: pause for one pulse worth of time
-					clock.run(function()
-						arp_lattice:stop()
-						clock.sleep(clock.get_beat_sec() / arp_lattice.ppqn)
-						arp_lattice:start()
-					end)
-				elseif x == 13 then
-					-- nudge up: skip forward by one pulse, instantaneously
-					arp_lattice:pulse()
-				end
-			elseif (x == 15 or x == 16) and y == 3 then
-				-- clock tempo increase/decrease
-				if x == 15 then
-					params:set('clock_tempo', params:get('clock_tempo') / 1.04)
-				elseif x == 16 then
-					params:set('clock_tempo', params:get('clock_tempo') * 1.04)
-				end
+	local handled = false
+	-- special-case keys
+	-- TODO: incorporate these into new or existing grid controls
+	if z == 1 then
+		if x == 6 and y == 8 then
+			k.stepper:toggle()
+			arp_menu:close()
+			arp_direction_menu:close()
+			source_menu:close()
+			handled = true
+		elseif x == 7 and y == 8 then
+			arp_menu:toggle()
+			if arp_menu.is_open then
+				arp_direction_menu:open()
+			else
+				arp_direction_menu:close()
 			end
-		end
-	elseif x == 1 and y == 1 and z == 1 and source_menu.open and (source_menu.n_held > 0 or held_keys[1]) then
-		-- mod reset key
-		if source_menu.n_held > 0 then
-			-- if there are any held sources, reset all routes involving them
-			for source = 1, #editor.source_names do
-				if source_menu.held[source] then
-					local source_name = editor.source_names[source]
-					for d = 1, #editor.dests do
-						local dest = editor.dests[d]
-						local dest_name = dest.name
-						if dest.voice_dest then
-							dest_name = dest_name .. '_' .. k.selected_voice
-						end
-						local defaults = dest.source_defaults
-						local param = params:lookup_param(source_name .. '_' .. dest_name)
-						if defaults and defaults[source_name] then
-							param:set(defaults[source_name])
-						else
-							param:set_default()
+			k.stepper:close()
+			source_menu:close()
+			handled = true
+		elseif x == 9 and y == 8 then
+			source_menu:toggle()
+			arp_menu:close()
+			arp_direction_menu:close()
+			k.stepper:close()
+			handled = true
+		elseif arp_menu.is_open and y == 3 and z == 1 then
+			-- TODO NEXT: handle nudges by less than 1 ppq
+			if x == 12 then
+				-- nudge back: pause for one pulse worth of time
+				clock.run(function()
+					arp_lattice:stop()
+					clock.sleep(clock.get_beat_sec() / arp_lattice.ppqn)
+					arp_lattice:start()
+				end)
+			elseif x == 13 then
+				-- nudge forward: skip forward by one pulse, instantaneously
+				arp_lattice:pulse()
+			elseif x == 15 then
+				-- nudge tempo down
+				params:set('clock_tempo', params:get('clock_tempo') / 1.04)
+			elseif x == 16 then
+				-- nudge tempo up
+				params:set('clock_tempo', params:get('clock_tempo') * 1.04)
+			end
+			handled = true
+		elseif x == 1 and y == 1 and source_menu.is_open and (source_menu.n_held > 0 or held_keys[1]) then
+			-- mod reset key
+			-- TODO: move this into a :delete_key() handler
+			if source_menu.n_held > 0 then
+				-- if there are any held sources, reset all routes involving them
+				for source = 1, #editor.source_names do
+					if source_menu.held_values[source] then
+						local source_name = editor.source_names[source]
+						for d = 1, #editor.dests do
+							local dest = editor.dests[d]
+							local dest_name = dest.name
+							if dest.voice_dest then
+								dest_name = dest_name .. '_' .. k.selected_voice
+							end
+							local defaults = dest.source_defaults
+							local param = params:lookup_param(source_name .. '_' .. dest_name)
+							if defaults and defaults[source_name] then
+								param:set(defaults[source_name])
+							else
+								param:set_default()
+							end
 						end
 					end
 				end
+				handled = true
 			end
-		end
-		if held_keys[1] then
-			-- if K1 is held, reset all routes involving the selected dest
-			local dest = editor.dests[editor.selected_dest]
-			local dest_name = dest.name
-			if dest.voice_dest then
-				dest_name = dest_name .. '_' .. k.selected_voice
-			end
-			local defaults = dest.source_defaults
-			for source = 1, #editor.source_names do
-				local source_name = editor.source_names[source]
-				local param_name = source_name .. '_' .. dest_name
-				local param = params:lookup_param(param_name)
-				if defaults and defaults[source_name] then
-					param:set(defaults[source_name])
-				else
-					param:set_default()
+			if held_keys[1] then
+				-- if K1 is held, reset all routes involving the selected dest
+				local dest = editor.dests[editor.selected_dest]
+				local dest_name = dest.name
+				if dest.voice_dest then
+					dest_name = dest_name .. '_' .. k.selected_voice
 				end
+				local defaults = dest.source_defaults
+				for source = 1, #editor.source_names do
+					local source_name = editor.source_names[source]
+					local param_name = source_name .. '_' .. dest_name
+					local param = params:lookup_param(param_name)
+					if defaults and defaults[source_name] then
+						param:set(defaults[source_name])
+					else
+						param:set_default()
+					end
+				end
+				handled = true
 			end
 		end
-	elseif source_menu.open and x > 2 and y < 8 then
-		source_menu:key(x, y, z)
-	else
+	end
+	-- if any menus or other controls are open, see if those will handle the key
+	local c = 1
+	while not handled and c <= #grid_controls do
+		handled = grid_controls[c]:key(x, y, z, k.held_keys.shift)
+		c = c + 1
+	end
+	-- last stop: keyboard handles all other key events
+	if not handled then
 		k:key(x, y, z)
 	end
 	grid_redraw()
-	screen.ping()
+	screen.ping() -- TODO NEXT: why doesn't this work? :( ... wait, is it norns.screen.ping()?
 end
 
 function send_pitch()
@@ -571,14 +581,14 @@ end
 function grid_redraw()
 	g:all(0)
 	k:draw()
-	if arp_menu.open or arp_direction_menu.open or source_menu.open then
+	if arp_menu.is_open or arp_direction_menu.is_open or source_menu.is_open then
 		for x = 3, 16 do
 			for y = 1, 7 do
 				g:led(x, y, 0)
 			end
 		end
 	end
-	if k.stepper.open then
+	if k.stepper.is_open then
 		g:led(6, 8, 15)
 	else
 		local level = 2
@@ -591,7 +601,7 @@ function grid_redraw()
 		g:led(6, 8, level)
 	end
 	k.stepper:draw()
-	if arp_menu.open then
+	if arp_menu.is_open then
 		g:led(7, 8, 15)
 	elseif arp_menu.value then
 		-- an arp clock source is selected; blink
@@ -611,7 +621,7 @@ function grid_redraw()
 	end
 	arp_menu:draw()
 	arp_direction_menu:draw()
-	if arp_menu.open then
+	if arp_menu.is_open then
 		-- lattice phase nudge keys
 		g:led(12, 3, 5)
 		g:led(13, 3, 5)
@@ -619,9 +629,9 @@ function grid_redraw()
 		g:led(15, 3, 4)
 		g:led(16, 3, 4)
 	end
-	g:led(9, 8, source_menu.open and 7 or 2)
+	g:led(9, 8, source_menu.is_open and 7 or 2)
 	source_menu:draw()
-	if source_menu.open and (source_menu.n_held > 0 or held_keys[1]) then
+	if source_menu.is_open and (source_menu.n_held > 0 or held_keys[1]) then
 		g:led(1, 1, 7)
 	end
 	local blink = arp_gates[5] -- 1/8 notes
@@ -647,7 +657,7 @@ function handle_synced_voice_loops(immediate)
 	-- if we're playing a sequence straight (not randomized order),
 	-- wait until the first step to either start or stop
 	if not immediate and k.arp_direction == 1 and k.arp_index > 1 then
-		-- TODO: in this situation, switching the selected voice should ALSO be delayed!
+		-- TODO NEXT: in this situation, switching the selected voice should ALSO be delayed!
 		-- or something else needs to happen to ensure that we're still
 		-- sending user input to the voice that's actually recording
 		return
@@ -1337,7 +1347,7 @@ function init()
 			local old_value = state.value or new_value
 			local changed_source = false
 			for source = 1, #editor.source_names do
-				if source_menu.held[source] then
+				if source_menu.held_values[source] then
 					patch_mod_mappings[fader][source]:delta(new_value - old_value)
 					changed_source = true
 				end
@@ -1362,7 +1372,7 @@ function init()
 					editor.selected_dest = fader
 					editor.autoselect_time = now
 					print('autoselect by fader', fader)
-					screen.ping()
+					screen.ping() -- TODO NEXT: why doesn't this work? :( ... wait, is it norns.screen.ping()?
 				end
 			end
 		elseif message.type == 'cc' then
@@ -1529,7 +1539,7 @@ function redraw()
 
 	screen.level(3)
 	screen.move(0, 5)
-	if arp_menu.open then
+	if arp_menu.is_open then
 		screen.text('CLOCK: ')
 		local clock_source = params:get('clock_source')
 		if clock_source == 1 then
@@ -1586,7 +1596,7 @@ function enc(n, d)
 				d_scaled = d / 128
 			end
 			for source = 1, #editor.source_names do
-				if source_menu.held[source] then
+				if source_menu.held_values[source] then
 					if editor.dests[param_index].voice_dest then
 						voice_mod_mappings[param_index][source][k.selected_voice]:delta(d_scaled)
 					else
