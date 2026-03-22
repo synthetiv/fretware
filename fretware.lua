@@ -570,7 +570,7 @@ function g.key(x, y, z)
 		k:key(x, y, z)
 	end
 	grid_redraw()
-	screen.ping() -- TODO NEXT: why doesn't this work? :( ... wait, is it norns.screen.ping()?
+	screen.ping()
 end
 
 function send_pitch()
@@ -1372,9 +1372,9 @@ function init()
 					editor.selected_dest = fader
 					editor.autoselect_time = now
 					print('autoselect by fader', fader)
-					screen.ping() -- TODO NEXT: why doesn't this work? :( ... wait, is it norns.screen.ping()?
 				end
 			end
+			screen.ping()
 		elseif message.type == 'cc' then
 			local button = message.ch
 			local dest = editor.dests[button]
@@ -1386,6 +1386,7 @@ function init()
 					params:set(dest.mode_param, new_mode)
 				end
 			end
+			screen.ping()
 		end
 	end
 
