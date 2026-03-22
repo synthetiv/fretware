@@ -429,7 +429,7 @@ device_callbacks = {
 					arp_direction_menu:close()
 					k.stepper:close()
 					handled = true
-				elseif arp_menu.is_open and y == 3 and z == 1 then
+				elseif arp_menu.is_open and y == 3 and x >= 12 then
 					if x == 12 then
 						-- nudge back: pause for one pulse worth of time
 						clock.run(function()
