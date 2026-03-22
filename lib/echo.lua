@@ -248,12 +248,10 @@ function Echo:add_params()
 		options = { 'none', 'lfoA', 'lfoB', 'lfoC', 'lfoA=B', 'lfoB=C', 'lfoC=A' },
 		default = 1,
 		action = function(value)
-			if uc4 then
-				-- reset other UC4 blinkenlights
-				for note = 12, 19 do
-					if note - 10 ~= value then
-						uc4:note_off(note)
-					end
+			-- reset other UC4 blinkenlights
+			for note = 12, 19 do
+				if note - 10 ~= value then
+					uc4:note_off(note)
 				end
 			end
 			self.jump_trigger = value

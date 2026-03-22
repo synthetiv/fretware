@@ -110,9 +110,6 @@ echo = Echo.new()
 
 redraw_metro = nil
 
--- TODO NEXT: handle when grid gets disconnected!!
-g = grid.connect()
-
 trackball_values = {
 	x = 0,
 	y = 0,
@@ -400,6 +397,269 @@ arp_lattice:new_sprocket {
 	end
 }
 
+-- actions to take when specific devices (identified by name) are plugged in
+device_callbacks = {
+
+	['monome 128 m1000265'] = function(device)
+		g = device
+		g.key = function(x, y, z)
+			local handled = false
+			-- special-case keys
+			-- TODO: incorporate these into new or existing grid controls
+			if z == 1 then
+				if x == 6 and y == 8 then
+					k.stepper:toggle()
+					arp_menu:close()
+					arp_direction_menu:close()
+					source_menu:close()
+					handled = true
+				elseif x == 7 and y == 8 then
+					arp_menu:toggle()
+					if arp_menu.is_open then
+						arp_direction_menu:open()
+					else
+						arp_direction_menu:close()
+					end
+					k.stepper:close()
+					source_menu:close()
+					handled = true
+				elseif x == 9 and y == 8 then
+					source_menu:toggle()
+					arp_menu:close()
+					arp_direction_menu:close()
+					k.stepper:close()
+					handled = true
+				elseif arp_menu.is_open and y == 3 and z == 1 then
+					if x == 12 then
+						-- nudge back: pause for one pulse worth of time
+						clock.run(function()
+							arp_lattice:stop()
+							clock.sleep(clock.get_beat_sec() / arp_lattice.ppqn)
+							arp_lattice:start()
+						end)
+					elseif x == 13 then
+						-- nudge forward: skip forward by one pulse, instantaneously
+						arp_lattice:pulse()
+					elseif x == 15 then
+						-- nudge tempo down
+						params:set('clock_tempo', params:get('clock_tempo') / 1.04)
+					elseif x == 16 then
+						-- nudge tempo up
+						params:set('clock_tempo', params:get('clock_tempo') * 1.04)
+					end
+					handled = true
+				elseif x == 1 and y == 1 and source_menu.is_open and (source_menu.n_held > 0 or held_keys[1]) then
+					-- mod reset key
+					-- TODO: move this into a :delete_key() handler
+					if source_menu.n_held > 0 then
+						-- if there are any held sources, reset all routes involving them
+						for source = 1, #editor.source_names do
+							if source_menu.held_values[source] then
+								local source_name = editor.source_names[source]
+								for d = 1, #editor.dests do
+									local dest = editor.dests[d]
+									local dest_name = dest.name
+									if dest.voice_dest then
+										dest_name = dest_name .. '_' .. k.selected_voice
+									end
+									local defaults = dest.source_defaults
+									local param = params:lookup_param(source_name .. '_' .. dest_name)
+									if defaults and defaults[source_name] then
+										param:set(defaults[source_name])
+									else
+										param:set_default()
+									end
+								end
+							end
+						end
+						handled = true
+					end
+					if held_keys[1] then
+						-- if K1 is held, reset all routes involving the selected dest
+						local dest = editor.dests[editor.selected_dest]
+						local dest_name = dest.name
+						if dest.voice_dest then
+							dest_name = dest_name .. '_' .. k.selected_voice
+						end
+						local defaults = dest.source_defaults
+						for source = 1, #editor.source_names do
+							local source_name = editor.source_names[source]
+							local param_name = source_name .. '_' .. dest_name
+							local param = params:lookup_param(param_name)
+							if defaults and defaults[source_name] then
+								param:set(defaults[source_name])
+							else
+								param:set_default()
+							end
+						end
+						handled = true
+					end
+				end
+			end
+			-- if any menus or other controls are open, see if those will handle the key
+			local c = 1
+			while not handled and c <= #grid_controls do
+				handled = grid_controls[c]:key(x, y, z, k.held_keys.shift)
+				c = c + 1
+			end
+			-- last stop: keyboard handles all other key events
+			if not handled then
+				k:key(x, y, z)
+			end
+			grid_redraw()
+			screen.ping()
+		end
+	end,
+
+	['TOUCHE 1'] = function(device)
+		touche = device
+		touche.event = function(data)
+			local message = midi.to_msg(data)
+			if message.ch == 1 and message.type == 'cc' then
+				-- back = 16, front = 17, left = 18, right = 19
+				if message.cc == 17 then
+					tip = message.val / 126
+					engine.tip(tip)
+				elseif message.cc == 16 then
+					palm = message.val / 126
+					engine.palm(palm)
+				elseif message.cc == 18 then
+					k:bend(-math.min(1, message.val / 126))
+					send_pitch()
+				elseif message.cc == 19 then
+					k:bend(math.min(1, message.val / 126))
+					send_pitch()
+				end
+			end
+		end
+	end,
+
+	['Faderfox UC4'] = function(device)
+		uc4 = device
+		uc4.event = function(data)
+			local message = midi.to_msg(data)
+			if message.ch == 1 then
+				if message.type == 'note_on' then
+					if message.note >= 12 and message.note < 18 then
+						if message.note == params:get('echo_jump_trigger') + 10 then
+							params:set('echo_jump_trigger', 1) -- none
+							uc4:note_off(message.note, 127)
+						else
+							params:set('echo_jump_trigger', message.note - 10)
+						end
+					elseif message.note == 18 or message.note == 19 then
+						-- manual jump trigger
+						params:set('echo_jump_trigger', 1)
+						echo:jump()
+					end
+				elseif message.type == 'note_off' then
+					if message.note >= 12 and message.note < 18 then
+						if message.note == params:get('echo_jump_trigger') + 10 then
+							-- turn UC4 note light back on
+							uc4:note_on(message.note, 127)
+						end
+					end
+				end
+			end
+		end
+	end,
+
+	['MiSW XVI-M'] = function(device)
+		device.event = function(data)
+			local message = midi.to_msg(data)
+			if message.type == 'pitchbend' then
+				local fader = message.ch
+				-- scale to [0, 1].
+				-- max 14-bit pitchbend value is 16383, but xvi only returns up to 16380
+				-- 12 bits of resolution is plenty
+				local new_value = message.val / 16380
+				local state = xvi_state[fader]
+				local old_value = state.value or new_value
+				local changed_source = false
+				for source = 1, #editor.source_names do
+					if source_menu.held_values[source] then
+						patch_mod_mappings[fader][source]:delta(new_value - old_value)
+						changed_source = true
+					end
+				end
+				if not changed_source then
+					patch_param_mappings[fader]:move(old_value, new_value)
+				end
+				state.delta = state.delta + math.abs(new_value - old_value)
+				state.value = new_value
+				local now = util.time()
+				if editor.selected_dest == fader then
+					-- as long as the currently selected fader is being moved, don't change selection
+					editor.autoselect_time = now
+					state.delta = 0
+				else
+					-- we'll scale accumulated changes by time, so that a big move over a short time is as
+					-- likely to change selection as a small move after a long pause, but that small move
+					-- wouldn't change selection if the selected fader was moved recently
+					local t = math.min(0.3, now - editor.autoselect_time) / 0.3
+					if state.delta * t > 0.05 then
+						state.delta = 0
+						editor.selected_dest = fader
+						editor.autoselect_time = now
+					end
+				end
+				screen.ping()
+			elseif message.type == 'cc' then
+				local button = message.ch
+				local dest = editor.dests[button]
+				if dest.mode_param then
+					local new_mode = dest.mode % #dest.modes + 1
+					if dest.mode_values then
+						params:set(dest.mode_param, dest.mode_values[new_mode])
+					else
+						params:set(dest.mode_param, new_mode)
+					end
+				end
+				screen.ping()
+			end
+		end
+	end,
+
+	['eDrumIn BLACK'] = function(device)
+		device.event = function(data)
+			if arp_menu.value == 14 then
+				local message = midi.to_msg(data)
+				if message.type == 'note_on' then
+					k:arp(true)
+				elseif message.type == 'note_off' then
+					k:arp(false)
+				end
+			end
+		end
+	end,
+
+	['enCoReII Mouse RDK'] = function(device)
+		device.event = function(type, code, value)
+			if type == 2 then
+				if code == 0 then
+					trackball_values.x = trackball_values.x - value
+					k:move_plectrum(value / -16, 0)
+				elseif code == 1 then
+					trackball_values.y = trackball_values.y - value
+					k:move_plectrum(0, value / -16)
+				end
+			end
+		end
+	end
+}
+
+-- dummy devices
+-- these will be replaced on init or when the correct device is plugged in
+g = {
+	all = function() end,
+	led = function() end,
+	refresh = function() end
+}
+uc4 = {
+	note_on = function() end,
+	note_off = function() end
+}
+
 clock.transport.start = function()
 	arp_lattice:hard_restart()
 end
@@ -462,114 +722,6 @@ function voice_loop_set_end(v)
 	else
 		voice_loop_play(v, false)
 	end
-end
-
-function g.key(x, y, z)
-	local handled = false
-	-- special-case keys
-	-- TODO: incorporate these into new or existing grid controls
-	if z == 1 then
-		if x == 6 and y == 8 then
-			k.stepper:toggle()
-			arp_menu:close()
-			arp_direction_menu:close()
-			source_menu:close()
-			handled = true
-		elseif x == 7 and y == 8 then
-			arp_menu:toggle()
-			if arp_menu.is_open then
-				arp_direction_menu:open()
-			else
-				arp_direction_menu:close()
-			end
-			k.stepper:close()
-			source_menu:close()
-			handled = true
-		elseif x == 9 and y == 8 then
-			source_menu:toggle()
-			arp_menu:close()
-			arp_direction_menu:close()
-			k.stepper:close()
-			handled = true
-		elseif arp_menu.is_open and y == 3 and z == 1 then
-			if x == 12 then
-				-- nudge back: pause for one pulse worth of time
-				clock.run(function()
-					arp_lattice:stop()
-					clock.sleep(clock.get_beat_sec() / arp_lattice.ppqn)
-					arp_lattice:start()
-				end)
-			elseif x == 13 then
-				-- nudge forward: skip forward by one pulse, instantaneously
-				arp_lattice:pulse()
-			elseif x == 15 then
-				-- nudge tempo down
-				params:set('clock_tempo', params:get('clock_tempo') / 1.04)
-			elseif x == 16 then
-				-- nudge tempo up
-				params:set('clock_tempo', params:get('clock_tempo') * 1.04)
-			end
-			handled = true
-		elseif x == 1 and y == 1 and source_menu.is_open and (source_menu.n_held > 0 or held_keys[1]) then
-			-- mod reset key
-			-- TODO: move this into a :delete_key() handler
-			if source_menu.n_held > 0 then
-				-- if there are any held sources, reset all routes involving them
-				for source = 1, #editor.source_names do
-					if source_menu.held_values[source] then
-						local source_name = editor.source_names[source]
-						for d = 1, #editor.dests do
-							local dest = editor.dests[d]
-							local dest_name = dest.name
-							if dest.voice_dest then
-								dest_name = dest_name .. '_' .. k.selected_voice
-							end
-							local defaults = dest.source_defaults
-							local param = params:lookup_param(source_name .. '_' .. dest_name)
-							if defaults and defaults[source_name] then
-								param:set(defaults[source_name])
-							else
-								param:set_default()
-							end
-						end
-					end
-				end
-				handled = true
-			end
-			if held_keys[1] then
-				-- if K1 is held, reset all routes involving the selected dest
-				local dest = editor.dests[editor.selected_dest]
-				local dest_name = dest.name
-				if dest.voice_dest then
-					dest_name = dest_name .. '_' .. k.selected_voice
-				end
-				local defaults = dest.source_defaults
-				for source = 1, #editor.source_names do
-					local source_name = editor.source_names[source]
-					local param_name = source_name .. '_' .. dest_name
-					local param = params:lookup_param(param_name)
-					if defaults and defaults[source_name] then
-						param:set(defaults[source_name])
-					else
-						param:set_default()
-					end
-				end
-				handled = true
-			end
-		end
-	end
-	-- if any menus or other controls are open, see if those will handle the key
-	local c = 1
-	while not handled and c <= #grid_controls do
-		handled = grid_controls[c]:key(x, y, z, k.held_keys.shift)
-		c = c + 1
-	end
-	-- last stop: keyboard handles all other key events
-	if not handled then
-		k:key(x, y, z)
-	end
-	grid_redraw()
-	screen.ping()
 end
 
 function send_pitch()
@@ -1279,136 +1431,21 @@ function init()
 	-- start at 0 / middle C
 	k.on_pitch()
 
-	local midi_devices_by_name = {}
-	for vport = 1, #midi.vports do
-		local device = midi.connect(vport)
-		midi_devices_by_name[device.name] = device
-	end
-	touche = midi_devices_by_name['TOUCHE 1'] or {}
-	function touche.event(data)
-		local message = midi.to_msg(data)
-		if message.ch == 1 and message.type == 'cc' then
-			-- back = 16, front = 17, left = 18, right = 19
-			if message.cc == 17 then
-				tip = message.val / 126
-				engine.tip(tip)
-			elseif message.cc == 16 then
-				palm = message.val / 126
-				engine.palm(palm)
-			elseif message.cc == 18 then
-				k:bend(-math.min(1, message.val / 126))
-				send_pitch()
-			elseif message.cc == 19 then
-				k:bend(math.min(1, message.val / 126))
-				send_pitch()
+	local interfaces = { grid, midi, hid }
+	for i = 1, 3 do
+		local interface = interfaces[i]
+		-- connect existing devices
+		for vport = 1, #interface.vports do
+			local callback = device_callbacks[interface.vports[vport].name] 
+			if callback then
+				callback(interface.connect(vport))
 			end
 		end
-	end
-
-	uc4 = midi_devices_by_name['Faderfox UC4'] or {}
-	function uc4.event(data)
-		local message = midi.to_msg(data)
-		if message.ch == 1 then
-			if message.type == 'note_on' then
-				if message.note >= 12 and message.note < 18 then
-					if message.note == params:get('echo_jump_trigger') + 10 then
-						params:set('echo_jump_trigger', 1) -- none
-						uc4:note_off(message.note, 127)
-					else
-						params:set('echo_jump_trigger', message.note - 10)
-					end
-				elseif message.note == 18 or message.note == 19 then
-					-- manual jump trigger
-					params:set('echo_jump_trigger', 1)
-					echo:jump()
-				end
-			elseif message.type == 'note_off' then
-				if message.note >= 12 and message.note < 18 then
-					if message.note == params:get('echo_jump_trigger') + 10 then
-						-- turn UC4 note light back on
-						uc4:note_on(message.note, 127)
-					end
-				end
-			end
-		end
-	end
-
-	xvi = midi_devices_by_name['MiSW XVI-M'] or {}
-	function xvi.event(data)
-		local message = midi.to_msg(data)
-		if message.type == 'pitchbend' then
-			local fader = message.ch
-			-- scale to [0, 1].
-			-- max 14-bit pitchbend value is 16383, but xvi only returns up to 16380
-			-- 12 bits of resolution is plenty
-			local new_value = message.val / 16380
-			local state = xvi_state[fader]
-			local old_value = state.value or new_value
-			local changed_source = false
-			for source = 1, #editor.source_names do
-				if source_menu.held_values[source] then
-					patch_mod_mappings[fader][source]:delta(new_value - old_value)
-					changed_source = true
-				end
-			end
-			if not changed_source then
-				patch_param_mappings[fader]:move(old_value, new_value)
-			end
-			state.delta = state.delta + math.abs(new_value - old_value)
-			state.value = new_value
-			local now = util.time()
-			if editor.selected_dest == fader then
-				-- as long as the currently selected fader is being moved, don't change selection
-				editor.autoselect_time = now
-				state.delta = 0
-			else
-				-- we'll scale accumulated changes by time, so that a big move over a short time is as
-				-- likely to change selection as a small move after a long pause, but that small move
-				-- wouldn't change selection if the selected fader was moved recently
-				local t = math.min(0.3, now - editor.autoselect_time) / 0.3
-				if state.delta * t > 0.05 then
-					state.delta = 0
-					editor.selected_dest = fader
-					editor.autoselect_time = now
-				end
-			end
-			screen.ping()
-		elseif message.type == 'cc' then
-			local button = message.ch
-			local dest = editor.dests[button]
-			if dest.mode_param then
-				local new_mode = dest.mode % #dest.modes + 1
-				if dest.mode_values then
-					params:set(dest.mode_param, dest.mode_values[new_mode])
-				else
-					params:set(dest.mode_param, new_mode)
-				end
-			end
-			screen.ping()
-		end
-	end
-
-	edrum = midi_devices_by_name['eDrumIn BLACK'] or {}
-	function edrum.event(data)
-		if arp_menu.value == 14 then
-			local message = midi.to_msg(data)
-			if message.type == 'note_on' then
-				k:arp(true)
-			elseif message.type == 'note_off' then
-				k:arp(false)
-			end
-		end
-	end
-
-	trackball = hid.connect(1)
-	function trackball.event(type, code, value)
-		if type == 2 then
-			if code == 0 then
-				trackball_values.x = trackball_values.x - value
-				k:move_plectrum(value / -16, 0)
-			elseif code == 1 then
-				trackball_values.y = trackball_values.y - value
-				k:move_plectrum(0, value / -16)
+		-- if a device is added, reassign event handlers
+		interface.add = function(device)
+			local callback = device_callbacks[interface.vports[vport].name] 
+			if callback then
+				callback(interface.connect(vport))
 			end
 		end
 	end
@@ -1649,9 +1686,7 @@ function key(n, z)
 end
 
 function cleanup()
-	if uc4 then
-		for n = 12, 19 do
-			uc4:note_off(n)
-		end
+	for n = 12, 19 do
+		uc4:note_off(n)
 	end
 end
