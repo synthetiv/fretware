@@ -138,6 +138,7 @@ editor = {
 		{
 			name = 'detuneA',
 			label = 'detune A',
+			neutral_value = 0.5,
 			default = 0
 		},
 		{
@@ -153,6 +154,7 @@ editor = {
 		{
 			name = 'opMix',
 			label = 'mix A:B',
+			neutral_value = 0.5,
 			default = -1
 		},
 		{
@@ -165,6 +167,7 @@ editor = {
 		{
 			name = 'detuneB',
 			label = 'detune B',
+			neutral_value = 0.5,
 			default = 0
 		},
 		{
@@ -203,6 +206,7 @@ editor = {
 		{
 			name = 'lpCutoff',
 			label = 'lp cutoff',
+			neutral_value = 1,
 			mode_param = 'lpQ',
 			modes = { 'lo', 'mid', 'hi' },
 			mode_values = { 1, 1.414, 5 },
@@ -252,23 +256,27 @@ editor = {
 		{
 			name = 'loopRate',
 			label = 'loop rate',
+			neutral_value = 0.5,
 			voice_param = 'loopRate',
 			voice_dest = true
 		},
 		{
 			name = 'loopPosition',
 			label = 'loop position',
+			neutral_value = 0.5,
 			voice_param = 'loopPosition',
 			voice_dest = true
 		},
 		{
 			name = 'pan',
 			label = 'pan',
+			neutral_value = 0.5,
 			voice_param = 'pan'
 		},
 		{
 			name = 'amp',
 			label = 'amp',
+			neutral_value = 0.5,
 			voice_param = 'outLevel'
 		}
 	},
@@ -1178,13 +1186,7 @@ function init()
 	for d = 1, #editor.dests do
 		local dest = editor.dests[d]
 		local dest_name = dest.name
-		local neutral_value = 0
-		-- TODO: move this stuff to the editor.dests table?
-		if dest_name == 'detuneA' or dest_name == 'opMix' or dest_name == 'detuneB' or dest_name == 'pan' or dest_name == 'loopRate' or dest_name == 'loopPosition' then
-			neutral_value = 0.5
-		elseif dest_name == 'lpCutoff' then
-			neutral_value = 1
-		end
+		local neutral_value = dest.neutral_value or 0
 		if dest.voice_param then
 			local voice_param = dest.voice_param
 			local mappings = {}
