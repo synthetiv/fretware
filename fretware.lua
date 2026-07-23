@@ -1443,9 +1443,9 @@ function init()
 		end
 		-- if a device is added, reassign event handlers
 		interface.add = function(device)
-			local callback = device_callbacks[interface.vports[vport].name] 
+			local callback = device_callbacks[device.name]
 			if callback then
-				callback(interface.connect(vport))
+				callback(interface.connect(device.port))
 			end
 		end
 	end
