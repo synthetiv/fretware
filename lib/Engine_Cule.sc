@@ -234,7 +234,15 @@ Engine_Cule : CroneEngine {
 				if(patchBus.class === Dictionary, {
 					patchBus.keysValuesDo({ |sourceName, dests|
 						dests.keysValuesDo({ |destName, bus|
-							synths[name][sourceName].set(destName, bus.getSynchronous);
+							var source = synths[name][sourceName];
+							if(source.class === Dictionary, {
+								var router = source[destName];
+								if(router.notNil, {
+									router.set(\amount, bus.getSynchronous);
+								});
+							}, {
+								synths[name][sourceName].set(destName, bus.getSynchronous);
+							});
 						});
 					});
 				}, {
@@ -248,7 +256,15 @@ Engine_Cule : CroneEngine {
 				if(patchBus.class === Dictionary, {
 					patchBus.keysValuesDo({ |sourceName, dests|
 						dests.keysValuesDo({ |destName, bus|
-							synths[name][sourceName].map(destName, bus);
+							var source = synths[name][sourceName];
+							if(source.class === Dictionary, {
+								var router = source[destName];
+								if(router.notNil, {
+									router.map(\amount, bus);
+								});
+							}, {
+								source.map(destName, bus);
+							});
 						});
 					});
 				}, {
